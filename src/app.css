@@ -1,0 +1,90 @@
+@import 'katex/dist/katex.min.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html { scroll-behavior: smooth; }
+  body {
+    @apply bg-white text-ink-900 dark:bg-ink-950 dark:text-ink-100 antialiased;
+    font-feature-settings: 'cv11', 'ss01';
+    margin: 0;
+  }
+  h1 { @apply text-3xl font-bold tracking-tight; }
+  h2 { @apply text-2xl font-bold mt-8 mb-3 tracking-tight; }
+  h3 { @apply text-xl font-semibold mt-6 mb-2; }
+  h4 { @apply text-lg font-semibold mt-4 mb-2; }
+  .prose p { @apply leading-7 my-3; }
+  .prose ul { @apply list-disc pl-6 my-3 space-y-1; }
+  .prose ol { @apply list-decimal pl-6 my-3 space-y-1; }
+  .prose li { @apply leading-7; }
+  .prose a { @apply text-accent-600 dark:text-accent-400 hover:underline; }
+  .prose code {
+    @apply font-mono text-[0.9em] bg-ink-100 dark:bg-ink-800 px-1.5 py-0.5 rounded;
+  }
+  .prose pre {
+    @apply font-mono text-sm bg-ink-100 dark:bg-ink-900 p-4 rounded-lg overflow-x-auto my-3 border border-ink-200 dark:border-ink-800;
+  }
+  .prose pre code {
+    @apply bg-transparent p-0 text-sm;
+  }
+  .prose table {
+    @apply w-full border-collapse my-4;
+  }
+  .prose th, .prose td {
+    @apply border border-ink-200 dark:border-ink-700 px-3 py-2 text-left align-top;
+  }
+  .prose th {
+    @apply bg-ink-100 dark:bg-ink-800 font-semibold;
+  }
+  .prose blockquote {
+    @apply border-l-4 border-accent-300 dark:border-accent-700 pl-4 italic my-4 text-ink-600 dark:text-ink-300;
+  }
+}
+
+@layer components {
+  .card {
+    @apply rounded-lg border border-ink-200 dark:border-ink-700 bg-white dark:bg-ink-900 p-4 shadow-sm;
+  }
+  .pitfall {
+    @apply border-l-4 border-amber-400 bg-amber-50 dark:bg-amber-900/20 dark:border-amber-600 p-4 rounded-r-lg my-4;
+  }
+  .pitfall-title { @apply font-bold text-amber-700 dark:text-amber-300; }
+  .keyfact {
+    @apply border-l-4 border-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 dark:border-emerald-600 p-4 rounded-r-lg my-4;
+  }
+  .keyfact-title { @apply font-bold text-emerald-700 dark:text-emerald-300; }
+  .whatif {
+    @apply border-l-4 border-violet-400 bg-violet-50 dark:bg-violet-900/20 dark:border-violet-600 p-4 rounded-r-lg my-4;
+  }
+  .whatif-title { @apply font-bold text-violet-700 dark:text-violet-300; }
+  .nightingale {
+    @apply border-l-4 border-rose-400 bg-rose-50 dark:bg-rose-900/20 dark:border-rose-600 p-4 rounded-r-lg my-4;
+  }
+  .nightingale-title { @apply font-bold text-rose-700 dark:text-rose-300; }
+  .btn {
+    @apply inline-flex items-center gap-2 rounded-md border border-ink-300 dark:border-ink-600 bg-white dark:bg-ink-800 px-3 py-1.5 text-sm font-medium hover:bg-ink-100 dark:hover:bg-ink-700 transition cursor-pointer;
+  }
+  .btn-primary {
+    @apply bg-accent-600 text-white border-accent-600 hover:bg-accent-700 dark:bg-accent-600 dark:hover:bg-accent-500;
+  }
+  .btn-sm { @apply px-2 py-1 text-xs; }
+  .chip {
+    @apply inline-block rounded-full bg-ink-100 dark:bg-ink-800 px-2 py-0.5 text-xs font-medium text-ink-700 dark:text-ink-300;
+  }
+  .nav-link {
+    @apply block px-3 py-1.5 rounded text-sm hover:bg-ink-100 dark:hover:bg-ink-800 text-ink-700 dark:text-ink-300 no-underline transition cursor-pointer;
+  }
+  .nav-link.active {
+    @apply bg-accent-100 dark:bg-accent-900/40 text-accent-800 dark:text-accent-200 font-medium;
+  }
+  .nav-section {
+    @apply mt-4 px-3 text-xs uppercase tracking-wider text-ink-500 font-semibold;
+  }
+}
+
+.katex { font-size: 1.05em; }
+.katex-display { @apply my-4 overflow-x-auto py-1; }
+
+* { scrollbar-width: thin; }
