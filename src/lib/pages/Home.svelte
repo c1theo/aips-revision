@@ -5,12 +5,13 @@
 
 <article class="prose max-w-none">
   <div class="text-sm text-ink-500">University of York · Department of Computer Science</div>
-  <h1>AIPS Revision</h1>
+  <h1>Theo's online revision sheets</h1>
   <p class="text-lg text-ink-600 dark:text-ink-300">
-    Interactive revision for <b>COM00050H — AI Problem Solving with Search and Logic</b>.
-    Five modules, deterministic algorithm walkthroughs, an Essence Prime editor, and
-    flashcards. No generative AI is used in-page so this site is safe to use on an
-    exam-restricted machine.
+    No generative AI exists on this site, just interactive visualisations I built,
+    as well as revision notes. <span class="text-2xl">:)</span>
+  </p>
+  <p class="text-sm text-ink-500 mt-2">
+    Covering <b>COM00050H — AI Problem Solving with Search and Logic</b>.
   </p>
 
   <div class="not-prose grid sm:grid-cols-2 gap-4 my-8">

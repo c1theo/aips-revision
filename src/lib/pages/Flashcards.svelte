@@ -2,6 +2,8 @@
   import { onMount } from 'svelte';
   import { allFlashcards } from '../content';
   import type { Flashcard } from '../types';
+  import InlineMd from '../components/InlineMd.svelte';
+  import Md from '../components/Md.svelte';
 
   // SM-2 lite: easeFactor, interval, repetitions
   interface CardState {
@@ -103,9 +105,9 @@
   {:else}
     <div class="card my-6 min-h-[280px] flex flex-col">
       <div class="text-xs uppercase tracking-wider text-ink-500 mb-2">{current.topic ?? 'Topic'}</div>
-      <div class="text-xl font-medium mb-6">{current.q}</div>
+      <div class="text-xl font-medium mb-6"><InlineMd src={current.q} /></div>
       {#if showAnswer}
-        <div class="mt-auto border-t border-ink-200 dark:border-ink-700 pt-4 text-ink-700 dark:text-ink-200">{current.a}</div>
+        <div class="mt-auto border-t border-ink-200 dark:border-ink-700 pt-4 text-ink-700 dark:text-ink-200"><Md src={current.a} /></div>
       {:else}
         <button class="btn btn-primary mt-auto self-start" onclick={() => (showAnswer = true)}>Show answer (Space)</button>
       {/if}

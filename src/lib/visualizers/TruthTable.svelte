@@ -109,7 +109,14 @@
   $effect(() => {
     try {
       const ast = parse(formula);
-      const vs = [...vars(ast)].sort();
+      // Preserve first-appearance order rather than sorting alphabetically.
+      const vs = [...vars(ast)];
+      if (vs.length > 10) {
+        error = `Too many variables (${vs.length}). The truth table would have ${Math.pow(2, vs.length).toLocaleString()} rows.`;
+        table = null;
+        summary = '';
+        return;
+      }
       const rows = [];
       let countT = 0;
       const N = Math.pow(2, vs.length);
@@ -126,9 +133,9 @@
       }
       table = { headers: [...vs, formula], rows };
       error = '';
-      if (countT === N) summary = '✓ Tautology (valid in every model).';
-      else if (countT === 0) summary = '✗ Contradiction (unsatisfiable).';
-      else summary = `Satisfiable: ${countT}/${N} models.`;
+      if (countT === N) summary = `✓ Tautology — valid in every model (${N}/${N}).`;
+      else if (countT === 0) summary = `✗ Contradiction — unsatisfiable (0/${N}).`;
+      else summary = `Satisfiable: ${countT}/${N} models make the formula true.`;
     } catch (e: any) {
       error = e.message;
       table = null;

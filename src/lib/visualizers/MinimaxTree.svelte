@@ -18,13 +18,25 @@
   }
 
   let leafText = $state('3, 12, 8, 2, 4, 6, 14, 5, 2');
+  let shapeText = $state('3, 3');   // branching per level (root → leaves); 'auto' = fit to leaf count
 
-  function buildTreeFromLeaves(vals: number[], branching: number, depth: number): Node {
+  function parseShape(s: string): number[] | 'auto' {
+    const trimmed = s.trim().toLowerCase();
+    if (trimmed === '' || trimmed === 'auto') return 'auto';
+    const nums = trimmed.split(/[,\s×x*]+/).filter(Boolean).map(Number);
+    if (nums.some((n) => Number.isNaN(n) || n < 1 || !Number.isFinite(n))) return 'auto';
+    return nums;
+  }
+
+  function buildShapedTree(vals: number[], shape: number[]): Node {
     let nextId = 0;
+    const needed = shape.reduce((a, b) => a * b, 1);
+    const padded = vals.length >= needed ? vals.slice(0, needed) : Array.from({ length: needed }, (_, i) => vals[i % vals.length] ?? 0);
     let i = 0;
     function make(d: number, isMax: boolean): Node {
       const id = nextId++;
-      if (d === depth) return { id, depth: d, isMax, children: [], leafValue: vals[i++ % vals.length] };
+      if (d === shape.length) return { id, depth: d, isMax, children: [], leafValue: padded[i++] };
+      const branching = shape[d];
       const children: Node[] = [];
       for (let k = 0; k < branching; k++) children.push(make(d + 1, !isMax));
       return { id, depth: d, isMax, children };
@@ -32,12 +44,18 @@
     return make(0, true);
   }
 
-  function fitTree(numLeaves: number): { branching: number; depth: number } {
-    let b = 2, d = 2;
-    while (Math.pow(b, d) < numLeaves) {
-      if (b < 4) b += 1; else d += 1;
+  function fitShape(numLeaves: number): number[] {
+    // Auto-derive a roughly balanced shape: try depths 2..4 with uniform branching
+    if (numLeaves <= 4) return [numLeaves];
+    if (numLeaves <= 9) return [3, 3].slice(0, numLeaves <= 6 ? 1 : 2);
+    // pick balanced
+    let depth = 2;
+    let branching = Math.ceil(Math.pow(numLeaves, 1 / depth));
+    while (Math.pow(branching, depth) < numLeaves && depth < 5) {
+      depth += 1;
+      branching = Math.ceil(Math.pow(numLeaves, 1 / depth));
     }
-    return { branching: b, depth: d };
+    return Array(depth).fill(branching);
   }
 
   function runMinimax(root: Node, doPrune: boolean): string[] {
@@ -88,10 +106,12 @@
   const computed = $derived.by(() => {
     const vals = leafText.split(/[,\s]+/).filter(Boolean).map(Number).filter((v) => !Number.isNaN(v));
     const safeVals = vals.length >= 2 ? vals : [3, 12, 8, 2, 4, 6, 14, 5, 2];
-    const { branching, depth } = fitTree(safeVals.length);
-    const root = buildTreeFromLeaves(safeVals, branching, depth);
+    const parsedShape = parseShape(shapeText);
+    const shape = parsedShape === 'auto' ? fitShape(safeVals.length) : parsedShape;
+    const root = buildShapedTree(safeVals, shape);
     const log = runMinimax(root, pruning);
-    return { root, log };
+    const needed = shape.reduce((a, b) => a * b, 1);
+    return { root, log, shape, needed, supplied: vals.length };
   });
 
   interface Pos { x: number; y: number; node: Node }
@@ -128,18 +148,54 @@
   });
 
   function randomise() {
-    const n = 9;
+    // Pick a random shape with 9-16 leaves
+    const shapes = [[3, 3], [2, 2, 2], [4, 2], [3, 2, 2], [2, 2, 3], [4, 4]];
+    const shape = shapes[Math.floor(Math.random() * shapes.length)];
+    const n = shape.reduce((a, b) => a * b, 1);
     const vals = Array.from({ length: n }, () => Math.floor(Math.random() * 20));
     leafText = vals.join(', ');
+    shapeText = shape.join(', ');
   }
+
+  const presetShapes = [
+    { label: 'Auto-fit', value: 'auto' },
+    { label: '3-3', value: '3, 3' },
+    { label: '2-2-2', value: '2, 2, 2' },
+    { label: '3-2-2', value: '3, 2, 2' },
+    { label: '4-3', value: '4, 3' },
+    { label: '2-2-2-2', value: '2, 2, 2, 2' },
+  ];
 </script>
 
 <div class="space-y-3">
   <div class="flex flex-wrap gap-2 items-center">
     <button class="btn btn-sm {pruning ? 'btn-primary' : ''}" onclick={() => (pruning = !pruning)}>{pruning ? 'α-β ON' : 'α-β OFF (plain minimax)'}</button>
-    <button class="btn btn-sm" onclick={() => (leafText = '3, 12, 8, 2, 4, 6, 14, 5, 2')}>Reset</button>
+    <button class="btn btn-sm" onclick={() => { leafText = '3, 12, 8, 2, 4, 6, 14, 5, 2'; shapeText = '3, 3'; }}>Reset</button>
     <button class="btn btn-sm" onclick={randomise}>Randomise</button>
-    <input class="px-2 py-1 rounded border border-ink-300 dark:border-ink-700 bg-white dark:bg-ink-900 text-sm flex-1 min-w-[200px]" bind:value={leafText} placeholder="Leaf values" />
+  </div>
+
+  <div class="grid sm:grid-cols-2 gap-2 items-start">
+    <label class="block">
+      <span class="text-xs text-ink-500 block mb-1">Leaf values (comma-separated)</span>
+      <input class="w-full px-2 py-1 rounded border border-ink-300 dark:border-ink-700 bg-white dark:bg-ink-900 text-sm font-mono" bind:value={leafText} placeholder="9, 4, 2, 5, 9, 8, 2, 1, 4, 8, 5, 1" />
+    </label>
+    <label class="block">
+      <span class="text-xs text-ink-500 block mb-1">Tree shape — branching factor at each level (root → leaves). Eg. <code class="text-xs">3, 2, 2</code> = root has 3 children, each has 2, each has 2 leaves.</span>
+      <div class="flex gap-1 items-stretch">
+        <input class="flex-1 px-2 py-1 rounded border border-ink-300 dark:border-ink-700 bg-white dark:bg-ink-900 text-sm font-mono" bind:value={shapeText} placeholder="3, 2, 2 — or 'auto'" />
+        <select class="px-2 py-1 rounded border border-ink-300 dark:border-ink-700 bg-white dark:bg-ink-900 text-xs" onchange={(e) => (shapeText = (e.currentTarget as HTMLSelectElement).value)}>
+          <option value="">Preset…</option>
+          {#each presetShapes as p}
+            <option value={p.value}>{p.label}</option>
+          {/each}
+        </select>
+      </div>
+    </label>
+  </div>
+  <div class="text-xs text-ink-500">
+    Shape <span class="font-mono">[{computed.shape.join('-')}]</span> needs <b>{computed.needed}</b> leaves; you provided <b>{computed.supplied}</b>.
+    {#if computed.supplied < computed.needed}<span class="text-amber-700 dark:text-amber-400"> Padded by repeating.</span>{/if}
+    {#if computed.supplied > computed.needed}<span class="text-amber-700 dark:text-amber-400"> Extras ignored.</span>{/if}
   </div>
 
   <div class="flex gap-2 items-center text-xs text-ink-500">

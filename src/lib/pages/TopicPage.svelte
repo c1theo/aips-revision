@@ -1,6 +1,7 @@
 <script lang="ts">
   import { findTopic } from '../content';
   import Md from '../components/Md.svelte';
+  import InlineMd from '../components/InlineMd.svelte';
   import Callout from '../components/Callout.svelte';
   import VizRenderer from '../components/VizRenderer.svelte';
   import NotFound from './NotFound.svelte';
@@ -56,7 +57,7 @@
               <summary class="cursor-pointer flex items-start gap-2">
                 <span class="chip {ex.difficulty === 'basic' ? '!bg-emerald-100 dark:!bg-emerald-900/40 !text-emerald-800 dark:!text-emerald-200' : ex.difficulty === 'intermediate' ? '!bg-amber-100 dark:!bg-amber-900/40 !text-amber-800 dark:!text-amber-200' : '!bg-rose-100 dark:!bg-rose-900/40 !text-rose-800 dark:!text-rose-200'}">{ex.difficulty}</span>
                 {#if ex.marks}<span class="chip">{ex.marks} marks</span>{/if}
-                <span class="flex-1 font-medium">{ex.question}</span>
+                <span class="flex-1 font-medium"><InlineMd src={ex.question} /></span>
               </summary>
               <div class="mt-4 pt-3 border-t border-ink-200 dark:border-ink-700">
                 <Md src={ex.answer} />

@@ -6,6 +6,7 @@
   import { modules, allTopics } from '../content';
   import { href, route } from '../router';
   import Md from '../components/Md.svelte';
+  import InlineMd from '../components/InlineMd.svelte';
 
   let query = $state('');
   let expandedIds = $state<Set<string>>(new Set());
@@ -196,7 +197,7 @@
                 {#if r.item.marks}<span class="chip">{r.item.marks} marks</span>{/if}
                 <span class="ml-auto text-ink-400 font-mono">score {r.score.toFixed(2)}</span>
               </div>
-              <div class="font-medium leading-snug">{r.item.title}</div>
+              <div class="font-medium leading-snug"><InlineMd src={r.item.title} /></div>
               <div class="text-sm text-ink-600 dark:text-ink-300 mt-1 leading-snug">{@html highlightSnippet(r.snippet, r.matchedTokens)}</div>
             </div>
             <span class="text-ink-400 ml-2">{opened ? '▾' : '▸'}</span>

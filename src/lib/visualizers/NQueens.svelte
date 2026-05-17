@@ -122,7 +122,7 @@
 <div class="space-y-3">
   <div class="flex flex-wrap gap-2 items-center">
     <label class="text-xs">n =
-      <input type="number" min="3" max="9" bind:value={n} class="w-12 px-1 py-0.5 rounded border border-ink-300 dark:border-ink-700 bg-white dark:bg-ink-900" />
+      <input type="number" min="3" max="14" bind:value={n} class="w-14 px-1 py-0.5 rounded border border-ink-300 dark:border-ink-700 bg-white dark:bg-ink-900" />
     </label>
     <label class="text-xs flex items-center gap-1"><input type="checkbox" bind:checked={mrv}>MRV</label>
     <label class="text-xs flex items-center gap-1"><input type="checkbox" bind:checked={lcv}>LCV</label>

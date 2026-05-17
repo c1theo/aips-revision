@@ -14,23 +14,31 @@
     leafValue?: number; // 0 or 1
   }
   let nextId = 0;
-  function makeLeaves(depth: number, maxDepth: number, leafVals: number[], i: { v: number }): MNode {
+  let branching = $state(2);
+  let maxDepth = $state(4);
+
+  function makeLeaves(depth: number, leafVals: number[], i: { v: number }): MNode {
     if (depth === maxDepth) {
       return { id: nextId++, children: [], N: 0, W: 0, move: 0, depth, leafValue: leafVals[i.v++ % leafVals.length] };
     }
     const n: MNode = { id: nextId++, children: [], N: 0, W: 0, move: 0, depth };
-    const c0 = makeLeaves(depth + 1, maxDepth, leafVals, i);
-    const c1 = makeLeaves(depth + 1, maxDepth, leafVals, i);
-    c0.move = 0; c1.move = 1;
-    c0.parent = n; c1.parent = n;
-    n.children = [c0, c1];
+    const children: MNode[] = [];
+    for (let k = 0; k < branching; k++) {
+      const c = makeLeaves(depth + 1, leafVals, i);
+      c.move = k;
+      c.parent = n;
+      children.push(c);
+    }
+    n.children = children;
     return n;
   }
 
   function reset(): MNode {
     nextId = 0;
-    const leaves = [1, 0, 1, 1, 0, 0, 1, 0, 1, 0, 0, 1, 1, 1, 0, 0]; // tweakable
-    return makeLeaves(0, 4, leaves, { v: 0 });
+    // Generate random leaf values (0 or 1) for the requested shape
+    const totalLeaves = Math.pow(branching, maxDepth);
+    const leaves = Array.from({ length: totalLeaves }, () => Math.random() < 0.5 ? 1 : 0);
+    return makeLeaves(0, leaves, { v: 0 });
   }
   let root = $state(reset());
   let C = $state(Math.SQRT2);
@@ -113,7 +121,7 @@
     const ps: Pos[] = [];
     const c = { x: 0 };
     layout(root, c, 0, ps);
-    return { ps, maxX: Math.max(1, c.x - 1), maxY: 4 };
+    return { ps, maxX: Math.max(1, c.x - 1), maxY: maxDepth };
   });
   let H = $state(320);
   const W = 800, PAD = 24;
@@ -140,6 +148,12 @@
     <span class="text-xs text-ink-500">iterations: <b>{iter}</b></span>
     <label class="text-xs ml-3 flex items-center gap-1">C =
       <input type="number" min="0" step="0.1" bind:value={C} class="w-16 px-1 py-0.5 rounded border border-ink-300 dark:border-ink-700 bg-white dark:bg-ink-900" />
+    </label>
+    <label class="text-xs flex items-center gap-1">branching =
+      <input type="number" min="2" max="5" bind:value={branching} onchange={resetAll} class="w-12 px-1 py-0.5 rounded border border-ink-300 dark:border-ink-700 bg-white dark:bg-ink-900" />
+    </label>
+    <label class="text-xs flex items-center gap-1">depth =
+      <input type="number" min="2" max="5" bind:value={maxDepth} onchange={resetAll} class="w-12 px-1 py-0.5 rounded border border-ink-300 dark:border-ink-700 bg-white dark:bg-ink-900" />
     </label>
   </div>
 

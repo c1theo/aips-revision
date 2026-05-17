@@ -3,6 +3,7 @@
   import { allTopics } from '../content';
   import { href } from '../router';
   import Md from '../components/Md.svelte';
+  import InlineMd from '../components/InlineMd.svelte';
   import { curatedQuestions } from '../curatedPastPapers';
 
   interface Question {
@@ -147,7 +148,7 @@
         <summary class="cursor-pointer">
           <span class="chip !bg-violet-100 dark:!bg-violet-900/40 !text-violet-800 dark:!text-violet-200">{q.paperYear}</span>
           <span class="chip ml-2">{allTopics.find((t) => t.slug === q.topicSlug)?.title ?? q.topicSlug}</span>
-          <div class="text-sm text-ink-700 dark:text-ink-200 mt-1">{q.question.split('\n')[0].slice(0, 180)}{q.question.length > 180 ? '…' : ''}</div>
+          <div class="text-sm text-ink-700 dark:text-ink-200 mt-1"><InlineMd src={q.question.split('\n')[0].slice(0, 220)} />{q.question.length > 220 ? '…' : ''}</div>
         </summary>
         <div class="mt-3">
           <div class="text-xs uppercase tracking-wider text-ink-500 font-semibold mb-1">Question</div>

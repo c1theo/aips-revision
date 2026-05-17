@@ -71,7 +71,7 @@
 <div class="space-y-3">
   <div class="flex flex-wrap gap-2 items-center">
     <label class="text-xs">n =
-      <input type="number" min="4" max="40" bind:value={n} onchange={init} class="w-12 px-1 py-0.5 rounded border border-ink-300 dark:border-ink-700 bg-white dark:bg-ink-900" />
+      <input type="number" min="4" max="120" bind:value={n} onchange={init} class="w-16 px-1 py-0.5 rounded border border-ink-300 dark:border-ink-700 bg-white dark:bg-ink-900" />
     </label>
     <button class="btn btn-sm" onclick={init}>Random init</button>
     <button class="btn btn-sm btn-primary" onclick={play}>{playing ? '⏸' : '▶ Auto'}</button>
@@ -79,14 +79,15 @@
     <span class="text-xs text-ink-500 ml-3">steps: <b>{steps}</b> · conflicts: <b>{conflicts(assignment)}</b></span>
   </div>
 
-  <div class="inline-block border border-ink-300 dark:border-ink-700">
+  <div class="inline-block border border-ink-300 dark:border-ink-700 max-w-full overflow-auto">
     {#each Array(n) as _, r}
+      {@const cellPx = Math.max(4, Math.min(24, Math.floor(640 / n)))}
       <div class="flex">
         {#each Array(n) as _, c}
           {@const dark = (r + c) % 2 === 1}
           {@const isQueen = assignment[r] === c}
           {@const conflict = isQueen && conflictsAt(assignment, r, c) > 0}
-          <div class="w-4 h-4 flex items-center justify-center text-[10px] {dark ? 'bg-ink-200 dark:bg-ink-800' : 'bg-ink-50 dark:bg-ink-900'} {conflict ? '!bg-rose-300' : ''}">
+          <div class="flex items-center justify-center {dark ? 'bg-ink-200 dark:bg-ink-800' : 'bg-ink-50 dark:bg-ink-900'} {conflict ? '!bg-rose-300' : ''}" style="width: {cellPx}px; height: {cellPx}px; font-size: {Math.max(8, cellPx - 4)}px;">
             {#if isQueen}♛{/if}
           </div>
         {/each}

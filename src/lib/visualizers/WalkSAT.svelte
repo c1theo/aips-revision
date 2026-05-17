@@ -127,6 +127,18 @@
   </div>
 
   <div>
+    <div class="text-xs font-semibold mb-1 text-ink-500">Current assignment</div>
+    <div class="flex flex-wrap gap-0.5 font-mono text-[10px]">
+      {#each Array(nvars) as _, idx (idx)}
+        {@const v = assignment[idx + 1]}
+        <div class="w-6 h-6 flex items-center justify-center rounded {v ? 'bg-emerald-200 dark:bg-emerald-800 text-emerald-900 dark:text-emerald-100' : 'bg-rose-200 dark:bg-rose-800 text-rose-900 dark:text-rose-100'} border border-ink-300 dark:border-ink-700" title="x{idx + 1} = {v ? 'T' : 'F'}">
+          x{idx + 1}
+        </div>
+      {/each}
+    </div>
+  </div>
+
+  <div>
     <div class="text-xs font-semibold mb-1">Unsatisfied clauses over time</div>
     <svg viewBox="0 0 800 100" preserveAspectRatio="none" class="w-full h-24 border border-ink-200 dark:border-ink-700 rounded bg-ink-50 dark:bg-ink-900">
       {#if history.length > 1}

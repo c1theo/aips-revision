@@ -43,3 +43,25 @@ export function stripMarkdown(src: string): string {
     .replace(/\s+/g, ' ')
     .trim();
 }
+
+// Render inline markdown + math without wrapping in <p>. Use for headings, titles, summaries.
+export function renderInline(src: string): string {
+  if (!src) return '';
+  const withMath = renderInlineMath(src);
+  // Use marked.parseInline so we don't get a <p> wrapper around the result.
+  const html = marked.parseInline(withMath, { async: false }) as string;
+  return html;
+}
+
+function renderInlineMath(src: string): string {
+  // Block math not expected inline; still strip-protect just in case.
+  let out = src.replace(/\$\$([\s\S]+?)\$\$/g, (_, expr) => {
+    try { return katex.renderToString(expr.trim(), { displayMode: false, throwOnError: false, output: 'html' }); }
+    catch { return `<code>$$${expr}$$</code>`; }
+  });
+  out = out.replace(/(^|[^\\$])\$([^\n$`]+?)\$/g, (_, prefix, expr) => {
+    try { return prefix + katex.renderToString(expr, { displayMode: false, throwOnError: false, output: 'html' }); }
+    catch { return `${prefix}<code>$${expr}$</code>`; }
+  });
+  return out;
+}

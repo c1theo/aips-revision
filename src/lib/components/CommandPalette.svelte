@@ -3,6 +3,7 @@
   import { search } from '../ask/score';
   import type { Item, ItemKind } from '../ask/corpus';
   import { navigate, href } from '../router';
+  import InlineMd from './InlineMd.svelte';
 
   let { onClose } = $props<{ onClose: () => void }>();
 
@@ -72,7 +73,7 @@
             >
               <span class="text-base mt-0.5">{kindIcon(r.item.kind)}</span>
               <div class="min-w-0 flex-1">
-                <div class="font-medium truncate">{r.item.title}</div>
+                <div class="font-medium truncate"><InlineMd src={r.item.title} /></div>
                 <div class="text-xs text-ink-500 truncate">{r.snippet.slice(0, 140)}</div>
               </div>
               {#if r.item.topicTitle}<span class="chip">{r.item.topicTitle.replace('Module ', 'M').split(' · ')[0]}</span>{/if}
