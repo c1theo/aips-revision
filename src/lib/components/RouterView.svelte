@@ -2,6 +2,7 @@
   import { route } from '../router';
   import Home from '../pages/Home.svelte';
   import TopicPage from '../pages/TopicPage.svelte';
+  import Ask from '../pages/Ask.svelte';
   import Flashcards from '../pages/Flashcards.svelte';
   import Glossary from '../pages/Glossary.svelte';
   import Cheatsheet from '../pages/Cheatsheet.svelte';
@@ -16,6 +17,8 @@
   <Home />
 {:else if $route.path.startsWith('/topic/')}
   <TopicPage slug={$route.path.slice('/topic/'.length)} />
+{:else if $route.path === '/ask'}
+  <Ask />
 {:else if $route.path === '/flashcards'}
   <Flashcards />
 {:else if $route.path === '/glossary'}
