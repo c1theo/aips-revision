@@ -96,7 +96,7 @@
 
   <div>
     <div class="text-xs font-semibold mb-1">Conflicts over time</div>
-    <svg width="600" height="80" class="w-full border border-ink-200 dark:border-ink-700 rounded bg-ink-50 dark:bg-ink-900">
+    <svg viewBox="0 0 600 80" preserveAspectRatio="none" class="w-full h-20 border border-ink-200 dark:border-ink-700 rounded bg-ink-50 dark:bg-ink-900">
       {#if history.length > 1}
         {@const maxH = Math.max(...history, 1)}
         <polyline

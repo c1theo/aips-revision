@@ -115,7 +115,8 @@
     return { ps, maxX: Math.max(1, c.x - 1), maxY: depthOf(computed.root) || 1 };
   });
 
-  const W = 800, H = 360, PAD = 30;
+  let H = $state(360);
+  const W = 800, PAD = 30;
   function px(x: number) { return PAD + (x / layoutData.maxX) * (W - 2 * PAD); }
   function py(y: number) { return PAD + (y / layoutData.maxY) * (H - 2 * PAD); }
   function posOf(id: number): Pos | undefined { return layoutData.ps.find((p) => p.node.id === id); }
@@ -141,7 +142,14 @@
     <input class="px-2 py-1 rounded border border-ink-300 dark:border-ink-700 bg-white dark:bg-ink-900 text-sm flex-1 min-w-[200px]" bind:value={leafText} placeholder="Leaf values" />
   </div>
 
-  <svg width={W} height={H} class="w-full border border-ink-200 dark:border-ink-700 rounded bg-ink-50 dark:bg-ink-900">
+  <div class="flex gap-2 items-center text-xs text-ink-500">
+    <span>Height:</span>
+    <input type="range" min="240" max="700" step="20" bind:value={H} class="w-40" />
+    <span class="font-mono">{H}px</span>
+    <span class="ml-2">Drag to resize the tree view.</span>
+  </div>
+
+  <svg viewBox="0 0 {W} {H}" preserveAspectRatio="xMidYMid meet" class="w-full border border-ink-200 dark:border-ink-700 rounded bg-ink-50 dark:bg-ink-900" style="height: {H}px">
     {#each edges as e}
       {@const from = posOf(e.fromId)}
       {@const to = posOf(e.toId)}

@@ -78,6 +78,71 @@ Graph structure is crucial — *tree-structured* binary CSPs are solvable in $O(
         { id: 'cf2', q: 'What is a constraint graph?', a: 'For binary CSPs: nodes = variables, edges = binary constraints. Captures structure; tree-structured ⇒ polynomial.' },
         { id: 'cf3', q: 'Sudoku as a CSP — which type of constraint dominates?', a: 'AllDifferent (global constraint) over each row, column and 3×3 box.' },
       ],
+      examples: [
+        {
+          id: 'cfex1', difficulty: 'basic', marks: 6,
+          question: 'Formulate the SEND + MORE = MONEY cryptarithmetic puzzle as a CSP. State variables, domains, and the constraints.',
+          answer: `**Variables:** $\\{S, E, N, D, M, O, R, Y\\}$ — 8 letters.
+
+**Domains:** $D_X = \\{0, 1, \\ldots, 9\\}$ for each variable.
+
+**Constraints:**
+1. **AllDifferent**$(S, E, N, D, M, O, R, Y)$ — global constraint encoding "each letter is a different digit".
+2. **Leading-zero** constraints: $S \\ne 0$, $M \\ne 0$ — words can't start with 0.
+3. **Arithmetic constraint** (single global constraint over all 8 variables):
+
+$$1000S + 100E + 10N + D + 1000M + 100O + 10R + E = 10000M + 1000O + 100N + 10E + Y$$
+
+**Alternative formulation with carries** (more local, better for propagation): introduce carry variables $C_1, C_2, C_3, C_4 \\in \\{0, 1\\}$, then:
+
+$$D + E = Y + 10 C_1$$
+$$N + R + C_1 = E + 10 C_2$$
+$$E + O + C_2 = N + 10 C_3$$
+$$S + M + C_3 = O + 10 C_4$$
+$$C_4 = M$$
+
+This is a classic **viewpoint** choice — see the modelling topic.
+
+**Solution.** $S=9, E=5, N=6, D=7, M=1, O=0, R=8, Y=2$. Yields 9567 + 1085 = 10652.`,
+        },
+        {
+          id: 'cfex2', difficulty: 'intermediate', marks: 5,
+          question: 'Why are global constraints (e.g. AllDifferent) usually preferred over an equivalent collection of binary constraints?',
+          answer: `**Equivalence.** AllDifferent$(X_1, \\ldots, X_n)$ is logically equivalent to the $\\binom{n}{2}$ pairwise inequalities $X_i \\ne X_j$.
+
+**Why the global form wins:**
+
+1. **Stronger propagation.** AllDifferent supports specialised algorithms (e.g. Régin's flow-based algorithm) that achieve **arc consistency on the entire constraint at once** — pruning values that no perfect matching can use. Pairwise $\\ne$ constraints can only prune values that *some* neighbour blocks; they miss higher-arity inconsistencies.
+2. **Concise model.** $\\binom{n}{2}$ inequalities for $n=10$ is 45 constraints; one AllDifferent is one. Easier to read and modify.
+3. **Solver-side optimisation.** Solvers know AllDifferent intimately and apply tuned propagators with good time/space trade-offs.
+
+**Concrete example.** Latin square completion: AllDifferent per row/col can detect infeasibility several plies earlier than pairwise inequalities — because it sees that no valid matching exists.
+
+**Trade-off.** AllDifferent propagators have higher per-call cost than $\\ne$. Solvers may downgrade to "bounds consistency" for AllDifferent on large variables to balance speed and pruning.`,
+        },
+        {
+          id: 'cfex3', difficulty: 'advanced', marks: 7,
+          question: 'Classify these constraints by arity: (a) $X_1 < X_2$, (b) $X_1 \\ne 3$, (c) AllDifferent$(X_1, X_2, X_3)$, (d) the SEND+MORE arithmetic. Which can be normalised to binary?',
+          answer: `**Arity** = number of variables in the scope.
+
+(a) $X_1 < X_2$: **binary** (arity 2).
+
+(b) $X_1 \\ne 3$: **unary** (arity 1) — can be absorbed into the domain.
+
+(c) AllDifferent$(X_1, X_2, X_3)$: **ternary** (arity 3). Equivalent to three binary: $X_1 \\ne X_2, X_2 \\ne X_3, X_1 \\ne X_3$.
+
+(d) SEND+MORE arithmetic: **8-ary** (one constraint over 8 letters), or **5-ary at most** if you introduce carries (5 constraints, each over 3–4 variables).
+
+**Normalisation to binary.** Every CSP can be transformed to an equivalent **binary CSP** via two techniques:
+
+1. **Dual encoding.** Each higher-arity constraint becomes a variable whose domain is its allowed tuples; binary "consistency" constraints between dual-variables enforce shared assignments. Increases variable count but reduces arity.
+2. **Hidden-variable encoding.** Introduce auxiliary variables that "summarise" sub-constraints (e.g. carries in arithmetic).
+
+**Is normalisation worth it?** Often no — global constraints have powerful specialised propagators that lose strength when split. The dual encoding can be slower in practice than handling the higher-arity constraint directly.
+
+**Use case for normalisation.** Theoretical analysis (assuming binary CSP is a clean default) or when targeting a solver that only handles binary constraints.`,
+        },
+      ],
     },
 
     {
@@ -164,6 +229,117 @@ Trade-off: MAC prunes more but costs more per step. In practice MAC wins on hard
         { id: 'i3', q: 'Difference between Forward Checking and MAC?', a: 'FC only propagates to immediate neighbours of the just-assigned variable. MAC runs full AC-3 over all affected arcs.' },
         { id: 'i4', q: 'When does AC-3 add arcs back to the queue?', a: 'When REVISE(X_i, X_j) actually removed a value from D_i, re-enqueue all (X_k, X_i) for k ≠ j — because X_i shrinking may break consistency for its other neighbours.' },
       ],
+      examples: [
+        {
+          id: 'iex1', difficulty: 'intermediate', marks: 8,
+          question: 'Trace AC-3 on this CSP. Variables: $X, Y, Z$ with domain $\\{1, 2, 3\\}$. Constraints: $X < Y$, $Y < Z$. Show the queue and domain reductions.',
+          answer: `**Initial.** $D(X) = D(Y) = D(Z) = \\{1, 2, 3\\}$.
+
+**Arcs** (both directions per constraint): $(X,Y), (Y,X), (Y,Z), (Z,Y)$.
+
+**Queue (initial):** $[(X,Y), (Y,X), (Y,Z), (Z,Y)]$.
+
+---
+
+**Step 1.** Pop $(X, Y)$. REVISE: for each $v \\in D(X)$, is there $w \\in D(Y)$ with $v < w$?
+- $v = 1$: ∃ $w = 2$ → keep.
+- $v = 2$: ∃ $w = 3$ → keep.
+- $v = 3$: no $w$ in $\\{1,2,3\\}$ with $3 < w$ → **remove**.
+
+$D(X) = \\{1, 2\\}$. Re-enqueue arcs $(X_k, X)$ where $X_k \\ne Y$ — no such arcs.
+
+Queue: $[(Y,X), (Y,Z), (Z,Y)]$.
+
+---
+
+**Step 2.** Pop $(Y, X)$. REVISE on $X < Y$ — but X is the second arg, so this REVISE checks: for each $w \\in D(Y)$, is there $v \\in D(X) = \\{1,2\\}$ with $v < w$?
+
+Wait — convention: arc $(Y, X)$ means "make $Y$ consistent w.r.t. $X$". For constraint $X < Y$: keep $w \\in D(Y)$ if ∃ $v \\in D(X)$ with $v < w$.
+
+- $w = 1$: no $v$ with $v < 1$ → **remove**.
+- $w = 2$: $v = 1$ works → keep.
+- $w = 3$: $v = 1$ works → keep.
+
+$D(Y) = \\{2, 3\\}$. Re-enqueue $(X, Y)$ and $(Z, Y)$ — arcs into $Y$ from variables other than $X$.
+
+Queue: $[(Y,Z), (Z,Y), (X,Y), (Z,Y)]$. (Duplicate $(Z,Y)$ is fine.)
+
+---
+
+**Step 3.** Pop $(Y, Z)$. REVISE: for each $v \\in D(Y) = \\{2, 3\\}$, is there $w \\in D(Z) = \\{1,2,3\\}$ with $v < w$?
+- $v = 2$: $w = 3$ → keep.
+- $v = 3$: no → **remove**.
+
+$D(Y) = \\{2\\}$. Re-enqueue $(X, Y)$, $(Z, Y)$.
+
+Queue: $[(Z,Y), (X,Y), (Z,Y), (X,Y), (Z,Y)]$.
+
+---
+
+**Step 4.** Pop $(Z, Y)$. REVISE: for each $w \\in D(Z) = \\{1,2,3\\}$, is there $v \\in D(Y) = \\{2\\}$ with $v < w$?
+- $w = 1, 2$: no → **remove both**.
+- $w = 3$: $v = 2$ → keep.
+
+$D(Z) = \\{3\\}$. Re-enqueue $(Y, Z)$ (constraint $Y < Z$, arc into Z from Y — already covered, but legitimate). Actually we re-enqueue $(X_k, Z)$ for $X_k \\ne Y$ — none exist.
+
+---
+
+**Step 5–.** Pop remaining arcs $(X, Y), (Z, Y), (X, Y)$. Each REVISE finds no removable values (all consistent).
+
+---
+
+**Final domains:** $D(X) = \\{1, 2\\}, D(Y) = \\{2\\}, D(Z) = \\{3\\}$.
+
+**Note:** the CSP is *not* yet solved — $X$ has two values. But it is arc-consistent. Search (with one more decision: $X = 1$ or $X = 2$) finishes it. Both yield solutions $(1, 2, 3)$ and $(2, ?, 3)$ — but $(2, 2, 3)$ violates $X < Y$. Search will discover that with one backtrack, or AC propagated after assigning $X = 2$ will make $D(Y) = \\{\\}$ immediately.`,
+        },
+        {
+          id: 'iex2', difficulty: 'advanced', marks: 8,
+          question: 'Derive the AC-3 complexity $O(c d^3)$. Identify which step is the bottleneck.',
+          answer: `**Setup.** $c$ = number of binary constraints (so $2c$ directed arcs). $d$ = maximum domain size.
+
+**Per-arc REVISE cost.** For arc $(X_i, X_j)$, REVISE checks each $v \\in D(X_i)$ for a support in $D(X_j)$.
+- $|D(X_i)| \\le d$ values to check.
+- For each, scan up to $d$ values in $D(X_j)$.
+- Total per REVISE: $O(d^2)$.
+
+**Maximum times any arc can be queued.** An arc $(X_k, X_i)$ is re-enqueued only when $D(X_i)$ shrinks. $D(X_i)$ can shrink at most $d$ times (it loses at least 1 value per shrink, starting from $\\le d$).
+
+Each constraint has 2 arcs, so each arc can be enqueued $O(d)$ times across the run of AC-3.
+
+**Total work** = (arcs) × (max enqueues per arc) × (per-REVISE cost)
+
+$$= O(c) \\times O(d) \\times O(d^2) = O(c d^3)$$
+
+**Bottleneck:** the $O(d^2)$ per-REVISE — every value of $D(X_i)$ is checked against every value of $D(X_j)$ from scratch every time.
+
+**AC-2001 / AC-3.1 fix.** Cache, for each $v \\in D(X_i)$, the *last* support found in $D(X_j)$. On re-REVISE, start checking from that cached value. Amortised $O(d)$ per value across the lifetime → $O(c d^2)$ total.
+
+**AC-4** uses a different data structure (counters per value) achieving the same $O(c d^2)$ bound but with heavy memory overhead — usually not worth it in practice.`,
+        },
+        {
+          id: 'iex3', difficulty: 'intermediate', marks: 5,
+          question: 'Forward checking sometimes fails to detect a future failure that arc consistency catches. Give a concrete example.',
+          answer: `**Setup.** Variables $X_1, X_2, X_3$ with $D = \\{1, 2\\}$ each. Constraints: $X_1 \\ne X_2$, $X_2 \\ne X_3$, $X_1 \\ne X_3$.
+
+This is **3-colouring a triangle with 2 colours** — UNSAT.
+
+**Forward checking on assignment $X_1 = 1$:**
+- Updates $D(X_2)$ to remove 1 → $D(X_2) = \\{2\\}$.
+- Updates $D(X_3)$ to remove 1 → $D(X_3) = \\{2\\}$.
+- Neither domain is empty. FC reports OK.
+
+**FC does not propagate** between $X_2$ and $X_3$ — only between assigned and unassigned. So it doesn't notice that $X_2 = 2$ now forces $X_3 \\ne 2$ (constraint $X_2 \\ne X_3$) which would empty $D(X_3) = \\{2\\}$.
+
+**FC must descend** and pick $X_2 = 2$ before discovering the conflict on $X_3$.
+
+**AC-3 on the same assignment:**
+- After $X_1 = 1$: same domain reductions as FC.
+- Then enqueue all arcs. Process $(X_3, X_2)$: for $v = 2 \\in D(X_3)$, need $w \\in D(X_2)$ with $w \\ne 2$; but $D(X_2) = \\{2\\}$ — no support. Remove $v = 2$ from $D(X_3)$.
+- $D(X_3) = \\{\\}$ → AC-3 reports infeasibility immediately.
+
+**Lesson.** MAC (Maintain AC) catches infeasibilities one or more levels earlier than FC. Tradeoff: per-step cost is higher.`,
+        },
+      ],
     },
 
     {
@@ -249,6 +425,93 @@ Reduces wasted work when the relevant decision is far up the stack. CDCL in SAT 
         { id: 'b1', q: 'MRV stands for?', a: 'Minimum Remaining Values — pick the variable with the smallest remaining domain. Fail-first heuristic.' },
         { id: 'b2', q: 'When does the degree heuristic kick in?', a: 'As tie-break for MRV. Picks the variable involved in the most constraints on remaining (unassigned) variables.' },
         { id: 'b3', q: 'LCV ordering — what counts as "least constraining"?', a: 'The value that rules out the fewest values in neighbouring variables\' domains.' },
+      ],
+      examples: [
+        {
+          id: 'bex1', difficulty: 'intermediate', marks: 8,
+          question: 'Trace backtracking with MRV + FC on a 4-queens problem. Show the variable ordering chosen and the search tree.',
+          answer: `**Formulation.** Variables $X_1, X_2, X_3, X_4$ = column of queen in row $i$. Domain $\\{1, 2, 3, 4\\}$.
+
+**Constraints:**
+- $X_i \\ne X_j$ (different columns)
+- $|X_i - X_j| \\ne |i - j|$ (different diagonals)
+
+**Initial domains:** all $\\{1, 2, 3, 4\\}$.
+
+**MRV** ties initially (all domains size 4). Without degree to tie-break (all symmetric), pick $X_1$.
+
+**Branch on $X_1$:**
+
+Try $X_1 = 1$. FC: $X_2$ removes $\\{1, 2\\}$ (column 1, diag), $X_3$ removes $\\{1, 3\\}$, $X_4$ removes $\\{1, 4\\}$.
+
+$D(X_2) = \\{3, 4\\}, D(X_3) = \\{2, 4\\}, D(X_4) = \\{2, 3\\}$.
+
+MRV: tied at 2. Pick $X_2$ (lowest index).
+
+Try $X_2 = 3$. FC: $X_3$ removes $\\{2, 3, 4\\}$ → $D(X_3) = \\{\\}$. **FC fails** → backtrack.
+
+Try $X_2 = 4$. FC: $X_3$ removes $\\{3, 4\\}$ — wait, $X_3$ already has $\\{2, 4\\}$; remove 4 (col) and 3 (diag from row 2 to row 3 = 1). $D(X_3) = \\{2\\}$. $X_4$ removes $\\{3, 4\\}$ (col 4, diag 2 from row 2 to row 4): $D(X_4) = \\{2\\}$ → wait $X_4$ had $\\{2,3\\}$, remove 4 not present, remove 2 (diag from $X_2=4$ to row 4 = 2 steps, col diff $|4-?|$=2 → col 2 and col 6 — so remove col 2) → $D(X_4) = \\{3\\}$.
+
+Recheck after $X_2 = 4$: $D(X_3) = \\{2\\}, D(X_4) = \\{3\\}$.
+
+MRV: tied at 1 → pick $X_3$.
+
+Try $X_3 = 2$. FC: $X_4$ removes $\\{2\\}$ (col, not present), $\\{1, 3\\}$ (diag from row 3 col 2): remove 3 → $D(X_4) = \\{\\}$. **FC fails** → backtrack.
+
+No more values for $X_3$. Backtrack to $X_2$. No more values. Backtrack to $X_1$.
+
+Try $X_1 = 2$. FC: $D(X_2) = \\{4\\}, D(X_3) = \\{1, 3\\}, D(X_4) = \\{1, 3, 4\\}$.
+
+MRV: $X_2$ (size 1).
+
+$X_2 = 4$. FC: $D(X_3) = \\{1\\}$ (remove 3 diag), $D(X_4) = \\{1, 3\\}$ (remove 4 col, no diag conflict).
+
+MRV: $X_3$ (size 1). $X_3 = 1$. FC: $D(X_4) = \\{3\\}$ (remove 1 col, no diag).
+
+$X_4 = 3$. **Solution: (2, 4, 1, 3)** ✓.
+
+**Search tree summary:** 2 backtracks before finding the first solution (using MRV+FC).`,
+        },
+        {
+          id: 'bex2', difficulty: 'advanced', marks: 6,
+          question: 'When MRV and degree heuristic *both* tie, what should you do? Argue why arbitrary choice is OK.',
+          answer: `**When ties remain.** Pick **any** remaining candidate (e.g. lexicographic, random). The choice is heuristic-neutral.
+
+**Why arbitrary is OK:**
+
+1. **Tied MRV + tied degree** means symmetric variables — by construction, none looks "harder" or "more constraining" than the others.
+2. **Symmetric problems benefit from symmetry breaking** rather than careful tie-breaking. Adding a constraint like "$X_1 \\le X_2$ when interchangeable" eliminates the tie entirely.
+3. **No-good learning** (CBJ, restarts with VSIDS-like activity in CDCL) eventually distinguishes the ties — picking randomly is no worse than picking deterministically.
+
+**Empirical evidence.** On random CSP benchmarks, the runtime distribution across "random tie-break vs lexicographic" is statistically indistinguishable for hard instances.
+
+**Practical advice:** use random tie-breaking + restarts — combines well with symmetry breaking and avoids worst-case "always picks the wrong direction" pathologies.`,
+        },
+        {
+          id: 'bex3', difficulty: 'intermediate', marks: 5,
+          question: 'Show a scenario where LCV (Least Constraining Value) leads to a faster solution than naive lexicographic value ordering.',
+          answer: `**Setup.** Map colouring on 3 regions $A, B, C$ all pairwise adjacent. Domain $\\{R, G, B\\}$. Currently $D(A) = \\{R, G, B\\}$, $D(B) = \\{R, G\\}$, $D(C) = \\{R, B\\}$.
+
+We're about to assign $A$. MRV picks $A$ (largest unassigned at the moment, in this contrived example) — let's say lex-min after some prior selection.
+
+**Lex order tries $A = R$ first.**
+After $A = R$: $D(B) = \\{G\\}, D(C) = \\{B\\}$ — both size 1 (tight) but feasible. OK.
+
+**LCV order:** count how many values each candidate removes from others' domains.
+- $A = R$: removes 1 from $D(B)$ (it had R) and 1 from $D(C)$. **Total removed: 2.**
+- $A = G$: removes 1 from $D(B)$ (it had G), 0 from $D(C)$ (no G). **Total removed: 1.**
+- $A = B$: removes 0 from $D(B)$, 1 from $D(C)$. **Total removed: 1.**
+
+LCV ties at 1 → pick $A = G$ (lex). After $A = G$: $D(B) = \\{R\\}, D(C) = \\{R, B\\}$.
+
+**Why LCV is better here:** after the assignment, $D(C)$ has 2 values instead of 1 — more flexibility downstream, fewer backtracks if later constraints conflict.
+
+**Caveat — when LCV doesn't help:**
+- If the problem is **insatisfiable**, you want fast failure. LCV picks values likely to succeed → delays discovering UNSAT.
+- For UNSAT problems, the *opposite* (most constraining value) speeds detection — but at the cost of slowing SAT cases.
+
+**Practical heuristic:** LCV for SAT-likely problems; *most-constraining* for UNSAT-likely.`,
+        },
       ],
     },
 
@@ -394,6 +657,118 @@ Essence Prime has **no nesting** — every variable is a matrix of int or bool.`
         { id: 'm6', q: 'Variable vs value symmetry?', a: 'Variable symmetry: a permutation of variables maps solutions to solutions (e.g. interchangeable rows). Value symmetry: a permutation of values does (e.g. interchangeable colour names).' },
         { id: 'm7', q: 'Lex-leader constraint, in words?', a: 'For each symmetry σ in the group, require X ≤_lex σ(X). Forces the search to find only the lex-least representative in each symmetry orbit.' },
         { id: 'm8', q: 'Downside of static symmetry breaking?', a: 'It can conflict with the branching heuristic — both try to impose orderings on the search.' },
+      ],
+      examples: [
+        {
+          id: 'mex1', difficulty: 'intermediate', marks: 8,
+          question: 'For n-queens, compare three viewpoints: (a) row → column matrix, (b) column → row matrix, (c) Boolean cell matrix. Discuss variable count, natural constraint expression, and which viewpoint(s) the dual encoding combines.',
+          answer: `**(a) Row viewpoint.** Variables $x_1, \\ldots, x_n$ where $x_i \\in \\{1..n\\}$ is the column of the queen in row $i$.
+- **Variable count:** $n$.
+- **"One queen per row"** is built in by construction.
+- **Constraints:** AllDifferent (different columns), plus two AllDifferent-on-transformed for diagonals: $\\text{AllDifferent}([x_i + i])$ and $\\text{AllDifferent}([x_i - i])$.
+
+**(b) Column viewpoint (dual).** Variables $y_1, \\ldots, y_n$ where $y_j$ is the row of the queen in column $j$.
+- **Variable count:** $n$.
+- **"One queen per column"** is built in.
+- **Constraints:** symmetric to (a) but with rows/columns swapped.
+
+**(c) Boolean cell viewpoint.** Variables $b_{i,j} \\in \\{0, 1\\}$ per cell.
+- **Variable count:** $n^2$.
+- **Constraints:**
+  - Row: $\\sum_j b_{i,j} = 1$ for each $i$.
+  - Column: $\\sum_i b_{i,j} = 1$ for each $j$.
+  - Diagonal: $\\sum_{(i,j) \\in \\text{diag}} b_{i,j} \\le 1$ for each diagonal.
+
+**Combined (dual encoding):** keep both row $x_i$ and column $y_j$ variables, linked by channeling:
+
+$$\\forall i, j : x_i = j \\Leftrightarrow y_j = i$$
+
+**Why combine?** Pruning in either viewpoint triggers pruning in the other via channeling. For some problems (large $n$ with hard instances), the combined model achieves much stronger propagation than either alone.
+
+**Practical:** for small $n$ (≤ 50), the row viewpoint alone is usually fastest. For larger or harder instances, dual encoding (or pure local search) wins.`,
+        },
+        {
+          id: 'mex2', difficulty: 'advanced', marks: 10,
+          question: 'For the magic square problem (order $n$), state the *implied* constraint that improves propagation. Justify why posting it explicitly is helpful even though it\'s logically redundant.',
+          answer: `**Setup.** Magic square of order $n$: $n \\times n$ matrix of variables $M_{i,j}$ with domain $\\{1..n^2\\}$, all different, with row, column and diagonal sums all equal to the **magic constant**:
+
+$$\\mu = \\frac{n(n^2+1)}{2}$$
+
+**Implied constraint.** The total sum of all cells:
+
+$$\\sum_{i,j} M_{i,j} = 1 + 2 + \\cdots + n^2 = \\frac{n^2(n^2+1)}{2} = n \\mu$$
+
+This is **logically implied** because:
+1. Each cell appears in exactly one row.
+2. Therefore $\\sum_{i,j} M_{i,j} = \\sum_i (\\text{row } i \\text{ sum}) = \\sum_i \\mu = n\\mu$.
+
+So the total-sum constraint follows from "all values in $\\{1..n^2\\}$, distinct" combined with the row constraints. No new solutions are added or removed.
+
+**Why post it anyway:**
+
+1. **Stronger propagation.** Constraint propagators are local — they look at one constraint at a time. A solver checking row sums one by one doesn't see that the total must equal $n\\mu$. Posting it explicitly gives the propagator direct access.
+2. **Earlier detection of infeasibility.** If a partial assignment has values summing too high/low to fit within the remaining cells' value-sum, the implied total-sum constraint catches the infeasibility immediately. The row/col constraints alone may not — they only see local sums.
+3. **Bounds tightening.** From the implied constraint, you can derive bounds on individual cells: e.g. $M_{i,j} \\ge n\\mu - \\text{(max possible from other cells)}$.
+
+**General lesson.** Implied constraints sit at the boundary of *redundant* (logically) and *active* (computationally). Adding them is one of the cheapest ways to make a model run faster without changing solutions.`,
+        },
+        {
+          id: 'mex3', difficulty: 'intermediate', marks: 6,
+          question: 'For graph $k$-colouring, the colour labels $\\{1, 2, \\ldots, k\\}$ are interchangeable. Explain two symmetry-breaking techniques to eliminate the resulting redundancy.',
+          answer: `**Symmetry.** Any solution with colours $(1, 2, 3)$ on three vertices remains a solution under any permutation of $\\{1, 2, 3\\}$. With $k$ colours, every solution has $k!$ equivalent siblings.
+
+**Technique 1 — Lex-leader.** Fix a canonical variable order (e.g. vertices in input order) and add a constraint forcing **the first occurrence of each colour to be in order**. Equivalently, for symmetry $\\sigma$ in the colour-permutation group: $\\text{colour-vector} \\le_\\text{lex} \\sigma(\\text{colour-vector})$.
+
+In Essence Prime:
+\`\`\`
+$ for k colours, add k-1 precedence constraints
+$ first occurrence of colour i must precede first of i+1
+\`\`\`
+
+Effect: among the $k!$ symmetric solutions, only one (the lex-least) is found. Reduces search by factor $k!$.
+
+**Technique 2 — Value precedence (Law & Lee, 2004).** For each pair $(i, i+1)$ in the colour ordering: the first occurrence of value $i$ must precede the first occurrence of value $i+1$ in the variable sequence.
+
+In Essence Prime (if supported as a global): \`precedence(colours, [1,2,3,...,k])\`.
+
+Effect: same as lex-leader but expressed as a global constraint with a specialised propagator — usually faster to enforce.
+
+**Comparison.**
+- Both eliminate the $k!$ colour-renaming symmetry.
+- Value precedence interacts better with branching heuristics that pick lowest available value first.
+- Lex-leader generalises to *any* symmetry group, not just value permutations.
+
+**For graph colouring specifically:** value precedence is the standard choice. For richer symmetries (e.g. matrix problems with row + column interchanges), lex-leader or DoubleLex.`,
+        },
+        {
+          id: 'mex4', difficulty: 'advanced', marks: 8,
+          question: 'Explain "channeling constraints" for the *dual* viewpoint of a permutation problem. Why do they often *improve* propagation strength?',
+          answer: `**Setup.** A permutation problem has $n$ variables $x_1, \\ldots, x_n$ each with domain $\\{1, \\ldots, n\\}$, with AllDifferent$(x_1, \\ldots, x_n)$.
+
+**Primal viewpoint.** $x_i = j$ means "the $i$th element maps to position $j$".
+
+**Dual viewpoint.** $d_j = i$ means "position $j$ has element $i$ assigned to it".
+
+**Channeling.** Keep both sets of variables. Link them:
+
+$$\\forall i, j : x_i = j \\iff d_j = i$$
+
+In Essence Prime:
+\`\`\`
+forAll i, j : int(1..n) . (x[i] = j) <-> (d[j] = i)
+\`\`\`
+
+**Why propagation improves.** Constraints in CSP solvers propagate **locally**. With only the primal viewpoint, a deduction from $x_i$'s constraints stays in $x_i$'s neighbourhood. But many natural constraints are easier to express in one viewpoint than another:
+
+- **Primal-natural:** "$x_3 < 5$" (positions $x_3$ takes are restricted).
+- **Dual-natural:** "position 7 isn't used by element 3" — i.e. $d_7 \\ne 3$.
+
+By including both, you can post each constraint in its most natural form *and* propagation crosses between viewpoints via the channeling.
+
+**Stronger pruning example.** Consider a permutation problem where you've propagated $x_1 \\in \\{2, 5\\}$ and $x_2 \\in \\{2, 5\\}$. AllDifferent doesn't prune anything yet. But in the dual, channeling forces $d_2 \\in \\{1, 2\\}$ and $d_5 \\in \\{1, 2\\}$. AllDifferent on the duals (it's a permutation, so duals also satisfy AllDifferent) propagates: $d_3 \\ne 1, 2$ and $d_4 \\ne 1, 2$, etc. — back to primal: $x_3, x_4 \\ne 2, 5$.
+
+**Cost.** Doubled variable count + the channeling constraints. Worth it for hard instances where pruning gains beat the per-step overhead.`,
+        },
       ],
     },
 
@@ -555,6 +930,118 @@ Savile Row's **aggregation pass** can also *introduce* globals from primitive co
         { id: 'ep4', q: 'How do you encode a partition into k parts in Essence Prime?', a: 'A matrix indexed by D containing int(1..k) — a[i] = j means element i is in part j.' },
         { id: 'ep5', q: 'Name three Savile Row optimisation passes.', a: 'CSE (identical/active/AC-CSE), domain filtering, aggregation, tabulation, variable unification, symmetry breaking via automorphism (any three).' },
         { id: 'ep6', q: 'Essence Prime division on negative numbers?', a: 'Floor division. -3/2 = -2.' },
+      ],
+      examples: [
+        {
+          id: 'epex1', difficulty: 'basic', marks: 6,
+          question: 'Write an Essence Prime model for n-queens (with n parameterised). Use the row viewpoint.',
+          answer: `\`\`\`
+language ESSENCE' 1.0
+
+given n : int(1..)
+letting DOM be domain int(1..n)
+
+find queens : matrix indexed by [DOM] of DOM
+
+such that
+    allDiff(queens),                              $ different columns
+    allDiff([queens[i] + i | i : DOM]),           $ different / diagonals
+    allDiff([queens[i] - i | i : DOM])            $ different \\\\ diagonals
+\`\`\`
+
+**Explanation:**
+- \`given n\` declares $n$ as a parameter — supplied in a \`.param\` file at solve time.
+- \`letting DOM be domain int(1..n)\` defines a named domain.
+- \`find queens : matrix indexed by [DOM] of DOM\` — the only decision variable, a 1-D array indexed by row, containing column indices.
+- Three \`allDiff\` constraints: columns, then transformed values for the two diagonal families.
+- "One queen per row" is **built into the model by construction** — there's exactly one variable per row.
+
+**Sample param file** (\`n-queens-8.param\`):
+\`\`\`
+language ESSENCE' 1.0
+letting n be 8
+\`\`\`
+
+Run: \`savilerow nqueens.eprime n-queens-8.param -minion\``,
+        },
+        {
+          id: 'epex2', difficulty: 'intermediate', marks: 8,
+          question: 'In *full Essence*, you might declare \`find P : partition (regular, numParts 3) from int(1..9)\`. Encode the equivalent in Essence Prime.',
+          answer: `**Goal:** decision variable representing a partition of $\\{1, \\ldots, 9\\}$ into 3 equal-sized parts (size 3 each).
+
+**Essence Prime encoding (part-ID array):**
+
+\`\`\`
+language ESSENCE' 1.0
+
+letting U be domain int(1..9)
+letting K be domain int(1..3)
+letting partSize be 3
+
+$ a[i] = j means element i belongs to part j
+find a : matrix indexed by [U] of K
+
+$ each part has exactly partSize elements — global cardinality
+such that
+    gcc(a, [1, 2, 3], [partSize, partSize, partSize])
+\`\`\`
+
+**Alternative — boolean occurrence matrix:**
+
+\`\`\`
+find b : matrix indexed by [U, K] of bool
+
+such that
+    $ each element is in exactly one part
+    forAll i : U . (sum k : K . toInt(b[i, k])) = 1,
+
+    $ each part has exactly 3 elements
+    forAll k : K . (sum i : U . toInt(b[i, k])) = 3
+\`\`\`
+
+**Comparison:**
+- Part-ID: $n$ integer variables of domain $\\{1..k\\}$ — compact.
+- Boolean occurrence: $n \\cdot k$ boolean variables — more flexible (easy to add "element $i$ not in part $j$") but bigger.
+
+**Symmetry note.** Both encodings preserve the *part interchange* symmetry (relabel parts) that the abstract \`partition\` type does not. Add \`a[1] = 1\` (or value precedence) to break it.
+
+**Why Essence Prime is harder.** Full Essence: 1 line for the partition declaration. Essence Prime: 6+ lines including the GCC and symmetry breaking. Conjure automates this when compiling Essence → Essence'.`,
+        },
+        {
+          id: 'epex3', difficulty: 'advanced', marks: 8,
+          question: 'Sketch what Savile Row\'s "tabulation" pass does. When does it help, when does it hurt?',
+          answer: `**Tabulation.** Convert a subset of constraints into a single **table constraint** by enumerating all satisfying tuples.
+
+E.g. the constraint $(x + y = z) \\land (x \\le 3) \\land (y \\le 3) \\land (z \\le 6)$ with $x, y, z \\in \\{1..3\\}$ can be replaced by:
+
+\`\`\`
+table([x, y, z], [
+  (1, 1, 2),
+  (1, 2, 3),
+  (1, 3, 4),
+  (2, 1, 3),
+  (2, 2, 4),
+  (2, 3, 5),
+  (3, 1, 4),
+  (3, 2, 5),
+  (3, 3, 6)
+])
+\`\`\`
+
+**Why it helps:**
+1. **Generalised arc consistency** is achievable on table constraints with optimised propagators (e.g. STR2, STR3, MDD-based). Faster than naive checking of multiple primitive constraints.
+2. **Single constraint** vs many — less work in propagation queue management.
+3. **Captures complex relationships** that primitive constraints cannot express compactly.
+
+**Why it hurts:**
+1. **Exponential tuple count.** If the scope is large with large domains, tuple count blows up — Savile Row caps tabulation at ~10,000 tuples by default.
+2. **Memory.** Storing all tuples uses more memory than expressing the constraint symbolically.
+3. **Diminishing returns** for already-efficient primitive constraints (e.g. AllDifferent has specialised propagators that beat table).
+
+**When Savile Row applies it.** At \`-O3\` (the most aggressive optimisation), it tabulates small "compound" expressions: a few \`+\`, \`*\`, comparisons whose Cartesian product of domains stays under the limit.
+
+**Result.** Often 2–5× speedup on the solver's runtime — worth it because the cost is paid once at compile time.`,
+        },
       ],
     },
 

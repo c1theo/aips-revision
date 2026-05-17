@@ -46,6 +46,27 @@
       </section>
     {/each}
 
+    {#if topic.examples && topic.examples.length > 0}
+      <section class="mt-12" id="examples">
+        <h2>Worked example questions</h2>
+        <p class="text-sm text-ink-500">Exam-style questions with full model answers. Reveal answers one at a time, or expand all.</p>
+        <div class="space-y-3 mt-4 not-prose">
+          {#each topic.examples as ex (ex.id)}
+            <details class="card">
+              <summary class="cursor-pointer flex items-start gap-2">
+                <span class="chip {ex.difficulty === 'basic' ? '!bg-emerald-100 dark:!bg-emerald-900/40 !text-emerald-800 dark:!text-emerald-200' : ex.difficulty === 'intermediate' ? '!bg-amber-100 dark:!bg-amber-900/40 !text-amber-800 dark:!text-amber-200' : '!bg-rose-100 dark:!bg-rose-900/40 !text-rose-800 dark:!text-rose-200'}">{ex.difficulty}</span>
+                {#if ex.marks}<span class="chip">{ex.marks} marks</span>{/if}
+                <span class="flex-1 font-medium">{ex.question}</span>
+              </summary>
+              <div class="mt-4 pt-3 border-t border-ink-200 dark:border-ink-700">
+                <Md src={ex.answer} />
+              </div>
+            </details>
+          {/each}
+        </div>
+      </section>
+    {/if}
+
     {#if topic.flashcards && topic.flashcards.length > 0}
       <section class="mt-12">
         <h2>Flashcards for this topic</h2>

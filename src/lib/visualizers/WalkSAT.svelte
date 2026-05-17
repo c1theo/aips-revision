@@ -128,7 +128,7 @@
 
   <div>
     <div class="text-xs font-semibold mb-1">Unsatisfied clauses over time</div>
-    <svg width="800" height="100" class="w-full border border-ink-200 dark:border-ink-700 rounded bg-ink-50 dark:bg-ink-900">
+    <svg viewBox="0 0 800 100" preserveAspectRatio="none" class="w-full h-24 border border-ink-200 dark:border-ink-700 rounded bg-ink-50 dark:bg-ink-900">
       {#if history.length > 1}
         {@const maxH = Math.max(...history, 1)}
         <polyline fill="none" stroke="#3b82f6" stroke-width="1.5" points={history.map((h, i) => `${(i / Math.max(1, history.length - 1)) * 800},${100 - (h / maxH) * 90 - 5}`).join(' ')} />

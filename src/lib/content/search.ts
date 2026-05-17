@@ -53,6 +53,88 @@ A **solution** is a sequence of actions leading from $s_0$ to a goal state. An *
         { id: 'f2', q: 'Difference between state space and search tree?', a: 'State space is a graph (one node per state). Search tree is what the algorithm builds; the same state can appear in many tree nodes via different paths.' },
         { id: 'f3', q: 'Why prefer the complete-state formulation of n-queens?', a: 'It enables local search (min-conflicts, hill-climbing) over a fixed-size state.' },
       ],
+      examples: [
+        {
+          id: 'fex1', difficulty: 'basic', marks: 4,
+          question: 'Formulate the 8-puzzle as a search problem. State all five components.',
+          answer: `**States.** Any of the $9!/2 = 181440$ reachable permutations of tiles 0..8 (where 0 represents the blank), arranged in a $3 \\times 3$ grid.
+
+**Initial state.** Any specified starting configuration.
+
+**Actions.** Move the blank Up / Down / Left / Right (subject to the blank not being on the relevant edge). It is conventionally the *blank* that moves, not the tiles — this gives a uniform branching factor of 2–4.
+
+**Transition model.** \`Result(s, a)\` swaps the blank with the tile in the direction of action $a$.
+
+**Goal test.** Tiles in the canonical sorted configuration (e.g. blank then 1..8 in reading order).
+
+**Action cost.** $1$ per move (so path cost = number of moves).
+
+State-space size $9!/2$ comes from parity: only half of all permutations are reachable from any given start.`,
+        },
+        {
+          id: 'fex2', difficulty: 'intermediate', marks: 6,
+          question: 'For Romania route-finding (cities + roads with km), compare the *incremental* formulation against an alternative where states are *sequences of cities visited so far*. Which is preferable and why?',
+          answer: `**Incremental (standard).** State = current city. Transition = drive to a neighbour. State space size = number of cities. Constraint: optimal path forbids cycles, but the search algorithm needs to handle repeated states.
+
+**Sequence formulation.** State = ordered list of cities visited. Transition = append a neighbour. State space size = infinite (sequences can be arbitrarily long) and exponential in path length even after restricting to acyclic.
+
+**Preferred:** the incremental formulation. It has a tiny state space, allows graph-search to share work across paths that re-converge at the same city, and supports A* with a heuristic like straight-line distance.
+
+The sequence formulation is wasteful: two paths that arrive at Bucharest via different routes are *different states*, so the search cannot consolidate them. Graph-search optimisations (closed list, transposition tables) become useless.
+
+**General rule:** make the state the minimum information needed to predict the future, not a record of the past.`,
+        },
+        {
+          id: 'fex3', difficulty: 'advanced', marks: 8,
+          question: 'Vacuum cleaner agent: 2 rooms (A, B), each clean or dirty. Robot in one room at a time. Actions: Left, Right, Suck. Draw the state space graph, then list the actions in the shortest plan from "robot in A, both dirty" to "both clean".',
+          answer: `**States** (8 total): each is a triple (robot location, A clean?, B clean?).
+
+Label states as e.g. \`A-DD\` = robot in A, A dirty, B dirty.
+
+**Transitions:**
+- From any state, \`Left\` → robot in A (no-op if already in A).
+- From any state, \`Right\` → robot in B.
+- \`Suck\` in A: marks A clean. In B: marks B clean.
+
+**Compact graph (locations and dirt status):**
+
+\`\`\`
+A-DD ─Suck─ A-CD ─Right─ B-CD ─Suck─ B-CC  ✓
+   │           │            │
+ Right       Right         Left
+   │           │            │
+B-DD ─Suck─ B-DC ─Left──── A-DC ─Suck─ A-CC ✓ (alt goal)
+\`\`\`
+
+(Two goal states because the robot's final location doesn't matter for "both clean".)
+
+**Shortest plan from A-DD to all-clean** (3 actions):
+$$\\text{Suck} \\to \\text{Right} \\to \\text{Suck}$$
+
+Trace:
+- A-DD → \`Suck\` → A-CD
+- A-CD → \`Right\` → B-CD
+- B-CD → \`Suck\` → B-CC ✓
+
+Path cost 3. (Alternative: Right, Suck, Left, Suck — cost 4 — is suboptimal.)`,
+        },
+        {
+          id: 'fex4', difficulty: 'intermediate', marks: 5,
+          question: 'Distinguish "tree-search" and "graph-search" formulations. Give one search problem where each is appropriate.',
+          answer: `**Tree-search:** maintains only a frontier; can revisit states reached by different paths, generating them as separate tree nodes.
+
+**Graph-search:** additionally maintains a *reached* (closed) set so each state is expanded at most once.
+
+**When tree-search is fine:**
+- The state space *is* a tree (no cycles, no repeated states) — e.g. partial assignments for n-queens row by row.
+- Memory is critically tight and re-exploration is cheap.
+
+**When graph-search is essential:**
+- The state space has cycles or many paths converge — e.g. route finding on a road network, the 8-puzzle.
+
+**Penalty for choosing wrong:** tree-search on a graph with cycles is *not complete* (can loop forever on cyclic paths) and explores exponentially more nodes on graphs with many merging paths.`,
+        },
+      ],
     },
 
     {
@@ -187,6 +269,94 @@ This is the right algorithm when actions have **non-uniform costs** but you have
         { id: 'u3', q: 'What is IDS and why does its time complexity equal BFS\'s?', a: 'Iterative-deepening DFS: run DLS with limit 0,1,2,... until goal. The deepest iteration dominates (geometric series), so total work is O(b^d).' },
         { id: 'u4', q: 'When does UCS apply its goal test?', a: 'On expansion (popping from the priority queue), not generation — a cheaper path to the goal may arrive later.' },
         { id: 'u5', q: 'Why does DFS have O(bm) space?', a: 'It only needs to remember the current path plus the unexpanded siblings at each level.' },
+      ],
+      examples: [
+        {
+          id: 'uex1', difficulty: 'basic', marks: 6,
+          question: 'For a tree with branching factor $b=10$ and shallowest goal at depth $d=4$: state BFS\'s and IDS\'s time and space complexity (numbers, not big-O) and explain why IDS is preferred when memory is constrained.',
+          answer: `**BFS.** Time = $1 + b + b^2 + b^3 + b^4 = 11{,}111$ nodes generated. Space = $O(b^d) = 10{,}000$ (the frontier at depth 4).
+
+**IDS.** Time = $(d+1) \\cdot 1 + d \\cdot b + (d-1) \\cdot b^2 + (d-2) \\cdot b^3 + 1 \\cdot b^4 = 5 + 40 + 300 + 2{,}000 + 10{,}000 = 12{,}345$ nodes.
+
+So IDS does roughly **11% more work** for huge savings in memory: it needs only $O(bd) = 40$ frontier nodes vs BFS's $10{,}000$.
+
+**Why preferred under memory pressure:** the deepest iteration dominates (geometric series), so the overhead of re-expanding shallower levels stays bounded by a small constant factor $b/(b-1) \\approx 1.1$. With $b=10$, that's 10% overhead for a 250× memory saving.`,
+        },
+        {
+          id: 'uex2', difficulty: 'intermediate', marks: 7,
+          question: 'Run UCS on this graph from S to G. Edges (undirected): S-A=2, S-B=5, A-C=3, B-C=1, B-G=8, C-G=4. Show the priority queue after each expansion. State the optimal path and cost.',
+          answer: `Notation: \`(node, g)\` in the priority queue, expanded in increasing $g$ order. Goal test on **expansion**.
+
+\`\`\`
+Start:    PQ = [(S, 0)]
+Expand S: generate (A, 2), (B, 5).            PQ = [(A, 2), (B, 5)]
+Expand A: generate (C, 5), (S, 4) [skip - in reached].
+                                              PQ = [(C, 5), (B, 5)]
+Expand C: generate (G, 9), (A, 8) [skip], (B, 6) [worse than 5, skip].
+                                              PQ = [(B, 5), (G, 9)]
+Expand B: generate (S, 10) [skip], (C, 6) [worse than 5, skip], (G, 13) [worse, skip].
+                                              PQ = [(G, 9)]
+Expand G: goal — return.
+\`\`\`
+
+**Optimal path:** S → A → C → G with cost $2 + 3 + 4 = 9$.
+
+Note: UCS expanded G only when it was the minimum-$g$ node in the queue. Generating G via B earlier (cost 13) didn't terminate the search.`,
+        },
+        {
+          id: 'uex3', difficulty: 'advanced', marks: 8,
+          question: 'Prove that BFS is *not* optimal in general when action costs are non-uniform. Show a counterexample and explain why IDS suffers the same flaw.',
+          answer: `**Counterexample.** Consider:
+
+\`\`\`
+       S
+      / \\
+  c=1/   \\c=100
+    /     \\
+   A       G   (shallow but expensive)
+   |c=1
+   G'         (deep but cheap)
+\`\`\`
+
+State S, two children: A (edge cost 1) and G (cost 100, but G is a goal). A has child G' which is also a goal (edge cost 1).
+
+BFS expands by depth: at depth 1 it finds G with path cost 100. With **goal-test-on-generation**, BFS returns G immediately with cost 100.
+
+But the optimal solution is $S \\to A \\to G'$ with cost $1 + 1 = 2$.
+
+**Why IDS suffers the same flaw.** IDS = iterated depth-limited DFS, and DFS at any given depth finds the first goal it hits, not the cheapest. With depth limit 1, IDS finds G at cost 100. Both rely on path-*length* as the optimality criterion.
+
+**Fix:** use UCS (or A*) which orders the frontier by $g$ (path cost), not depth.`,
+        },
+        {
+          id: 'uex4', difficulty: 'intermediate', marks: 5,
+          question: 'When can DFS be made complete? When can it be made optimal?',
+          answer: `**Complete.** DFS is complete in a **finite** state space, provided we use **graph-search** (closed-list / visited-set) to prevent cycling. In infinite spaces (e.g. infinite integer state spaces), no fixed-depth DFS is complete.
+
+**Optimal.** DFS is **not optimal** under any standard convention — it returns the first goal it encounters, which may be deep and expensive.
+
+To recover both:
+- **For completeness without graph-search:** use **iterative deepening DFS (IDS)** — it visits each depth fresh, can't cycle within a single iteration, and terminates at the first depth where a goal exists.
+- **For optimality:** add a cost ordering (use UCS or A*) — pure DFS will never be optimal.
+
+The distinction matters: DFS is useful when **memory is the bottleneck and any solution is fine**, e.g. SAT solving (DPLL), classical AI planning where solution depth bounds are known.`,
+        },
+        {
+          id: 'uex5', difficulty: 'advanced', marks: 6,
+          question: 'Why is bidirectional BFS attractive for problems with a unique start and unique goal, but problematic for problems with many goal states?',
+          answer: `**Attraction.** Bidirectional BFS searches forward from $s_0$ and backward from $g$ simultaneously, meeting in the middle. Total work is roughly $2 \\cdot b^{d/2}$ instead of $b^d$ — **exponentially better in $d$**.
+
+For Romania route-finding (one start, one goal), this is a clear win.
+
+**Why "many goals" breaks it.** The backward search must be initialised with the goal set. If there are many goals (or worse, the goal is *implicitly* defined by a predicate like "no two queens attack"), the backward frontier starts huge and grows uncontrollably. The "meet in the middle" advantage disappears.
+
+**Other complications:**
+1. **Reverse-action problem.** Predecessor states aren't always derivable from the transition model — many problems have many possible predecessors per state (so backward branching factor $\\gg$ forward).
+2. **Memory.** Both halves of the search must store their explored set, doubling memory.
+3. **Intersection check.** Detecting a "meet" requires fast set membership against the opposite frontier.
+
+In practice, bidirectional search is used in route planning (where both directions are well-defined and goal is a single state) but rare in puzzle/CSP-style problems.`,
+        },
       ],
     },
 
@@ -336,6 +506,114 @@ Used historically for puzzles (15-puzzle, Rubik's cube) where memory mattered.` 
         'A* with an inadmissible heuristic can still terminate and look right — but the answer may be suboptimal.',
         'Greedy and A* have different goal-test placement conventions; AIMA tests on generation for some, expansion for others — check before answering.',
       ],
+      examples: [
+        {
+          id: 'iex1', difficulty: 'basic', marks: 4,
+          question: 'For the 8-puzzle, give two admissible heuristics and explain why one *dominates* the other.',
+          answer: `**$h_1$ — Misplaced tiles.** Number of tiles not in their goal position (excluding blank).
+
+**$h_2$ — Manhattan distance (sum of city-block distances).** For each tile, $|x - x^*| + |y - y^*|$ to its goal position; summed over all tiles.
+
+**Both admissible** because:
+- A tile out of place must be moved at least once → $h_1 \\le h^*$.
+- A tile must travel at least its Manhattan distance, one step per move → $h_2 \\le h^*$.
+
+**$h_2$ dominates $h_1$.** For every state, $h_2(n) \\ge h_1(n)$: each misplaced tile contributes at least 1 to both, but a tile far from its goal contributes more to $h_2$.
+
+**Consequence:** A* with $h_2$ expands no more nodes than with $h_1$ (modulo tie-breaking). Empirically on 15-puzzle, $h_2$ is dramatically better — orders of magnitude fewer nodes.`,
+        },
+        {
+          id: 'iex2', difficulty: 'intermediate', marks: 8,
+          question: 'Prove that if $h$ is consistent, then for any node $n$ and any successor $n\'$ of $n$, $f(n\') \\ge f(n)$ — i.e. $f$-values are non-decreasing along any path.',
+          answer: `**Setup.** Let $n'$ be the successor of $n$ via action $a$ with cost $c(n, a, n')$. Then $g(n') = g(n) + c(n, a, n')$.
+
+**Consistency** says: $h(n) \\le c(n, a, n') + h(n')$.
+
+**Compute $f(n')$:**
+
+$$f(n') = g(n') + h(n') = g(n) + c(n, a, n') + h(n')$$
+
+By consistency, $c(n, a, n') + h(n') \\ge h(n)$. Substituting:
+
+$$f(n') \\ge g(n) + h(n) = f(n) \\quad \\blacksquare$$
+
+**Significance.** Because $f$ is non-decreasing, the first time A* expands a node it has the optimal $g$-value: any other path arriving at the same node will appear later in the priority queue with $f$-value $\\ge$ this first one. So **graph-search A*** doesn't need to reopen closed nodes — and is optimal.
+
+Without consistency (admissible only), A* graph-search may close a node prematurely and miss the optimal path; recovery requires *reopening* closed nodes or using tree-search.`,
+        },
+        {
+          id: 'iex3', difficulty: 'advanced', marks: 10,
+          question: 'Prove that A* tree-search is optimal under admissibility. State the assumptions you need.',
+          answer: `**Assumptions.**
+1. Heuristic $h$ is admissible: $h(n) \\le h^*(n)$ for all $n$ where $h^*(n)$ is the true cheapest cost to a goal.
+2. Action costs are non-negative.
+3. There exists at least one solution with finite cost $C^*$.
+
+**Proof by contradiction.** Suppose A* returns a goal $G_2$ with $g(G_2) > C^*$ (a suboptimal solution).
+
+Let $n$ be any node currently on the frontier that lies on an optimal path to an optimal goal $G^*$. Such an $n$ exists: A* hasn't yet expanded any optimal goal, so the optimal path's frontier extension is somewhere on the frontier.
+
+Consider $f$-values:
+
+$$f(n) = g(n) + h(n)$$
+
+By admissibility, $h(n) \\le h^*(n)$, where $h^*(n)$ is the true cost from $n$ to $G^*$ along the optimal path. So:
+
+$$f(n) \\le g(n) + h^*(n) = C^*$$
+
+(The right-hand side is the total cost of the optimal path through $n$, which equals $C^*$ since $n$ is on an optimal path.)
+
+For the goal $G_2$:
+
+$$f(G_2) = g(G_2) + h(G_2) = g(G_2) > C^*$$
+
+(Since $h(G_2) = 0$ by admissibility and $G_2$ is a goal.)
+
+Combining: $f(n) \\le C^* < f(G_2)$.
+
+But A* always expands the node with smallest $f$. So A* would have expanded $n$ before $G_2$ — contradicting A*'s choice. $\\blacksquare$
+
+**Note.** This proves *tree-search* optimality. Graph-search additionally requires consistency (else closed-list bookkeeping may discard a better path).`,
+        },
+        {
+          id: 'iex4', difficulty: 'intermediate', marks: 6,
+          question: 'Design an admissible heuristic for the *travelling salesman problem* (visit every city exactly once and return to start) using the *relaxed-problem* technique. Justify admissibility.',
+          answer: `**Relaxed problem.** Drop the constraint that each city is visited exactly once and the tour is a single cycle. What remains is: find a set of edges so that every city is connected.
+
+The cheapest such set is a **Minimum Spanning Tree (MST)** of the city graph.
+
+**Heuristic:** $h(\\text{partial tour ending at city } c) = \\text{MST cost of unvisited cities, plus a shortest-edge from } c \\text{ and back to start}$.
+
+A common simpler version:
+
+$$h(n) = \\text{MST cost of unvisited cities including the start and current end}$$
+
+**Admissibility.** Any TSP tour visiting the remaining cities is a *connected subgraph* spanning them, with cost $\\ge$ the MST cost (MST is by definition the cheapest spanning subgraph). So:
+
+$$h(n) \\le \\text{true cost-to-complete} = h^*(n)$$
+
+**Practical note.** This is the classical example of relaxation-derived admissibility. MST computation is $O(V^2)$ per heuristic evaluation, which may dominate runtime — a trade-off A* practitioners weigh constantly.`,
+        },
+        {
+          id: 'iex5', difficulty: 'advanced', marks: 8,
+          question: 'You have heuristics $h_1$, $h_2$, $h_3$, all admissible. Construct a new admissible heuristic that dominates all three. Prove dominance.',
+          answer: `**Construction.** Define $h(n) = \\max(h_1(n), h_2(n), h_3(n))$.
+
+**Admissibility.** Each $h_i$ is admissible: $h_i(n) \\le h^*(n)$. Therefore:
+
+$$h(n) = \\max_i h_i(n) \\le \\max_i h^*(n) = h^*(n)$$
+
+So $h$ is admissible.
+
+**Dominance.** For each $i$: $h(n) = \\max_j h_j(n) \\ge h_i(n)$. So $h$ dominates each $h_i$.
+
+**Optimality consequence.** A* using $h$ expands no more nodes than A* using any $h_i$ (excluding tie-breaking).
+
+**Practical caveat.** Each heuristic evaluation now costs the sum of evaluating all three. If the $h_i$ are expensive (e.g. pattern databases), the per-node cost may outweigh the search-tree reduction. Profile before committing.
+
+**Extension.** Same trick works for *consistent* heuristics: $\\max$ of consistent heuristics is consistent (sketch: triangle inequality holds componentwise; the max preserves it).`,
+        },
+      ],
     },
 
     {
@@ -413,6 +691,56 @@ Use cases: where the encoding admits meaningful crossover and the fitness landsc
         { id: 'l1', q: 'Three failure modes of hill climbing.', a: 'Local maxima, plateaux, ridges.' },
         { id: 'l2', q: 'Simulated annealing acceptance probability for a worse move?', a: 'exp(ΔE/T) where ΔE<0. High T → mostly random walk; low T → hill climbing.' },
         { id: 'l3', q: 'Difference between local beam search and k independent hill climbs?', a: 'Beam shares successor candidates; successful states attract resources.' },
+      ],
+      examples: [
+        {
+          id: 'lex1', difficulty: 'intermediate', marks: 6,
+          question: 'For 8-queens, why is the complete-state formulation (8 queens, one per column, reassign) better than the incremental (place one queen at a time)? Which algorithm does each formulation suggest?',
+          answer: `**Complete-state.** 8 variables, one per column, each with domain $\\{1..8\\}$ = row index. State space size $8^8 = 16{,}777{,}216$. Always a complete (if not consistent) configuration.
+
+**Incremental.** Place queens left-to-right, backtracking on conflicts. State space is the *partial* assignment tree.
+
+**Why complete-state wins for n-queens:**
+1. Allows **local search** (min-conflicts, hill climbing) — fast in practice; min-conflicts solves million-queens in ~50 moves on average.
+2. The state space is **structured benignly** for local search: most random starts are "near" a solution; few deep local optima.
+
+**Which suggests which algorithm:**
+- Complete-state → **local search** (min-conflicts is the killer app).
+- Incremental → **backtracking search** with FC or MAC.
+
+For *n*-queens specifically, local search dominates for large $n$. For small $n$, both are fine; backtracking + MRV/FC will also find all solutions quickly.`,
+        },
+        {
+          id: 'lex2', difficulty: 'advanced', marks: 8,
+          question: 'Simulated annealing with cooling schedule $T_k = T_0 / \\log(1+k)$ — what guarantee does this give? Why is exponential cooling $T_k = T_0 \\alpha^k$ used in practice?',
+          answer: `**Geman & Geman (1984) theoretical result.** For Markov-chain Monte-Carlo on a finite state space, if $T_k$ decreases as
+
+$$T_k \\ge \\frac{C}{\\log(1 + k)}$$
+
+for a problem-dependent constant $C$, then the chain converges to the global optimum in probability as $k \\to \\infty$.
+
+**Practical issue.** The constant $C$ is huge for non-trivial problems, and the cooling is glacially slow — requires astronomical iteration counts.
+
+**Exponential cooling** ($T_k = T_0 \\alpha^k$, $\\alpha \\in [0.95, 0.99]$) is used because:
+1. **Empirically much faster** — converges in tractable time.
+2. The Geman-Geman bound is *worst-case*. Real cost landscapes have structure exploiting which is faster.
+3. **No optimality guarantee**, but well-tuned exponential schedules find near-optimal solutions reliably on problems like TSP, scheduling, VLSI placement.
+
+**Trade-off summary:** $\\log$-schedule → optimal but impractical; exponential → fast but no guarantee. Engineering practice tunes $\\alpha$ and starting $T_0$ per problem.`,
+        },
+        {
+          id: 'lex3', difficulty: 'intermediate', marks: 5,
+          question: 'For genetic algorithms, why is mutation rate kept low (often 1/length)? What happens if it\'s too high or too low?',
+          answer: `**Target rate:** $\\approx 1/L$ where $L$ = chromosome length. Each offspring suffers $\\sim 1$ bit-flip on average.
+
+**Too low (e.g. 0).** Population diversity collapses. Once all individuals share a defect, crossover cannot generate variants — the GA stalls at a local optimum determined by the initial population.
+
+**Too high (e.g. 0.5).** Each offspring is essentially randomised. Selection cannot lock in good substructures because mutation destroys them faster than crossover can combine them. GA degenerates into random search.
+
+**Why $1/L$ specifically:** rough information-theoretic argument — you want to perturb one feature on average. If $L=100$, then $p_m \\approx 0.01$ gives one expected flip per chromosome, preserving most of the parent's structure while injecting innovation.
+
+Real-world practice often tunes $p_m$ adaptively (decrease over generations) or per-locus (high $p_m$ for "noisy" loci).`,
+        },
       ],
     },
   ],

@@ -177,6 +177,48 @@ function TT-CHECK-ALL(KB, alpha, symbols, model):
         { id: 'en2', q: 'KB ⊨ α iff what is unsatisfiable?', a: 'KB ∧ ¬α. (Deduction theorem.)' },
         { id: 'en3', q: 'Difference between valid and satisfiable?', a: 'Satisfiable: some model makes it true. Valid: every model makes it true. Valid ⇒ satisfiable; not the reverse.' },
       ],
+      examples: [
+        {
+          id: 'enex1', difficulty: 'basic', marks: 6,
+          question: 'For the KB $\\{P \\Rightarrow Q,\\; Q \\Rightarrow R,\\; P\\}$, does it entail $R$? Show via truth-table enumeration.',
+          answer: `**KB:** $\\alpha_1 = P \\Rightarrow Q$, $\\alpha_2 = Q \\Rightarrow R$, $\\alpha_3 = P$.
+
+**Query:** $R$?
+
+**Truth-table over $P, Q, R$ ($2^3 = 8$ rows):**
+
+| $P$ | $Q$ | $R$ | $\\alpha_1$ | $\\alpha_2$ | $\\alpha_3$ | KB | $R$ |
+|-----|-----|-----|----|----|----|----|-----|
+| F | F | F | T | T | F | F | F |
+| F | F | T | T | T | F | F | T |
+| F | T | F | T | F | F | F | F |
+| F | T | T | T | T | F | F | T |
+| T | F | F | F | T | T | F | F |
+| T | F | T | F | T | T | F | T |
+| T | T | F | T | F | T | F | F |
+| **T** | **T** | **T** | **T** | **T** | **T** | **T** | **T** |
+
+**Only one model satisfies KB** (last row). In that model, $R = T$.
+
+Therefore **every** model of KB satisfies $R$ → $\\text{KB} \\models R$. ✓
+
+**Alternative proof via deduction theorem:** show KB $\\land \\lnot R$ is unsatisfiable. Add $\\lnot R$ to KB; the only KB-model has $R = T$, contradicting $\\lnot R$ — unsatisfiable. So KB $\\models R$.`,
+        },
+        {
+          id: 'enex2', difficulty: 'intermediate', marks: 5,
+          question: 'Why is the deduction theorem important *computationally*? What does it let us do?',
+          answer: `**Deduction theorem (propositional):** $\\text{KB} \\models \\alpha \\iff \\text{KB} \\land \\lnot \\alpha$ is unsatisfiable.
+
+**Computational significance:** it converts **entailment** (a hard "does every model satisfy …" query) into **satisfiability** (a single "is there *any* model" query).
+
+**Why this matters:**
+1. **SAT solvers exist and are fast.** Modern CDCL solvers handle millions of variables. There's no equivalent industry for "entailment solvers" — because we don't need one.
+2. **Single unified algorithm.** Any propositional reasoning task (theorem proving, planning bounded-horizon, model checking, circuit verification) reduces to one SAT instance.
+3. **Refutation completeness suffices.** We don't need a procedure that derives $\\alpha$ — we just need to show $\\text{KB} \\land \\lnot \\alpha$ is UNSAT. Resolution achieves this for arbitrary CNF; specialised algorithms (DPLL, CDCL) for SAT generally.
+
+**Example reduction.** "Does my code never reach the panic line?" → "Is there an input + execution path leading to panic?" — a satisfiability query, refutable by SAT solver if no such input exists.`,
+        },
+      ],
     },
 
     {
@@ -260,6 +302,94 @@ The empty clause is unsatisfiable by definition (a disjunction of no literals).
       pitfalls: [
         'Resolution is refutation-complete, NOT deduction-complete. You must phrase queries as "is KB ∧ ¬α unsatisfiable?".',
         'Naive CNF conversion can be exponential; Tseitin gives linear equisatisfiable CNF if asked about scaling.',
+      ],
+      examples: [
+        {
+          id: 'infex1', difficulty: 'intermediate', marks: 8,
+          question: 'Convert $(P \\Rightarrow Q) \\Rightarrow R$ to CNF, showing every step.',
+          answer: `**Original:** $(P \\Rightarrow Q) \\Rightarrow R$.
+
+**Step 1 — Eliminate $\\Leftrightarrow$.** No $\\Leftrightarrow$ here.
+
+**Step 2 — Eliminate $\\Rightarrow$** using $A \\Rightarrow B \\equiv \\lnot A \\lor B$.
+
+Inner: $P \\Rightarrow Q \\;\\equiv\\; \\lnot P \\lor Q$.
+
+Outer: $(P \\Rightarrow Q) \\Rightarrow R \\;\\equiv\\; \\lnot (\\lnot P \\lor Q) \\lor R$.
+
+**Step 3 — Push $\\lnot$ inward** (De Morgan, double-negation).
+
+$\\lnot(\\lnot P \\lor Q) \\;\\equiv\\; \\lnot \\lnot P \\land \\lnot Q \\;\\equiv\\; P \\land \\lnot Q$.
+
+So we have $(P \\land \\lnot Q) \\lor R$.
+
+**Step 4 — Distribute $\\lor$ over $\\land$**: $A \\lor (B \\land C) \\equiv (A \\lor B) \\land (A \\lor C)$. Rearrange to put the $\\lor R$ outside: $R \\lor (P \\land \\lnot Q)$.
+
+$$= (R \\lor P) \\land (R \\lor \\lnot Q)$$
+
+**Final CNF:** $(R \\lor P) \\land (R \\lor \\lnot Q)$.
+
+As clauses: $\\{R, P\\}, \\{R, \\lnot Q\\}$.
+
+**Sanity check with truth table.** Original: $(P \\Rightarrow Q) \\Rightarrow R$:
+
+| $P$ | $Q$ | $R$ | $P\\Rightarrow Q$ | result |
+|---|---|---|---|---|
+| F | F | F | T | F |
+| F | F | T | T | T |
+| F | T | F | T | F |
+| F | T | T | T | T |
+| T | F | F | F | T |
+| T | F | T | F | T |
+| T | T | F | T | F |
+| T | T | T | T | T |
+
+CNF $(R \\lor P) \\land (R \\lor \\lnot Q)$: F at exactly rows (F,F,F), (F,T,F), (T,T,F) — agreeing with original. ✓`,
+        },
+        {
+          id: 'infex2', difficulty: 'advanced', marks: 10,
+          question: 'Prove $\\{P \\lor Q, \\lnot Q \\lor R, \\lnot R\\} \\models \\lnot Q$ using resolution refutation. Show every resolvent.',
+          answer: `**Goal:** show KB $\\models \\lnot Q$.
+
+**Refutation strategy:** add $\\lnot(\\lnot Q) = Q$ to KB; show the result is unsatisfiable by deriving the empty clause.
+
+**Clauses:**
+- $C_1: \\{P, Q\\}$ (from $P \\lor Q$)
+- $C_2: \\{\\lnot Q, R\\}$ (from $\\lnot Q \\lor R$)
+- $C_3: \\{\\lnot R\\}$
+- $C_4: \\{Q\\}$ (the negation of the query)
+
+**Resolution steps:**
+
+1. Resolve $C_2$ and $C_3$ on $R$: $\\{\\lnot Q\\}$. Call this $C_5$.
+2. Resolve $C_4$ and $C_5$ on $Q$: $\\{\\}$ — **empty clause** $\\square$.
+
+**Conclusion.** Empty clause derived ⇒ KB $\\land Q$ is unsatisfiable ⇒ KB $\\models \\lnot Q$. ✓
+
+**Alternative path** (also valid):
+1. Resolve $C_1$ and $C_4$ on $Q$ — but they share $Q$ with the *same* polarity, so this doesn't resolve. Skip.
+2. Resolve $C_2$ and $C_4$ on $Q$: $\\{R\\}$. Call $C_5'$.
+3. Resolve $C_5'$ and $C_3$ on $R$: $\\{\\}$.
+
+Same conclusion via slightly different ordering.
+
+**Note.** Resolution can produce many different proofs of the same UNSAT instance. The shortest is preferred (and CDCL's learnt-clause mechanism tries to find short ones).`,
+        },
+        {
+          id: 'infex3', difficulty: 'intermediate', marks: 5,
+          question: 'A student claims: "resolution is sound, so if I derive $P$, then KB $\\models P$." Explain why this is true but **not** the standard way to use resolution.',
+          answer: `**Soundness of resolution.** Yes — if you resolve clauses from a satisfiable KB, the resolvents are also satisfied by every model of KB. So any clause derived is entailed.
+
+**Why this isn't standard practice.**
+
+1. **Resolution is *not* deduction-complete.** From a KB, resolution may derive *many* entailed clauses, but is **not guaranteed to derive every entailed sentence**. In particular, you cannot derive arbitrary $\\alpha$ — only *clauses* in CNF form, and only specific resolvents.
+2. **No termination guarantee for forward derivation.** Starting from KB and applying resolution forward may produce infinitely many resolvents (especially in first-order logic with function symbols).
+3. **Goal-directed is better.** Refutation gives a clear stopping criterion: "did we derive $\\square$?" — yes means UNSAT, no means satisfiable (once saturated).
+
+**Standard practice.** Always refute. To prove KB $\\models \\alpha$, convert KB $\\land \\lnot \\alpha$ to CNF and resolve until $\\square$ (or saturation = no new clauses possible).
+
+**Why refutation is complete.** Theorem (Robinson 1965): if KB $\\land \\lnot \\alpha$ is UNSAT in propositional logic, resolution will derive $\\square$ in finitely many steps. This is the foundation of automated theorem proving.`,
+        },
       ],
     },
 

@@ -55,6 +55,16 @@ export interface Topic {
   flashcards?: Flashcard[];
   pitfalls?: string[];
   complexity?: ComplexityRow[];
+  examples?: ExampleQuestion[];
+}
+
+export interface ExampleQuestion {
+  id: string;
+  difficulty: 'basic' | 'intermediate' | 'advanced';
+  marks?: number;
+  question: string;
+  answer: string;
+  tags?: string[];
 }
 
 export interface ComplexityRow {
