@@ -9,7 +9,16 @@
 -2 -6
 3 5 -6`);
   let heuristic = $state<'first' | 'vsids'>('first');
+  let overrideSpec = $state('');
   let vsidsScores = new Map<number, number>();
+
+  function parseOverrides(spec: string): { var: number; val: boolean }[] {
+    return spec.split(/[,\s]+/).filter(Boolean).map((tok) => {
+      const m = tok.match(/^(-?\d+)\s*=\s*([TtFf])$/);
+      if (!m) return null;
+      return { var: Math.abs(Number(m[1])), val: m[2].toUpperCase() === 'T' };
+    }).filter(Boolean) as { var: number; val: boolean }[];
+  }
 
   interface AssignedLit {
     var: number;
@@ -54,6 +63,7 @@
 
   function run() {
     const clauses = parse(input);
+    const overrides = parseOverrides(overrideSpec);
     const learnt: number[][] = [];
     const log: Step[] = [];
     const assignment = new Map<number, boolean>();
@@ -108,13 +118,16 @@
       return {};
     }
 
-    function pickVar(): number | undefined {
+    function pickVarAndValue(): { v: number; val: boolean } | undefined {
+      // First respect overrides
+      for (const o of overrides) {
+        if (allVars.has(o.var) && !assignment.has(o.var)) return { v: o.var, val: o.val };
+      }
       const unassigned = [...allVars].filter((v) => !assignment.has(v));
       if (unassigned.length === 0) return undefined;
-      if (heuristic === 'first') return unassigned[0];
-      // VSIDS — pick highest-scored
+      if (heuristic === 'first') return { v: unassigned[0], val: true };
       unassigned.sort((a, b) => (vsidsScores.get(b) ?? 0) - (vsidsScores.get(a) ?? 0));
-      return unassigned[0];
+      return { v: unassigned[0], val: true };
     }
 
     function analyze(conflict: number[]): { learnt: number[]; backjumpLevel: number } {
@@ -178,16 +191,18 @@
         continue;
       }
       if (assignment.size === allVars.size) {
-        snapshot(`All vars assigned — SAT.`);
+        snapshot(`All variables assigned. SAT.`);
         result = 'SAT — ' + [...assignment.entries()].map(([v, b]) => `x${v}=${b ? 'T' : 'F'}`).join(', ');
         steps = log; return;
       }
-      const v = pickVar();
-      if (v === undefined) break;
+      const choice = pickVarAndValue();
+      if (!choice) break;
+      const { v, val } = choice;
       decisionLevel += 1;
-      assignment.set(v, true);
-      trail.push({ var: v, val: true, decisionLevel });
-      snapshot(`Decide x${v} = true (level ${decisionLevel}).`);
+      assignment.set(v, val);
+      trail.push({ var: v, val, decisionLevel });
+      const reason = overrides.some((o) => o.var === v) ? '(user override)' : heuristic === 'vsids' ? '(VSIDS)' : '(first unassigned)';
+      snapshot(`Decision level ${decisionLevel}: decide $x_{${v}} = ${val ? 'T' : 'F'}$ ${reason}.`);
     }
 
     result = 'iteration limit';

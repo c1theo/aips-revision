@@ -101,6 +101,48 @@ export const vizExplanations: Partial<Record<VizKey, VizExplanation>> = {
     ],
     relatedConcepts: ['MRV / Degree / LCV', 'Forward checking', 'MAC vs FC'],
   },
+  ConstraintGraph: {
+    whatItShows: 'Visualises the constraint graph of any CSP: nodes = variables, edges = binary constraints. Highlights structural properties: tree (n-1 edges, connected — polynomial!), cyclic (exponential worst case), disconnected (solvable per-component).',
+    howToUse: 'Specify variables and edges. The viz draws a circular layout and analyses the structure.',
+    whatToLookFor: ['Tree-structured CSPs are tractable in $O(nd^2)$.', 'Disconnected graphs decompose: solve each component independently.', 'Independent cycle count = |E| - |V| + components.'],
+    relatedConcepts: ['Tree-CSP', 'Cutset conditioning', 'Tree decomposition'],
+  },
+  ReginAllDiff: {
+    whatItShows: "Régin's algorithm computes GAC for AllDifferent. Bipartite graph (variables on left, values on right) with edges representing domain membership. Green edges are in the current maximum matching. Red dashed edges represent values that are NOT in any maximum matching → must be removed by GAC.",
+    howToUse: 'Specify each variable with its current domain. The viz finds the maximum matching and reports which edges fail to support any AllDifferent satisfying assignment.',
+    whatToLookFor: ['If the max matching equals the number of variables: AllDifferent is feasible. Otherwise UNSAT immediately.', 'A value-edge that\'s NOT in any max matching is removed by GAC — even though pairwise ≠ propagation would NOT catch it.', 'Try X1={a,b}, X2={a,b}, X3={a,b,c}: Régin removes a, b from X3 instantly.'],
+    relatedConcepts: ['GAC', 'AllDifferent', 'Bipartite matching', 'Hall\'s marriage theorem'],
+  },
+  TreeCSP: {
+    whatItShows: 'Solves a tree-structured CSP in two passes. Backward pass: from leaves to root, make each parent arc-consistent with each child via REVISE. Forward pass: assign root-to-leaf, picking any value consistent with the parent assignment — guaranteed conflict-free.',
+    howToUse: 'Specify variables, domains, and exactly $n-1$ binary constraints forming a tree. Step through to see each REVISE then each assignment.',
+    whatToLookFor: ['Each REVISE pass tightens the parent\'s domain based on the child.', 'After the backward pass, every variable has at least one value consistent with all its neighbours.', 'The forward pass never backtracks — that\'s the $O(nd^2)$ guarantee.', 'If during backward pass a domain becomes empty, the CSP is infeasible.'],
+    relatedConcepts: ['Directional arc consistency', 'Tree-structured CSPs', 'Cutset conditioning'],
+  },
+  TwoSAT: {
+    whatItShows: '2-SAT solver via implication graph and strongly connected components. Each 2-literal clause becomes two implications. UNSAT iff some variable and its negation end up in the same SCC. Polynomial-time (linear in input size).',
+    howToUse: 'Enter 2-CNF (one clause per line). The viz lists clauses, derives implications, computes SCCs, and reports SAT/UNSAT (with model when SAT).',
+    whatToLookFor: ['Each clause $(\\ell_1 \\vee \\ell_2)$ → two implications: $\\lnot \\ell_1 \\Rightarrow \\ell_2$ and $\\lnot \\ell_2 \\Rightarrow \\ell_1$.', 'SCCs computed via Kosaraju\'s algorithm.', 'UNSAT iff some SCC contains both $x$ and $\\lnot x$.', 'Compare to 3-SAT which is NP-complete — the jump from 2 to 3 is the classic complexity boundary.'],
+    relatedConcepts: ['2-SAT in P', 'Strongly connected components', 'Tarjan / Kosaraju'],
+  },
+  HillClimbSA: {
+    whatItShows: 'A 1D function landscape with hill climbing, random-restart hill climbing, and simulated annealing. The curve is the objective function; coloured dots are the trajectory.',
+    howToUse: 'Pick a function and an algorithm. Step or autoplay. For SA, adjust initial temperature $T_0$ and cooling factor $\\alpha$.',
+    whatToLookFor: ['Hill climbing gets stuck at the first local maximum it reaches.', 'Random-restart escapes local optima by reinitialising — visible jumps to random positions.', 'SA at high $T$ accepts many downhill moves; as $T$ decays, it converges to hill-climbing behaviour.', 'On the "needle in haystack" landscape, hill climbing rarely finds the global optimum; SA + restarts can.'],
+    relatedConcepts: ['Local search', 'Hill climbing failure modes', 'Metropolis criterion'],
+  },
+  Expectimax: {
+    whatItShows: 'Game tree with three node types: MAX (down-triangle), MIN (up-triangle), CHANCE (circle). Chance nodes compute the expected value over weighted children. Used for stochastic games like backgammon.',
+    howToUse: 'Edit leaf values and chance node probabilities. The viz rebuilds the tree and computes expectimax bottom-up.',
+    whatToLookFor: ['Each chance node\'s value = $\\sum_a P(a) \\cdot V(\\mathrm{child}_a)$.', 'A high-probability low-value outcome can drag the expected value below what minimax would suggest.', 'Alpha-beta does NOT prune chance nodes directly — expectimax is generally slower than minimax.', 'Try equal vs unequal probabilities to see how chance-node weighting changes optimal play.'],
+    relatedConcepts: ['Stochastic games', 'Backgammon AI', 'MCTS as expectimax alternative'],
+  },
+  PhaseTransition: {
+    whatItShows: 'Empirical study of random 3-SAT. Generates many random instances at various clause/variable ratios and plots: (blue) fraction satisfiable, (red dashed) average DPLL operations. The theoretical phase transition $r \\approx 4.267$ is marked.',
+    howToUse: 'Set n (small for speed) and trials per ratio. Click "Run benchmark" — synchronous, can take a few seconds.',
+    whatToLookFor: ['Sharp transition near r = 4.267 in P(SAT): from ~100% to ~0%.', 'Solve-time curve peaks at the transition — the famous "hard region".', 'Below 4.27: easy SAT (many solutions). Above: easy UNSAT (short refutations).', 'At small n the transition is fuzzier; the boundary sharpens as n grows.'],
+    relatedConcepts: ['Random 3-SAT', 'Phase transition', 'Sharp threshold conjecture'],
+  },
   TwoWayBranching: {
     whatItShows: 'The full search tree for an n-queens solve with MRV variable ordering and forward checking. Toggle between **2-way branching** (X=v / X≠v at each node) and **d-way branching** (one child per value).',
     howToUse: 'Pick n (3–7) and the branching mode. The viz re-runs the search and renders the resulting tree with SAT/UNSAT colouring at leaves.',

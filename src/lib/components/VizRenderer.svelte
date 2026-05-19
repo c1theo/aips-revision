@@ -11,6 +11,13 @@
   import NQueens from '../visualizers/NQueens.svelte';
   import MinConflicts from '../visualizers/MinConflicts.svelte';
   import TwoWayBranching from '../visualizers/TwoWayBranching.svelte';
+  import ConstraintGraph from '../visualizers/ConstraintGraph.svelte';
+  import ReginAllDiff from '../visualizers/ReginAllDiff.svelte';
+  import TreeCSP from '../visualizers/TreeCSP.svelte';
+  import TwoSAT from '../visualizers/TwoSAT.svelte';
+  import HillClimbSA from '../visualizers/HillClimbSA.svelte';
+  import Expectimax from '../visualizers/Expectimax.svelte';
+  import PhaseTransition from '../visualizers/PhaseTransition.svelte';
   import EssencePrime from '../visualizers/EssencePrime.svelte';
   import TruthTable from '../visualizers/TruthTable.svelte';
   import Resolution from '../visualizers/Resolution.svelte';
@@ -28,6 +35,7 @@
 
   const map: Record<VizKey, any> = {
     SearchGrid, SearchCompare, SearchTree, MinimaxTree, MCTSTree, AC3, AC4, ForwardCheck, NQueens, MinConflicts, TwoWayBranching,
+    ConstraintGraph, ReginAllDiff, TreeCSP, TwoSAT, HillClimbSA, Expectimax, PhaseTransition,
     EssencePrime, TruthTable, Resolution, HornChain, DPLL, CDCL, WalkSAT, CNFEncoder, TseitinEncoder, ComplexityTable,
   };
   const Comp = $derived(map[viz]);

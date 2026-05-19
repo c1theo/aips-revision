@@ -182,9 +182,10 @@ For tightly-constrained problems, the wave reaches across most of the graph and 
 
       {
         id: 'viz-2way',
-        title: 'Interactive: 2-way vs d-way branching',
+        title: 'Interactive: 2-way vs d-way branching, GAC for AllDifferent',
         blocks: [
           { kind: 'viz', viz: 'TwoWayBranching', title: 'n-queens: 2-way vs d-way search tree', props: {} },
+          { kind: 'viz', viz: 'ReginAllDiff', title: "Régin's GAC: bipartite matching for AllDifferent", props: {} },
         ],
       },
 

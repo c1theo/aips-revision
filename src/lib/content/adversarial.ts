@@ -395,6 +395,7 @@ For chess: $f_i$ = material counts ($w_1 = 9$ for queen, $5$ for rook, …), paw
       flashcards: [
         { id: 'e1', q: 'What does a cutoff test replace, and what replaces Utility(s)?', a: 'Cutoff replaces IsTerminal; Eval(s) replaces Utility(s) at non-terminal nodes.' },
         { id: 'e2', q: 'Three requirements for a good evaluation function?', a: 'Same ordering as Utility on terminals; cheap to compute; correlated with winning chances.' },
+        { id: 'e3', q: 'What is Expectimax?', a: 'Generalisation of minimax to stochastic games. Adds CHANCE nodes that compute expected value over weighted children. Used for backgammon, poker.' },
       ],
       examples: [
         {

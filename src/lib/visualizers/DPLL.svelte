@@ -8,6 +8,7 @@
 -3 1
 -1 -2 -3`);
   let heuristic = $state<'first' | 'JW' | 'DLIS' | 'MOMS' | 'random'>('first');
+  let overrideSpec = $state('');   // e.g. "1=F, 2=T" — force these decisions
 
   interface Step {
     n: number;
@@ -28,6 +29,27 @@
   function parse(s: string): number[][] {
     const lines = s.split('\n').map((l) => l.trim()).filter(Boolean);
     return lines.map((l) => l.split(/[\s,]+/).map(Number).filter((n) => !Number.isNaN(n) && n !== 0));
+  }
+
+  function parseOverrides(spec: string): { var: number; val: boolean; firstValue: boolean }[] {
+    // Format: "1=F, 2=T" or "1=T, 3=F"
+    return spec.split(/[,\s]+/).filter(Boolean).map((tok) => {
+      const m = tok.match(/^(-?\d+)\s*=\s*([TtFf])$/);
+      if (!m) return null;
+      return { var: Math.abs(Number(m[1])), val: m[2].toUpperCase() === 'T', firstValue: true };
+    }).filter(Boolean) as { var: number; val: boolean; firstValue: boolean }[];
+  }
+
+  function pickDecisionWithOverride(clauses: number[][], assignment: Record<number, boolean>, h: typeof heuristic, overrides: { var: number; val: boolean }[]): { v: number; firstVal: boolean | undefined } {
+    // If an override exists for an unassigned variable, use it (in order specified)
+    for (const o of overrides) {
+      if (assignment[o.var] === undefined) {
+        // Check the variable still appears in some clause
+        const inAnyClause = clauses.some((c) => c.some((lit) => Math.abs(lit) === o.var));
+        if (inAnyClause) return { v: o.var, firstVal: o.val };
+      }
+    }
+    return { v: pickDecision(clauses, assignment, h), firstVal: undefined };
   }
 
   function pickDecision(clauses: number[][], assignment: Record<number, boolean>, h: typeof heuristic): number {
@@ -84,7 +106,7 @@
     return out;
   }
 
-  function dpll(clauses: number[][], assignment: Record<number, boolean>, depth: number, log: Step[], parent?: TreeNode): boolean {
+  function dpll(clauses: number[][], assignment: Record<number, boolean>, depth: number, log: Step[], parent?: TreeNode, overrides: { var: number; val: boolean }[] = []): boolean {
     let cur = simplify(clauses, assignment);
     if (cur === null) {
       log.push({ n: log.length, msg: `Empty clause derived — backtrack.`, assignment: { ...assignment }, activeClauses: [[]] });
@@ -100,10 +122,10 @@
         const lit = unit[0];
         const v = Math.abs(lit);
         assignment[v] = lit > 0;
-        log.push({ n: log.length, msg: `Unit propagate: ${lit > 0 ? '' : '¬'}x${v} forced.`, assignment: { ...assignment }, activeClauses: JSON.parse(JSON.stringify(cur)), upLit: lit });
+        log.push({ n: log.length, msg: `Unit propagation: clause ${fmtClause(unit)} is unit ⇒ $x_{${v}} = ${lit > 0 ? 'T' : 'F'}$ (forced).`, assignment: { ...assignment }, activeClauses: JSON.parse(JSON.stringify(cur)), upLit: lit });
         cur = simplify(clauses, assignment);
         if (cur === null) {
-          log.push({ n: log.length, msg: `Conflict after unit propagation — backtrack.`, assignment: { ...assignment }, activeClauses: [[]] });
+          log.push({ n: log.length, msg: `Empty clause derived ⇒ backtrack.`, assignment: { ...assignment }, activeClauses: [[]] });
           return false;
         }
         progressed = true;
@@ -122,7 +144,7 @@
         if (signs.size === 1 && assignment[v] === undefined) {
           const lit = v * [...signs][0];
           assignment[v] = lit > 0;
-          log.push({ n: log.length, msg: `Pure literal: ${lit > 0 ? '' : '¬'}x${v}.`, assignment: { ...assignment }, activeClauses: JSON.parse(JSON.stringify(cur)), pureLit: lit });
+          log.push({ n: log.length, msg: `Pure literal: $x_{${v}}$ appears only ${lit > 0 ? 'positively' : 'negatively'} ⇒ set $x_{${v}} = ${lit > 0 ? 'T' : 'F'}$.`, assignment: { ...assignment }, activeClauses: JSON.parse(JSON.stringify(cur)), pureLit: lit });
           cur = simplify(clauses, assignment);
           if (cur === null) {
             log.push({ n: log.length, msg: `Conflict after pure literal — backtrack.`, assignment: { ...assignment }, activeClauses: [[]] });
@@ -138,45 +160,50 @@
     }
 
     // decide
-    let v = pickDecision(cur!, assignment, heuristic);
+    const { v, firstVal } = pickDecisionWithOverride(cur!, assignment, heuristic, overrides);
     if (v === -1) {
-      log.push({ n: log.length, msg: `All vars assigned but clauses remain — SAT vacuously.`, assignment: { ...assignment }, activeClauses: [] });
+      log.push({ n: log.length, msg: `All variables assigned but clauses remain — SAT vacuously.`, assignment: { ...assignment }, activeClauses: [] });
       return true;
     }
-    log.push({ n: log.length, msg: `Decide x${v} = true (depth ${depth}).`, assignment: { ...assignment }, activeClauses: JSON.parse(JSON.stringify(cur)), decision: v });
-    const trueChild: TreeNode = { id: treeNextId++, label: `x${v}=T`, children: [] };
-    if (parent) parent.children.push(trueChild);
-    const a1 = { ...assignment, [v]: true };
-    if (dpll(clauses, a1, depth + 1, log, trueChild)) {
-      trueChild.outcome = 'sat';
-      Object.assign(assignment, a1); return true;
+    const firstTry = firstVal ?? true;
+    const reason = firstVal !== undefined ? `(user override: try ${firstVal ? 'T' : 'F'} first)` : `(heuristic: ${heuristic})`;
+    log.push({ n: log.length, msg: `Decision level ${depth + 1}: decide $x_{${v}} = ${firstTry ? 'T' : 'F'}$ ${reason}.`, assignment: { ...assignment }, activeClauses: JSON.parse(JSON.stringify(cur)), decision: firstTry ? v : -v });
+
+    const firstChild: TreeNode = { id: treeNextId++, label: `x${v}=${firstTry ? 'T' : 'F'}`, children: [] };
+    if (parent) parent.children.push(firstChild);
+    const aFirst = { ...assignment, [v]: firstTry };
+    if (dpll(clauses, aFirst, depth + 1, log, firstChild, overrides)) {
+      firstChild.outcome = 'sat';
+      Object.assign(assignment, aFirst); return true;
     }
-    trueChild.outcome = 'unsat';
-    log.push({ n: log.length, msg: `Try x${v} = false (depth ${depth}).`, assignment: { ...assignment }, activeClauses: JSON.parse(JSON.stringify(cur)), decision: -v });
-    const falseChild: TreeNode = { id: treeNextId++, label: `x${v}=F`, children: [] };
-    if (parent) parent.children.push(falseChild);
-    const a2 = { ...assignment, [v]: false };
-    if (dpll(clauses, a2, depth + 1, log, falseChild)) {
-      falseChild.outcome = 'sat';
-      Object.assign(assignment, a2); return true;
+    firstChild.outcome = 'unsat';
+
+    log.push({ n: log.length, msg: `Backtrack to decision level ${depth + 1}: try the other branch, $x_{${v}} = ${!firstTry ? 'T' : 'F'}$.`, assignment: { ...assignment }, activeClauses: JSON.parse(JSON.stringify(cur)), decision: !firstTry ? v : -v });
+    const secondChild: TreeNode = { id: treeNextId++, label: `x${v}=${!firstTry ? 'T' : 'F'}`, children: [] };
+    if (parent) parent.children.push(secondChild);
+    const aSecond = { ...assignment, [v]: !firstTry };
+    if (dpll(clauses, aSecond, depth + 1, log, secondChild, overrides)) {
+      secondChild.outcome = 'sat';
+      Object.assign(assignment, aSecond); return true;
     }
-    falseChild.outcome = 'unsat';
+    secondChild.outcome = 'unsat';
     return false;
   }
 
   function run() {
     const clauses = parse(input);
+    const overrides = parseOverrides(overrideSpec);
     const log: Step[] = [];
     const ass: Record<number, boolean> = {};
     treeNextId = 0;
     const root: TreeNode = { id: treeNextId++, label: 'root', children: [] };
-    const ok = dpll(clauses, ass, 0, log, root);
+    const ok = dpll(clauses, ass, 0, log, root, overrides);
     root.outcome = ok ? 'sat' : 'unsat';
     searchTree = root;
     steps = log; stepIdx = 0;
     result = ok ? `SAT — model: ${Object.entries(ass).map(([k, v]) => `x${k}=${v ? 'T' : 'F'}`).join(', ')}` : 'UNSAT';
   }
-  $effect(() => { input; heuristic; run(); });
+  $effect(() => { input; heuristic; overrideSpec; run(); });
 
   function fmtClause(c: number[]) { return '(' + c.map((l) => (l < 0 ? '¬' : '') + 'x' + Math.abs(l)).join(' ∨ ') + ')'; }
 </script>
@@ -202,6 +229,11 @@
       </select>
     </label>
   </div>
+
+  <label class="block">
+    <span class="text-xs text-ink-500 block mb-1"><b>Decision overrides</b> — force the first try for specific variables. Format: <code>1=F, 3=T</code> means try $x_1=F$ first, then $x_3=T$ first. Use this when an exam question says "start with $x_1$ = False".</span>
+    <input class="w-full font-mono px-2 py-1 rounded border border-ink-300 dark:border-ink-700 bg-white dark:bg-ink-900" bind:value={overrideSpec} placeholder="e.g. 1=F, 2=T" />
+  </label>
 
   <div class="font-medium text-sm">{result}</div>
 

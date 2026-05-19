@@ -11,6 +11,8 @@ abs(x1 - x3) >= 3
 abs(x2 - x3) >= 3`);
 
   let valueOrdering = $state<'increasing' | 'decreasing'>('increasing');
+  let varOrderingMode = $state<'top-to-bottom' | 'mrv' | 'custom'>('top-to-bottom');
+  let customVarOrder = $state('');
 
   type Domain = Record<string, number[]>;
   type Assignment = Record<string, number>;
@@ -61,6 +63,17 @@ abs(x2 - x3) >= 3`);
     });
   }
 
+  function pickVariable(unassigned: string[], D: Domain): string {
+    if (varOrderingMode === 'mrv') {
+      return [...unassigned].sort((a, b) => D[a].length - D[b].length)[0];
+    }
+    if (varOrderingMode === 'custom') {
+      const order = customVarOrder.split(/[,\s]+/).filter(Boolean);
+      for (const v of order) if (unassigned.includes(v)) return v;
+    }
+    return unassigned[0];
+  }
+
   function runFC() {
     const { vars, D: D0 } = parseDomains(varSpec);
     const constraints = parseConstraints(constraintSpec);
@@ -69,7 +82,7 @@ abs(x2 - x3) >= 3`);
     const D = JSON.parse(JSON.stringify(D0));
     const assignment: Assignment = {};
 
-    steps.push({ msg: `Start. Variable order: ${vars.join(', ')}. Value order: ${valueOrdering}.`, assignment: { ...assignment }, domains: JSON.parse(JSON.stringify(D)) });
+    steps.push({ msg: `Start. Variable ordering: ${varOrderingMode}. Value ordering: ${valueOrdering}.`, assignment: { ...assignment }, domains: JSON.parse(JSON.stringify(D)) });
 
     function forwardCheck(): { ok: boolean; removals: { var: string; removed: number[] }[] } {
       // For each unassigned variable, prune values inconsistent with current assignment
@@ -94,11 +107,12 @@ abs(x2 - x3) >= 3`);
     }
 
     function recurse(idx: number): boolean {
-      if (idx >= vars.length) {
+      const unassigned = vars.filter((v) => assignment[v] === undefined);
+      if (unassigned.length === 0) {
         steps.push({ msg: `✓ All variables assigned. Solution: ${vars.map((v) => `${v}=${assignment[v]}`).join(', ')}.`, assignment: { ...assignment }, domains: JSON.parse(JSON.stringify(D)), outcome: 'solution' });
         return true;
       }
-      const v = vars[idx];
+      const v = pickVariable(unassigned, D);
       const savedDomains: Domain = JSON.parse(JSON.stringify(D));
       const order = valueOrdering === 'increasing' ? [...D[v]].sort((a, b) => a - b) : [...D[v]].sort((a, b) => b - a);
       steps.push({ msg: `Try variable ${v} with current domain {${D[v].join(', ')}} in ${valueOrdering} order.`, assignment: { ...assignment }, domains: JSON.parse(JSON.stringify(D)), decisionVar: v });
@@ -126,14 +140,14 @@ abs(x2 - x3) >= 3`);
       return false;
     }
 
-    const ok = recurse(0);
+    const ok = recurse(0);   // idx no longer used with dynamic var picking
     if (!ok && !steps.some((s) => s.outcome === 'solution')) {
       steps.push({ msg: '✗ No solution exists.', assignment: {}, domains: JSON.parse(JSON.stringify(D0)) });
     }
     return { steps, vars };
   }
 
-  const result = $derived.by(() => runFC());
+  const result = $derived.by(() => { varOrderingMode; customVarOrder; valueOrdering; varSpec; constraintSpec; return runFC(); });
   let stepIdx = $state(0);
   $effect(() => { result; stepIdx = 0; });
 
@@ -154,12 +168,20 @@ abs(x2 - x3) >= 3`);
   </div>
 
   <div class="flex flex-wrap gap-2 items-center text-xs">
-    <span>Value ordering:</span>
+    <span>Variable ordering:</span>
+    <div class="flex rounded-md border border-ink-300 dark:border-ink-700 overflow-hidden">
+      <button class="px-2 py-1 {varOrderingMode === 'top-to-bottom' ? 'bg-accent-100 dark:bg-accent-900/40' : ''}" onclick={() => (varOrderingMode = 'top-to-bottom')}>Top-to-bottom</button>
+      <button class="px-2 py-1 {varOrderingMode === 'mrv' ? 'bg-accent-100 dark:bg-accent-900/40' : ''}" onclick={() => (varOrderingMode = 'mrv')}>MRV</button>
+      <button class="px-2 py-1 {varOrderingMode === 'custom' ? 'bg-accent-100 dark:bg-accent-900/40' : ''}" onclick={() => (varOrderingMode = 'custom')}>Custom</button>
+    </div>
+    {#if varOrderingMode === 'custom'}
+      <input class="font-mono px-2 py-1 rounded border border-ink-300 dark:border-ink-700 bg-white dark:bg-ink-900 w-48" bind:value={customVarOrder} placeholder="e.g. x3, x1, x2" />
+    {/if}
+    <span>Value:</span>
     <div class="flex rounded-md border border-ink-300 dark:border-ink-700 overflow-hidden">
       <button class="px-2 py-1 {valueOrdering === 'increasing' ? 'bg-accent-100 dark:bg-accent-900/40' : ''}" onclick={() => (valueOrdering = 'increasing')}>Increasing</button>
       <button class="px-2 py-1 {valueOrdering === 'decreasing' ? 'bg-accent-100 dark:bg-accent-900/40' : ''}" onclick={() => (valueOrdering = 'decreasing')}>Decreasing</button>
     </div>
-    <span class="text-ink-500 ml-2">d-way branching, variable order = top to bottom</span>
   </div>
 
   <div class="flex flex-wrap gap-2 items-center">

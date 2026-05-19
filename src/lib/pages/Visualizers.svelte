@@ -8,6 +8,7 @@
       items: [
         { key: 'SearchGrid', label: 'Pathfinding grid', description: 'BFS · DFS · UCS · Greedy · A* on a configurable grid with heuristic, diagonals & weighted cells.' },
         { key: 'SearchCompare', label: 'Side-by-side compare', description: 'Run any two algorithms on the same grid simultaneously.' },
+        { key: 'HillClimbSA', label: 'Hill climb / Simulated annealing', description: '1D function landscape — watch HC get stuck, RR escape, SA explore.' },
       ],
     },
     {
@@ -15,13 +16,17 @@
       items: [
         { key: 'MinimaxTree', label: 'Minimax & alpha-beta', description: 'Backed-up values; toggle pruning; see cuts highlighted.' },
         { key: 'MCTSTree', label: 'MCTS / UCT', description: 'Watch UCB1 grow the tree iteration-by-iteration.' },
+        { key: 'Expectimax', label: 'Expectimax (stochastic)', description: 'Game tree with chance nodes — backgammon-style expected values.' },
       ],
     },
     {
       title: 'CSP',
       items: [
+        { key: 'ConstraintGraph', label: 'Constraint graph', description: 'Draw any CSP\'s constraint graph; detect tree / cyclic / disconnected.' },
         { key: 'AC3', label: 'AC-3 stepper', description: 'Map colouring or custom CSP; arc queue, step or autoplay.' },
         { key: 'AC4', label: 'AC-4 (counter-based)', description: 'Optimal O(c·d²) arc consistency with the counter data structure.' },
+        { key: 'ReginAllDiff', label: "Régin's GAC for AllDifferent", description: 'Bipartite matching that catches deductions pairwise ≠ misses.' },
+        { key: 'TreeCSP', label: 'Tree-CSP solver O(nd²)', description: 'Directional AC + assignment pass on a tree-structured CSP.' },
         { key: 'ForwardCheck', label: 'Generic Forward-Check + backtracking', description: 'Any CSP — custom variables, domains, and constraint predicates.' },
         { key: 'NQueens', label: 'N-Queens / Graph colouring backtracking', description: 'MRV / LCV / FC toggles; see the search tree.' },
         { key: 'MinConflicts', label: 'Min-conflicts', description: 'Local-search n-queens / graph colouring animation with live trace.' },
@@ -42,9 +47,11 @@
     {
       title: 'SAT',
       items: [
-        { key: 'DPLL', label: 'DPLL trace', description: 'Decision stack, unit propagation, branching.' },
+        { key: 'DPLL', label: 'DPLL trace', description: 'Decision stack, unit propagation, branching, search tree.' },
         { key: 'CDCL', label: 'CDCL with implication graph', description: 'Watch conflict analysis & 1-UIP cut.' },
         { key: 'WalkSAT', label: 'WALKSAT', description: 'Random walk + greedy flip; clause-satisfaction over time.' },
+        { key: 'TwoSAT', label: '2-SAT via SCC', description: 'Implication graph + SCC for polytime 2-SAT.' },
+        { key: 'PhaseTransition', label: 'Phase transition', description: 'Empirical SAT probability & solve time across m/n.' },
       ],
     },
   ];

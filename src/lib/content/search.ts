@@ -665,6 +665,13 @@ $T$ is gradually decreased per a **cooling schedule**. At high $T$ the walk is e
           ],
         },
         {
+          id: 'viz-hc',
+          title: 'Interactive: hill climbing + simulated annealing landscape',
+          blocks: [
+            { kind: 'viz', viz: 'HillClimbSA', title: '1D landscape walker — try multi-peak / plateau / needle', props: {} },
+          ],
+        },
+        {
           id: 'beam',
           title: 'Local beam search',
           blocks: [

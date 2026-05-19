@@ -57,6 +57,7 @@ By preference:
             { kind: 'md', body: `For binary CSPs, the **constraint graph** has one node per variable and one edge per binary constraint. For higher-arity constraints, a **constraint hypergraph** has hyperedges spanning the variables in each constraint.
 
 Graph structure is crucial — *tree-structured* binary CSPs are solvable in $O(nd^2)$ (see "Problem Structure"). Cycles cost more.` },
+            { kind: 'viz', viz: 'ConstraintGraph', title: 'Draw any CSP\'s constraint graph', props: {} },
           ],
         },
         {
@@ -1112,6 +1113,13 @@ function MIN-CONFLICTS(csp, max_steps):
 4. Assign variables root-to-leaf — guaranteed conflict-free.
 
 Total: $O(n)$ arcs, $O(d^2)$ per REVISE.` },
+          ],
+        },
+        {
+          id: 'tree-viz',
+          title: 'Interactive: tree-CSP solver',
+          blocks: [
+            { kind: 'viz', viz: 'TreeCSP', title: 'Directional AC + assignment pass on a tree CSP', props: {} },
           ],
         },
         {
