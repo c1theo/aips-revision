@@ -1,4 +1,5 @@
 <script lang="ts">
+  import MathText from '../components/MathText.svelte';
   type Algo = 'BFS' | 'DFS' | 'UCS' | 'Greedy' | 'A*';
   type Heuristic = 'Manhattan' | 'Euclidean' | 'Chebyshev' | 'Zero';
   type PaintMode = 'wall' | 'weight' | 'erase';
@@ -416,7 +417,7 @@
     <div class="grid lg:grid-cols-3 gap-3 mt-2">
       <div class="card !p-3 lg:col-span-2">
         <div class="text-xs uppercase tracking-wider text-ink-500 font-semibold mb-1">Live trace — current step</div>
-        <div class="text-sm font-medium">{cur.msg}</div>
+        <div class="text-sm font-medium"><MathText src={cur.msg} /></div>
         {#if cur.addedChildren && cur.addedChildren.length > 0}
           <div class="mt-2 text-xs">
             <div class="text-ink-500 font-semibold mb-0.5">Children added to frontier:</div>
@@ -444,7 +445,7 @@
         <div class="text-xs uppercase tracking-wider text-ink-500 font-semibold mb-1">Recent expansions</div>
         <ol class="font-mono text-[11px] space-y-0.5 list-none p-0 max-h-44 overflow-y-auto">
           {#each steps.slice(Math.max(0, stepIdx - 9), stepIdx + 1).reverse() as st, i}
-            <li class="{i === 0 ? 'font-semibold text-accent-700 dark:text-accent-300' : 'text-ink-500'}">{st.msg}</li>
+            <li class="{i === 0 ? 'font-semibold text-accent-700 dark:text-accent-300' : 'text-ink-500'}"><MathText src={st.msg} /></li>
           {/each}
         </ol>
       </div>

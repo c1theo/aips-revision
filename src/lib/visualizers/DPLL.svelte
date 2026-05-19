@@ -1,4 +1,5 @@
 <script lang="ts">
+  import MathText from '../components/MathText.svelte';
   // DPLL with unit propagation, pure literal, splitting.
   // Input: CNF as clauses of literals (positive int = variable, negative = negation).
 
@@ -231,7 +232,7 @@
   </div>
 
   <label class="block">
-    <span class="text-xs text-ink-500 block mb-1"><b>Decision overrides</b> — force the first try for specific variables. Format: <code>1=F, 3=T</code> means try $x_1=F$ first, then $x_3=T$ first. Use this when an exam question says "start with $x_1$ = False".</span>
+    <span class="text-xs text-ink-500 block mb-1"><b>Decision overrides</b> — force the first try for specific variables. Format: <code>1=F, 3=T</code> means try x₁=F first, then x₃=T first. Use this when an exam question says "start with x₁ = False".</span>
     <input class="w-full font-mono px-2 py-1 rounded border border-ink-300 dark:border-ink-700 bg-white dark:bg-ink-900" bind:value={overrideSpec} placeholder="e.g. 1=F, 2=T" />
   </label>
 
@@ -246,7 +247,7 @@
 
   {#if steps[stepIdx]}
     <div class="card !p-3">
-      <div class="text-sm font-medium">{steps[stepIdx].msg}</div>
+      <div class="text-sm font-medium"><MathText src={steps[stepIdx].msg} /></div>
       <div class="grid sm:grid-cols-2 gap-3 mt-3 text-xs font-mono">
         <div>
           <div class="font-sans text-xs text-ink-500 uppercase tracking-wider mb-1">Assignment</div>

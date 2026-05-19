@@ -1,4 +1,5 @@
 <script lang="ts">
+  import MathText from '../components/MathText.svelte';
   // Directional arc consistency on a tree-structured CSP. O(nd²) solver.
 
   let spec = $state(`X1 = 1, 2, 3
@@ -182,7 +183,7 @@ constraints: X1<X2, X2<X3, X1<X4, X4<X5`);
   {#if steps[stepIdx]}
     {@const cur = steps[stepIdx]}
     <div class="card !p-3">
-      <div class="text-sm font-medium">{cur.msg}</div>
+      <div class="text-sm font-medium"><MathText src={cur.msg} /></div>
       <div class="text-xs uppercase tracking-wider text-ink-500 font-semibold mt-3 mb-1">Domains</div>
       <div class="font-mono text-xs space-y-0.5">
         {#each Object.keys(cur.D) as v}

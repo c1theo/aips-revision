@@ -1,4 +1,5 @@
 <script lang="ts">
+  import MathText from '../components/MathText.svelte';
   // Generic Forward-Checking + backtracking with d-way branching.
   // User specifies variables, domains, and constraints as algebraic predicates.
 
@@ -194,7 +195,7 @@ abs(x2 - x3) >= 3`);
   {#if result.steps[stepIdx]}
     {@const cur = result.steps[stepIdx]}
     <div class="card !p-3">
-      <div class="text-sm font-medium {cur.outcome === 'solution' ? 'text-emerald-700 dark:text-emerald-300' : cur.outcome === 'fail' ? 'text-rose-600' : ''}">{cur.msg}</div>
+      <div class="text-sm font-medium {cur.outcome === 'solution' ? 'text-emerald-700 dark:text-emerald-300' : cur.outcome === 'fail' ? 'text-rose-600' : ''}"><MathText src={cur.msg} /></div>
       <div class="grid sm:grid-cols-2 gap-3 mt-3 text-xs font-mono">
         <div>
           <div class="font-sans text-xs text-ink-500 uppercase tracking-wider mb-1">Current assignment</div>
@@ -225,7 +226,7 @@ abs(x2 - x3) >= 3`);
     <div class="text-xs uppercase tracking-wider text-ink-500 font-semibold mb-1">Full trace ({result.steps.length} steps)</div>
     <ol class="font-mono text-[11px] space-y-0.5 list-none p-0 max-h-44 overflow-y-auto">
       {#each result.steps as st, i}
-        <li class="{i === stepIdx ? 'font-semibold text-accent-700 dark:text-accent-300 bg-accent-50/50 dark:bg-accent-900/20 px-1' : 'text-ink-500'}">{i + 1}. {st.msg}</li>
+        <li class="{i === stepIdx ? 'font-semibold text-accent-700 dark:text-accent-300 bg-accent-50/50 dark:bg-accent-900/20 px-1' : 'text-ink-500'}">{i + 1}. <MathText src={st.msg} /></li>
       {/each}
     </ol>
   </div>

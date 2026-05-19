@@ -1,4 +1,5 @@
 <script lang="ts">
+  import MathText from '../components/MathText.svelte';
   // Backtracking solver for N-Queens OR small graph k-colouring problems.
   type Problem = 'queens' | 'colour';
   let problem = $state<Problem>('queens');
@@ -162,7 +163,7 @@
     </label>
   {/if}
 
-  <div class="text-sm font-medium">{steps[idx]?.msg ?? ''} <span class="text-xs text-ink-500">({idx + 1}/{steps.length})</span></div>
+  <div class="text-sm font-medium"><MathText src={steps[idx]?.msg ?? ''} /> <span class="text-xs text-ink-500">({idx + 1}/{steps.length})</span></div>
 
   {#if problem === 'queens'}
     <div class="grid grid-cols-2 gap-4">

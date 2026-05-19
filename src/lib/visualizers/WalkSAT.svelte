@@ -1,4 +1,5 @@
 <script lang="ts">
+  import MathText from '../components/MathText.svelte';
   // WALKSAT on a random 3-SAT instance, with noise parameter slider and chart.
 
   let nvars = $state(20);
@@ -185,7 +186,7 @@
     <div class="text-xs uppercase tracking-wider text-ink-500 font-semibold mb-1">Live trace ({trace.length} events)</div>
     <ol class="font-mono text-[11px] space-y-0.5 list-none p-0 max-h-44 overflow-y-auto">
       {#each trace.slice().reverse() as t, i}
-        <li class="{i === 0 ? 'font-semibold text-accent-700 dark:text-accent-300' : 'text-ink-500'}">{t}</li>
+        <li class="{i === 0 ? 'font-semibold text-accent-700 dark:text-accent-300' : 'text-ink-500'}"><MathText src={t} /></li>
       {/each}
     </ol>
   </div>

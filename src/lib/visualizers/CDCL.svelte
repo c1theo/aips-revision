@@ -1,4 +1,5 @@
 <script lang="ts">
+  import MathText from '../components/MathText.svelte';
   // Simplified CDCL with implication graph, 1-UIP-ish learning, non-chronological backjump.
 
   let input = $state(`1 2 -3
@@ -246,7 +247,7 @@
 
   {#if steps[stepIdx]}
     <div class="card !p-3">
-      <div class="text-sm font-medium {steps[stepIdx].conflict ? 'text-rose-600' : ''}">{steps[stepIdx].msg}</div>
+      <div class="text-sm font-medium {steps[stepIdx].conflict ? 'text-rose-600' : ''}"><MathText src={steps[stepIdx].msg} /></div>
       <div class="grid sm:grid-cols-2 gap-4 mt-3">
         <div>
           <div class="text-xs font-semibold uppercase tracking-wider text-ink-500 mb-1">Decision trail (level)</div>

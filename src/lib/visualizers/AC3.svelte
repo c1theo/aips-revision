@@ -1,4 +1,5 @@
 <script lang="ts">
+  import MathText from '../components/MathText.svelte';
   // AC-3 step-by-step on a small constraint graph (map colouring of Australia).
   interface Constraint { a: string; b: string; predicate: (va: string | number, vb: string | number) => boolean; label: string }
 
@@ -189,7 +190,7 @@ NSW-V`);
     <button class="btn btn-sm" onclick={reset}>Reset</button>
     <span class="text-xs text-ink-500 ml-auto">step {idx + 1}/{steps.length}</span>
   </div>
-  <div class="text-sm font-medium">{steps[idx]?.msg ?? ''}</div>
+  <div class="text-sm font-medium"><MathText src={steps[idx]?.msg ?? ''} /></div>
 
   <div class="grid sm:grid-cols-2 gap-4">
     <div>

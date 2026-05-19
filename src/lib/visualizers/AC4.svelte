@@ -1,4 +1,5 @@
 <script lang="ts">
+  import MathText from '../components/MathText.svelte';
   // AC-4: counter-based arc consistency.
   // Maintains counter[X_i, v, X_j] = |{w in D(X_j) : (v,w) supports constraint c(X_i, X_j)}|
   // and S queue of (variable, value) deletions to process.
@@ -245,7 +246,7 @@ x3 - x4
   {#if result.steps[stepIdx]}
     {@const cur = result.steps[stepIdx]}
     <div class="card !p-3">
-      <div class="text-sm font-medium">{cur.msg}</div>
+      <div class="text-sm font-medium"><MathText src={cur.msg} /></div>
 
       <div class="grid sm:grid-cols-3 gap-3 mt-3">
         <div>
