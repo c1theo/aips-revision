@@ -5,6 +5,8 @@ export type VizKey =
   | 'MinimaxTree'
   | 'MCTSTree'
   | 'AC3'
+  | 'AC4'
+  | 'ForwardCheck'
   | 'NQueens'
   | 'MinConflicts'
   | 'TwoWayBranching'

@@ -217,9 +217,10 @@ Trade-off: MAC prunes more but costs more per step. In practice MAC wins on hard
         },
         {
           id: 'viz',
-          title: 'Interactive: AC-3 step-by-step',
+          title: 'Interactive: AC-3 / AC-4 step-by-step',
           blocks: [
-            { kind: 'viz', viz: 'AC3', title: 'AC-3 on map colouring', props: {} },
+            { kind: 'viz', viz: 'AC3', title: 'AC-3 on map colouring (REVISE-based)', props: {} },
+            { kind: 'viz', viz: 'AC4', title: 'AC-4 with counter data structure', props: {} },
           ],
         },
       ],
@@ -417,7 +418,8 @@ Reduces wasted work when the relevant decision is far up the stack. CDCL in SAT 
           id: 'viz',
           title: 'Interactive: backtracking with MRV/LCV/FC toggles',
           blocks: [
-            { kind: 'viz', viz: 'NQueens', title: 'n-Queens with backtracking', props: {} },
+            { kind: 'viz', viz: 'NQueens', title: 'n-Queens / graph colouring backtracking', props: {} },
+            { kind: 'viz', viz: 'ForwardCheck', title: 'Generic FC + backtracking — any CSP', props: {} },
           ],
         },
       ],

@@ -5,6 +5,7 @@ import { cspModule } from './csp';
 import { logicModule } from './logic';
 import { satModule } from './sat';
 import { extraExamples, extraFlashcards } from './extras';
+import { examStyleExamples } from './exam-style';
 import { advancedTopics } from './csp-advanced';
 
 // Merge advanced CSP topics into the CSP module
@@ -25,6 +26,8 @@ for (const m of modules) {
     if (extraEx) t.examples = [...(t.examples ?? []), ...extraEx];
     const extraFc = extraFlashcards[t.slug];
     if (extraFc) t.flashcards = [...(t.flashcards ?? []), ...extraFc];
+    const examEx = examStyleExamples[t.slug];
+    if (examEx) t.examples = [...(t.examples ?? []), ...examEx];
   }
 }
 

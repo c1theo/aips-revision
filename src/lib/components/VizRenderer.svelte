@@ -6,6 +6,8 @@
   import MinimaxTree from '../visualizers/MinimaxTree.svelte';
   import MCTSTree from '../visualizers/MCTSTree.svelte';
   import AC3 from '../visualizers/AC3.svelte';
+  import AC4 from '../visualizers/AC4.svelte';
+  import ForwardCheck from '../visualizers/ForwardCheck.svelte';
   import NQueens from '../visualizers/NQueens.svelte';
   import MinConflicts from '../visualizers/MinConflicts.svelte';
   import TwoWayBranching from '../visualizers/TwoWayBranching.svelte';
@@ -25,7 +27,7 @@
   let { viz, title, props = {} } = $props<{ viz: VizKey; title?: string; props?: Record<string, any> }>();
 
   const map: Record<VizKey, any> = {
-    SearchGrid, SearchCompare, SearchTree, MinimaxTree, MCTSTree, AC3, NQueens, MinConflicts, TwoWayBranching,
+    SearchGrid, SearchCompare, SearchTree, MinimaxTree, MCTSTree, AC3, AC4, ForwardCheck, NQueens, MinConflicts, TwoWayBranching,
     EssencePrime, TruthTable, Resolution, HornChain, DPLL, CDCL, WalkSAT, CNFEncoder, TseitinEncoder, ComplexityTable,
   };
   const Comp = $derived(map[viz]);

@@ -20,7 +20,9 @@
     {
       title: 'CSP',
       items: [
-        { key: 'AC3', label: 'AC-3 stepper', description: 'Map colouring + arc queue, step or autoplay.' },
+        { key: 'AC3', label: 'AC-3 stepper', description: 'Map colouring or custom CSP; arc queue, step or autoplay.' },
+        { key: 'AC4', label: 'AC-4 (counter-based)', description: 'Optimal O(c·d²) arc consistency with the counter data structure.' },
+        { key: 'ForwardCheck', label: 'Generic Forward-Check + backtracking', description: 'Any CSP — custom variables, domains, and constraint predicates.' },
         { key: 'NQueens', label: 'N-Queens / Graph colouring backtracking', description: 'MRV / LCV / FC toggles; see the search tree.' },
         { key: 'MinConflicts', label: 'Min-conflicts', description: 'Local-search n-queens / graph colouring animation with live trace.' },
         { key: 'TwoWayBranching', label: '2-way vs d-way branching', description: 'See how branching style reshapes the search tree.' },

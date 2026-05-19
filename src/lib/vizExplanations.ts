@@ -55,6 +55,29 @@ export const vizExplanations: Partial<Record<VizKey, VizExplanation>> = {
     ],
     relatedConcepts: ['UCB1', 'Exploration vs exploitation', 'UCT (Kocsis–Szepesvári)'],
   },
+  AC4: {
+    whatItShows: 'AC-4 — the counter-based arc-consistency algorithm. Maintains counter[X_i, v, X_j] = number of supports value v has in D(X_j) for the constraint between X_i and X_j. When a value is removed, decrement counters of its former supporters; if a counter hits 0, that value loses all support and is removed.',
+    howToUse: 'Edit variables/domains, constraints (as allowed tuples per binary constraint), and any initial assignment. Step ⏮/⏭ through. Watch the counter table, the deletion queue S, and the live domains.',
+    whatToLookFor: [
+      'Initialisation: counters built for every (variable, value, constraint-partner). Unsupported values added to S immediately.',
+      'Each S pop processes one removal: for each constraint partner, decrement counters of supporters that previously pointed to the removed value.',
+      'A counter hitting 0 ⇒ value loses all support ⇒ new removal cascades.',
+      'Differs from AC-3 (REVISE-based): AC-4 has optimal O(c·d²) time but heavy memory; AC-3 is O(c·d³) with O(c) memory.',
+    ],
+    relatedConcepts: ['Arc consistency', 'AC-3 vs AC-4 vs AC-2001', 'Counter algorithms'],
+  },
+  ForwardCheck: {
+    whatItShows: 'Generic backtracking search with forward checking on ANY CSP you specify. Variables, domains, and constraint predicates are user-editable. Each step shows the current assignment, current domains after FC, and the algorithm narration.',
+    howToUse: 'Specify variables with domains, constraints as JS-like expressions (e.g. `abs(x1 - x2) >= 3`, `x1 != x2`, `x1 + x2 == x3`). Choose value ordering (increasing/decreasing). Step through the trace.',
+    whatToLookFor: [
+      'After each assignment, FC tries every value of every unassigned variable to see if it survives every constraint involving the just-assigned variable.',
+      'Domains shown shrink after each assignment — visible "ink-blot" of propagation.',
+      'When an unassigned variable\'s domain becomes empty, FC reports the failure and we backtrack.',
+      'd-way branching: each variable\'s values are tried in turn (rather than 2-way\'s X=v / X≠v split).',
+      'Try the cargo-ship example or any other CSP from your lectures.',
+    ],
+    relatedConcepts: ['Forward Checking', 'd-way branching', 'Backtracking with FC'],
+  },
   AC3: {
     whatItShows: 'A small CSP (Australia map colouring) with each variable\'s current domain shown as a row of coloured chips (R/G/B). The arc queue is shown on the right. AC-3 steps through the queue, calling REVISE on each arc and removing values that lack a support.',
     howToUse: '"Next" advances one step. "End" jumps to the final state. Click any R/G/B chip on a variable to force that colour — AC-3 reruns and propagates immediately.',
