@@ -1,46 +1,50 @@
 <script lang="ts">
-  // BFS/DFS/UCS/Greedy/A* on a grid. Walls toggle by click. Start/goal draggable.
   type Algo = 'BFS' | 'DFS' | 'UCS' | 'Greedy' | 'A*';
+  type Heuristic = 'Manhattan' | 'Euclidean' | 'Chebyshev' | 'Zero';
+  type PaintMode = 'wall' | 'weight' | 'erase';
 
   const ROWS = 16;
   const COLS = 28;
 
   type Cell = 'empty' | 'wall' | 'start' | 'goal';
 
-  function initGrid(): Cell[][] {
-    const g: Cell[][] = [];
+  function initGrid(): { cells: Cell[][]; weights: number[][] } {
+    const cells: Cell[][] = [];
+    const weights: number[][] = [];
     for (let r = 0; r < ROWS; r++) {
-      const row: Cell[] = [];
-      for (let c = 0; c < COLS; c++) row.push('empty');
-      g.push(row);
+      cells.push(Array(COLS).fill('empty'));
+      weights.push(Array(COLS).fill(1));
     }
-    return g;
+    return { cells, weights };
   }
 
-  function defaultGrid(): { grid: Cell[][]; start: [number, number]; goal: [number, number] } {
-    const grid = initGrid();
+  function defaultGrid() {
+    const { cells, weights } = initGrid();
     const start: [number, number] = [8, 3];
     const goal: [number, number] = [8, 24];
-    grid[start[0]][start[1]] = 'start';
-    grid[goal[0]][goal[1]] = 'goal';
-    // sample walls
-    for (let r = 3; r < 14; r++) grid[r][12] = 'wall';
-    for (let r = 5; r < 12; r++) grid[r][16] = 'wall';
-    grid[3][12] = 'empty';
-    grid[13][12] = 'empty';
-    return { grid, start, goal };
+    cells[start[0]][start[1]] = 'start';
+    cells[goal[0]][goal[1]] = 'goal';
+    for (let r = 3; r < 14; r++) cells[r][12] = 'wall';
+    for (let r = 5; r < 12; r++) cells[r][16] = 'wall';
+    cells[3][12] = 'empty';
+    cells[13][12] = 'empty';
+    return { cells, weights, start, goal };
   }
 
-  let { grid, start, goal } = defaultGrid();
-  let cells = $state<Cell[][]>(grid);
-  let startPos = $state<[number, number]>(start);
-  let goalPos = $state<[number, number]>(goal);
+  const initial = defaultGrid();
+  let cells = $state<Cell[][]>(initial.cells);
+  let weights = $state<number[][]>(initial.weights);
+  let startPos = $state<[number, number]>(initial.start);
+  let goalPos = $state<[number, number]>(initial.goal);
   let algo = $state<Algo>('A*');
-  let painting = $state<'wall' | 'empty' | null>(null);
+  let heuristic = $state<Heuristic>('Manhattan');
+  let diagonals = $state(false);
+  let paintMode = $state<PaintMode>('wall');
+  let weightValue = $state(5);
+  let painting = $state<'wall' | 'empty' | 'weight' | null>(null);
   let dragging = $state<'start' | 'goal' | null>(null);
   let speed = $state(40);
 
-  // Search state
   type Step = {
     frontier: Set<string>;
     explored: Set<string>;
@@ -54,15 +58,28 @@
 
   const key = (r: number, c: number) => `${r},${c}`;
 
-  function manhattan(a: [number, number], b: [number, number]) {
-    return Math.abs(a[0] - b[0]) + Math.abs(a[1] - b[1]);
+  function h(a: [number, number], b: [number, number]): number {
+    const dr = Math.abs(a[0] - b[0]);
+    const dc = Math.abs(a[1] - b[1]);
+    if (heuristic === 'Manhattan') return dr + dc;
+    if (heuristic === 'Euclidean') return Math.sqrt(dr * dr + dc * dc);
+    if (heuristic === 'Chebyshev') return Math.max(dr, dc);
+    return 0;
   }
 
-  function neighbours(r: number, c: number): [number, number][] {
-    const out: [number, number][] = [];
-    for (const [dr, dc] of [[-1, 0], [1, 0], [0, -1], [0, 1]] as const) {
+  function neighbours(r: number, c: number): { node: [number, number]; cost: number }[] {
+    const out: { node: [number, number]; cost: number }[] = [];
+    const dirs: [number, number][] = diagonals
+      ? [[-1,0],[1,0],[0,-1],[0,1],[-1,-1],[-1,1],[1,-1],[1,1]]
+      : [[-1,0],[1,0],[0,-1],[0,1]];
+    for (const [dr, dc] of dirs) {
       const nr = r + dr, nc = c + dc;
-      if (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS && cells[nr][nc] !== 'wall') out.push([nr, nc]);
+      if (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS && cells[nr][nc] !== 'wall') {
+        const diagonal = dr !== 0 && dc !== 0;
+        const base = weights[nr][nc] || 1;
+        const cost = diagonal ? base * Math.SQRT2 : base;
+        out.push({ node: [nr, nc], cost });
+      }
     }
     return out;
   }
@@ -82,7 +99,7 @@
         explored.add(key(...node));
         steps_.push({ frontier: new Set(frontierSet), explored: new Set(explored), current: node });
         if (node[0] === g[0] && node[1] === g[1]) break;
-        for (const nb of neighbours(...node)) {
+        for (const { node: nb } of neighbours(...node)) {
           const k = key(...nb);
           if (!explored.has(k) && !frontierSet.has(k)) {
             cameFrom.set(k, key(...node));
@@ -101,7 +118,7 @@
         explored.add(key(...node));
         steps_.push({ frontier: new Set(onStack), explored: new Set(explored), current: node });
         if (node[0] === g[0] && node[1] === g[1]) break;
-        for (const nb of neighbours(...node)) {
+        for (const { node: nb } of neighbours(...node)) {
           const k = key(...nb);
           if (!explored.has(k)) {
             cameFrom.set(k, key(...node));
@@ -110,7 +127,6 @@
         }
       }
     } else {
-      // UCS, Greedy, A* — priority queue (array, sort lazily)
       type PQItem = { node: [number, number]; g: number; f: number };
       const pq: PQItem[] = [{ node: s, g: 0, f: 0 }];
       const gScore = new Map<string, number>([[key(...s), 0]]);
@@ -119,8 +135,8 @@
 
       function priority(item: PQItem): number {
         if (algo === 'UCS') return item.g;
-        if (algo === 'Greedy') return manhattan(item.node, g);
-        return item.g + manhattan(item.node, g); // A*
+        if (algo === 'Greedy') return h(item.node, g);
+        return item.g + h(item.node, g);
       }
 
       while (pq.length) {
@@ -128,13 +144,13 @@
         const item = pq.shift()!;
         const k0 = key(...item.node);
         frontierSet.delete(k0);
-        if (explored.has(k0)) { continue; }
+        if (explored.has(k0)) continue;
         explored.add(k0);
         steps_.push({ frontier: new Set(frontierSet), explored: new Set(explored), current: item.node });
         if (item.node[0] === g[0] && item.node[1] === g[1]) break;
-        for (const nb of neighbours(...item.node)) {
+        for (const { node: nb, cost } of neighbours(...item.node)) {
           const kn = key(...nb);
-          const tentative = item.g + 1;
+          const tentative = item.g + cost;
           if (!gScore.has(kn) || tentative < gScore.get(kn)!) {
             gScore.set(kn, tentative);
             cameFrom.set(kn, k0);
@@ -145,10 +161,9 @@
       }
     }
 
-    // path reconstruct
     const path: [number, number][] = [];
     let cur = key(...g);
-    if (cameFrom.has(cur) || (cur === key(...s))) {
+    if (cameFrom.has(cur) || cur === key(...s)) {
       while (cur !== key(...s)) {
         const [r, c] = cur.split(',').map(Number) as [number, number];
         path.unshift([r, c]);
@@ -157,44 +172,58 @@
       }
       path.unshift(s);
     }
-    steps_[steps_.length - 1] = { ...steps_[steps_.length - 1], path };
+    if (steps_.length > 0) steps_[steps_.length - 1] = { ...steps_[steps_.length - 1], path };
 
     steps = steps_;
     stepIdx = 0;
-    info = `${algo}: ${steps_.length} steps, path length ${path.length ? path.length - 1 : 'no path'}`;
+    const pathCost = path.length > 1 ? path.slice(1).reduce((sum, n, i) => {
+      const prev = path[i];
+      const diag = prev[0] !== n[0] && prev[1] !== n[1];
+      const base = weights[n[0]][n[1]] || 1;
+      return sum + (diag ? base * Math.SQRT2 : base);
+    }, 0) : 0;
+    info = `${algo}: ${steps_.length} expansions, path ${path.length ? path.length - 1 + ' steps · cost ' + pathCost.toFixed(2) : 'not found'}`;
   }
 
-  $effect(() => {
-    if (algo) run();
-  });
+  $effect(() => { algo; heuristic; diagonals; run(); });
 
   function reset() {
     const d = defaultGrid();
-    cells = d.grid;
+    cells = d.cells;
+    weights = d.weights;
     startPos = d.start;
     goalPos = d.goal;
     run();
   }
   function clearWalls() {
     cells = cells.map((row) => row.map((c) => (c === 'wall' ? 'empty' : c)));
+    weights = weights.map((row) => row.map(() => 1));
     run();
   }
   function randomWalls() {
     for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) {
       if (cells[r][c] === 'start' || cells[r][c] === 'goal') continue;
       cells[r][c] = Math.random() < 0.28 ? 'wall' : 'empty';
+      weights[r][c] = 1;
     }
-    cells = cells;
+    cells = cells; weights = weights;
     run();
+  }
+
+  function applyPaint(r: number, c: number) {
+    if (cells[r][c] === 'start' || cells[r][c] === 'goal') return;
+    if (paintMode === 'wall') { cells[r][c] = 'wall'; weights[r][c] = 1; }
+    else if (paintMode === 'erase') { cells[r][c] = 'empty'; weights[r][c] = 1; }
+    else if (paintMode === 'weight') { cells[r][c] = 'empty'; weights[r][c] = weightValue; }
+    cells = cells; weights = weights;
   }
 
   function onMouseDown(r: number, c: number, e: MouseEvent) {
     e.preventDefault();
     if (cells[r][c] === 'start') { dragging = 'start'; return; }
     if (cells[r][c] === 'goal') { dragging = 'goal'; return; }
-    painting = cells[r][c] === 'wall' ? 'empty' : 'wall';
-    cells[r][c] = painting;
-    cells = cells;
+    painting = paintMode === 'erase' ? 'empty' : paintMode;
+    applyPaint(r, c);
     run();
   }
   function onMouseEnter(r: number, c: number) {
@@ -219,9 +248,7 @@
       return;
     }
     if (!painting) return;
-    if (cells[r][c] === 'start' || cells[r][c] === 'goal') return;
-    cells[r][c] = painting;
-    cells = cells;
+    applyPaint(r, c);
     run();
   }
   function onMouseUp() { painting = null; dragging = null; }
@@ -244,6 +271,13 @@
     if (v === 'goal') return 'bg-rose-500';
     if (v === 'wall') return 'bg-ink-700 dark:bg-ink-300';
     const step = steps[stepIdx];
+    const w = weights[r][c];
+    let base = 'bg-white dark:bg-ink-900';
+    if (w > 1) {
+      // gradient orange shades by weight
+      const tint = Math.min(900, 200 + w * 60);
+      base = `bg-orange-${Math.min(400, Math.round(tint / 100) * 100)} dark:bg-orange-900/40`;
+    }
     if (step) {
       const k = key(r, c);
       if (step.path?.some((p) => p[0] === r && p[1] === c)) return 'bg-amber-300';
@@ -251,7 +285,12 @@
       if (step.explored.has(k)) return 'bg-accent-200 dark:bg-accent-900/50';
       if (step.frontier.has(k)) return 'bg-accent-100 dark:bg-accent-900/30';
     }
-    return 'bg-white dark:bg-ink-900';
+    return base;
+  }
+
+  function cellTitle(r: number, c: number): string {
+    if (weights[r][c] > 1) return `weight ${weights[r][c]}`;
+    return '';
   }
 </script>
 
@@ -269,17 +308,34 @@
     </div>
   </div>
 
-  <div class="flex gap-2 items-center text-xs">
+  <div class="flex flex-wrap gap-3 items-center text-xs">
+    <label class="flex items-center gap-1">Heuristic
+      <select bind:value={heuristic} class="px-1 py-0.5 rounded border border-ink-300 dark:border-ink-700 bg-white dark:bg-ink-900">
+        <option>Manhattan</option><option>Euclidean</option><option>Chebyshev</option><option>Zero</option>
+      </select>
+    </label>
+    <label class="flex items-center gap-1"><input type="checkbox" bind:checked={diagonals}>Diagonals (cost √2)</label>
+    <span>Paint:</span>
+    <div class="flex rounded-md overflow-hidden border border-ink-300 dark:border-ink-700">
+      <button class="px-2 py-0.5 {paintMode === 'wall' ? 'bg-accent-100 dark:bg-accent-900/30' : ''}" onclick={() => (paintMode = 'wall')}>Wall</button>
+      <button class="px-2 py-0.5 {paintMode === 'weight' ? 'bg-accent-100 dark:bg-accent-900/30' : ''}" onclick={() => (paintMode = 'weight')}>Weight</button>
+      <button class="px-2 py-0.5 {paintMode === 'erase' ? 'bg-accent-100 dark:bg-accent-900/30' : ''}" onclick={() => (paintMode = 'erase')}>Erase</button>
+    </div>
+    {#if paintMode === 'weight'}
+      <label class="flex items-center gap-1">cost
+        <input type="number" min="2" max="20" bind:value={weightValue} class="w-12 px-1 py-0.5 rounded border border-ink-300 dark:border-ink-700 bg-white dark:bg-ink-900" />
+      </label>
+    {/if}
     <span>Speed</span>
-    <input type="range" min="1" max="100" bind:value={speed} class="w-32" />
-    <span class="text-ink-500 ml-3">{stepIdx + 1} / {steps.length}</span>
+    <input type="range" min="1" max="100" bind:value={speed} class="w-24" />
+    <span class="text-ink-500">{stepIdx + 1} / {steps.length}</span>
     <button class="btn btn-sm ml-auto" onclick={reset}>Reset</button>
-    <button class="btn btn-sm" onclick={clearWalls}>Clear walls</button>
+    <button class="btn btn-sm" onclick={clearWalls}>Clear</button>
     <button class="btn btn-sm" onclick={randomWalls}>Random walls</button>
   </div>
 
   <div
-    class="inline-block select-none border border-ink-200 dark:border-ink-700 rounded overflow-hidden"
+    class="inline-block select-none border border-ink-200 dark:border-ink-700 rounded overflow-auto max-w-full"
     onmouseup={onMouseUp}
     role="presentation"
   >
@@ -288,11 +344,12 @@
         {#each row as _, c}
           <button
             type="button"
-            class="w-5 h-5 border border-ink-100 dark:border-ink-800 cursor-pointer transition-colors {cellClass(r, c)}"
+            class="w-5 h-5 border border-ink-100 dark:border-ink-800 cursor-pointer transition-colors text-[8px] flex items-center justify-center {cellClass(r, c)}"
             onmousedown={(e) => onMouseDown(r, c, e)}
             onmouseenter={() => onMouseEnter(r, c)}
             aria-label="cell"
-          ></button>
+            title={cellTitle(r, c)}
+          >{weights[r][c] > 1 && cells[r][c] !== 'wall' && cells[r][c] !== 'start' && cells[r][c] !== 'goal' ? weights[r][c] : ''}</button>
         {/each}
       </div>
     {/each}
@@ -302,10 +359,10 @@
     <span class="flex items-center gap-1"><span class="inline-block w-3 h-3 bg-emerald-500 rounded-sm"></span>start</span>
     <span class="flex items-center gap-1"><span class="inline-block w-3 h-3 bg-rose-500 rounded-sm"></span>goal</span>
     <span class="flex items-center gap-1"><span class="inline-block w-3 h-3 bg-ink-700 rounded-sm"></span>wall</span>
+    <span class="flex items-center gap-1"><span class="inline-block w-3 h-3 bg-orange-300 rounded-sm"></span>weighted</span>
     <span class="flex items-center gap-1"><span class="inline-block w-3 h-3 bg-violet-400 rounded-sm"></span>current</span>
     <span class="flex items-center gap-1"><span class="inline-block w-3 h-3 bg-accent-200 rounded-sm"></span>explored</span>
     <span class="flex items-center gap-1"><span class="inline-block w-3 h-3 bg-accent-100 border border-accent-200 rounded-sm"></span>frontier</span>
     <span class="flex items-center gap-1"><span class="inline-block w-3 h-3 bg-amber-300 rounded-sm"></span>path</span>
-    <span class="ml-auto">Tip: click to toggle walls; drag <b>start</b>/<b>goal</b> to move.</span>
   </div>
 </div>

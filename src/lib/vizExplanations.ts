@@ -9,17 +9,28 @@ export interface VizExplanation {
 
 export const vizExplanations: Partial<Record<VizKey, VizExplanation>> = {
   SearchGrid: {
-    whatItShows: 'A 2-D grid with start (green), goal (red) and walls (black). The selected search algorithm explores cells, marking them as **frontier** (light blue) and **explored** (darker blue) as it goes. The final path is highlighted in amber.',
-    howToUse: 'Pick an algorithm. Click cells to toggle walls. Drag the start or goal markers to move them. Use ▶ to autoplay or ⏭ to step. "Random walls" generates a fresh maze. "End" jumps to the final step (path drawn).',
+    whatItShows: 'A 2-D grid with start (green), goal (red), walls (black), and optional weighted cells (orange — higher cost to enter). The selected search algorithm explores cells, marking them as **frontier** (light blue) and **explored** (darker blue) as it goes. The final path is highlighted in amber.',
+    howToUse: 'Pick an algorithm and heuristic. Choose paint mode (Wall / Weight / Erase) and click cells. Drag start/goal to move them. Toggle "Diagonals" to add 8-neighbour moves (with cost √2). "Random walls" generates a fresh maze.',
     whatToLookFor: [
-      'BFS expands outward in concentric layers — fair coverage, finds shortest path in steps.',
-      'DFS goes deep along one direction until it hits a wall — often visits far more than necessary.',
-      'UCS is identical to BFS when all step costs equal 1.',
-      'Greedy heads straight for the goal — fast but ignores walls, often finds a suboptimal path.',
-      "A* combines both: it doesn't waste time on cells far from the goal, yet still finds the shortest path.",
-      'Switch to UCS vs A* with the same walls — A* expands fewer cells (the heuristic guides it).',
+      'BFS expands outward in concentric layers — fair coverage, shortest in steps.',
+      'DFS goes deep along one direction — often visits far more than necessary.',
+      'UCS is identical to BFS when all step costs equal 1; differs when you add weighted cells.',
+      'Greedy heads straight for the goal — fast but ignores walls, often suboptimal.',
+      "A* combines both: doesn't waste time on cells far from the goal, yet finds the shortest path.",
+      'Heuristic effect: switch between Manhattan / Euclidean / Chebyshev / Zero (= UCS) and see how A* expands more or fewer cells.',
+      'Diagonals + weighted cells turn it into a richer terrain-navigation problem.',
     ],
     relatedConcepts: ['Admissibility', 'Consistency', 'Greedy vs A*', 'Frontier vs explored set'],
+  },
+  SearchCompare: {
+    whatItShows: 'Two algorithms run side-by-side on the same grid. Edits to walls or start/goal update both panels live, so you can directly compare exploration patterns.',
+    howToUse: 'Pick a different algorithm on each side. Edit the shared map (walls, drag start/goal). Watch how the explored regions differ.',
+    whatToLookFor: [
+      'BFS vs A*: A* should explore far fewer cells while finding the same shortest path.',
+      'DFS vs A*: DFS often finds a longer path but explores fewer cells in lucky cases.',
+      'Greedy vs A*: Greedy finds a path quickly but it may not be shortest.',
+    ],
+    relatedConcepts: ['Heuristic guidance', 'Optimality vs speed'],
   },
   MinimaxTree: {
     whatItShows: 'A game tree with MAX nodes (blue down-triangles) at the root and odd depths, MIN nodes (pink up-triangles) at even depths, and leaves (amber rectangles) with utility values. Computed backed-up values appear inside each node. With α-β ON, α/β bounds are shown above each internal node and pruned subtrees go grey.',
@@ -166,8 +177,19 @@ export const vizExplanations: Partial<Record<VizKey, VizExplanation>> = {
       'Step 2 — eliminate → — typically doubles the number of subexpressions when there are many implications.',
       'Step 3 — push ¬ — De Morgan + double-negation.',
       'Step 4 — distribute — this is where the formula can blow up exponentially. Try `(A1 & B1) | (A2 & B2) | (A3 & B3)` to see distribution growth.',
-      'Tseitin transformation (not shown here) uses auxiliary variables to keep CNF linear-size; pure equivalence may be exponential.',
+      'Tseitin transformation (separate visualizer) uses auxiliary variables to keep CNF linear-size; pure equivalence may be exponential.',
     ],
     relatedConcepts: ['CNF', 'Tseitin transformation', 'Distribution blowup'],
+  },
+  TseitinEncoder: {
+    whatItShows: 'Tseitin transformation: introduces a fresh auxiliary variable $t_i$ for each non-atomic subformula and posts the equivalence as clauses. Output is equisatisfiable (not equivalent) but always linear-size.',
+    howToUse: 'Type a formula. The right panel lists the new CNF clauses; the left lists what each $t_i$ represents.',
+    whatToLookFor: [
+      'Number of auxiliary variables equals the number of internal AST nodes — linear in formula length.',
+      'Each connective has a fixed translation pattern (and = 3 clauses, or = 3, → = 3, ↔ = 4).',
+      'Compare clause count to the standard four-step CNFEncoder for the same formula — distribution can be much bigger.',
+      "The root literal is asserted as a unit clause — that's what 'equisatisfiable' looks like.",
+    ],
+    relatedConcepts: ['CNF', 'Equisatisfiability', 'SAT preprocessing'],
   },
 };

@@ -159,9 +159,47 @@ such that
     },
   ];
 
+  interface CustomModel { name: string; description: string; source: string; notes?: string }
+
+  const STORAGE_KEY = 'aips-essence-custom-v1';
+  let customModels = $state<CustomModel[]>([]);
+  let allModels = $derived([...MODELS, ...customModels.map((c) => ({ ...c, solution: undefined }))]);
+
   let selectedIdx = $state(0);
   let editor = $state(MODELS[0].source);
-  $effect(() => { editor = MODELS[selectedIdx].source; });
+  let editingCustom = $state(false);
+  let customName = $state('');
+
+  $effect(() => {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) customModels = JSON.parse(raw);
+    } catch (e) {}
+  });
+
+  function persist() {
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(customModels)); } catch (e) {}
+  }
+
+  $effect(() => {
+    if (selectedIdx < allModels.length) editor = allModels[selectedIdx].source;
+  });
+
+  function saveCurrentAsCustom() {
+    if (!customName.trim()) { alert('Please enter a name'); return; }
+    const m: CustomModel = { name: customName.trim(), description: 'Your custom model', source: editor };
+    customModels = [...customModels, m];
+    persist();
+    customName = '';
+    editingCustom = false;
+    selectedIdx = MODELS.length + customModels.length - 1;
+  }
+  function deleteCustom(idx: number) {
+    if (!confirm('Delete this custom model?')) return;
+    customModels = customModels.filter((_, i) => i !== idx);
+    persist();
+    if (selectedIdx >= allModels.length) selectedIdx = 0;
+  }
 
   // light syntax-colour using regex-based highlight
   const keywords = ['language', 'given', 'letting', 'where', 'find', 'such', 'that', 'minimising', 'maximising', 'forAll', 'forall', 'exists', 'sum', 'product', 'min', 'max', 'and', 'or', 'be', 'of', 'in', 'matrix', 'indexed', 'by', 'int', 'bool', 'domain', 'allDiff', 'gcc', 'atleast', 'atmost', 'table', 'cumulative', 'toInt', 'flatten', 'true', 'false'];
@@ -178,12 +216,28 @@ such that
 </script>
 
 <div class="space-y-3">
-  <div class="flex flex-wrap gap-2">
+  <div class="flex flex-wrap gap-2 items-center">
     {#each MODELS as m, i}
       <button class="btn btn-sm {selectedIdx === i ? 'btn-primary' : ''}" onclick={() => (selectedIdx = i)}>{m.name}</button>
     {/each}
+    {#each customModels as m, i}
+      <span class="inline-flex items-stretch border border-violet-300 dark:border-violet-700 rounded overflow-hidden">
+        <button class="px-2 py-1 text-xs {selectedIdx === MODELS.length + i ? 'bg-violet-100 dark:bg-violet-900/40' : ''}" onclick={() => (selectedIdx = MODELS.length + i)}>★ {m.name}</button>
+        <button class="px-1 text-xs hover:bg-rose-100 dark:hover:bg-rose-900/40" onclick={() => deleteCustom(i)} title="Delete">×</button>
+      </span>
+    {/each}
+    <button class="btn btn-sm" onclick={() => (editingCustom = !editingCustom)}>+ Save as custom</button>
   </div>
-  <div class="text-sm text-ink-600 dark:text-ink-300">{MODELS[selectedIdx].description}</div>
+
+  {#if editingCustom}
+    <div class="card !p-2 flex gap-2 items-center text-xs">
+      <input bind:value={customName} placeholder="Name your custom model" class="flex-1 px-2 py-1 rounded border border-ink-300 dark:border-ink-700 bg-white dark:bg-ink-900" />
+      <button class="btn btn-sm btn-primary" onclick={saveCurrentAsCustom}>Save</button>
+      <button class="btn btn-sm" onclick={() => (editingCustom = false)}>Cancel</button>
+    </div>
+  {/if}
+
+  <div class="text-sm text-ink-600 dark:text-ink-300">{allModels[selectedIdx]?.description ?? ''}</div>
 
   <div class="grid lg:grid-cols-2 gap-3">
     <div>
@@ -200,10 +254,10 @@ such that
     </div>
   </div>
 
-  {#if MODELS[selectedIdx].solution}
+  {#if selectedIdx < MODELS.length && MODELS[selectedIdx].solution}
     <div class="keyfact"><span class="keyfact-title">Solution</span> — {MODELS[selectedIdx].solution}</div>
   {/if}
-  {#if MODELS[selectedIdx].notes}
+  {#if selectedIdx < MODELS.length && MODELS[selectedIdx].notes}
     <div class="nightingale"><span class="nightingale-title">Notes</span> — {MODELS[selectedIdx].notes}</div>
   {/if}
 

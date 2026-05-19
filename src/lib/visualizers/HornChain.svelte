@@ -8,6 +8,7 @@ A -> D
 C, D -> E
 E -> F`);
   let query = $state('F');
+  let mode = $state<'forward' | 'backward'>('forward');
 
   interface Rule { body: string[]; head: string; }
 
@@ -34,28 +35,72 @@ E -> F`);
 
   $effect(() => {
     const { facts, rules } = parse(input);
-    const known = new Set<string>(facts);
-    const t: typeof trace = [];
-    let step = 0;
-    for (const f of facts) {
-      step++;
-      t.push({ step, added: f, via: 'given fact' });
-    }
-    let changed = true;
-    while (changed) {
-      changed = false;
-      for (const r of rules) {
-        if (!known.has(r.head) && r.body.every((b) => known.has(b))) {
-          known.add(r.head);
-          step++;
-          t.push({ step, added: r.head, via: r.body.join(' ∧ ') + ' → ' + r.head });
-          changed = true;
+    if (mode === 'forward') {
+      const known = new Set<string>(facts);
+      const t: typeof trace = [];
+      let step = 0;
+      for (const f of facts) {
+        step++;
+        t.push({ step, added: f, via: 'given fact' });
+      }
+      let changed = true;
+      while (changed) {
+        changed = false;
+        for (const r of rules) {
+          if (!known.has(r.head) && r.body.every((b) => known.has(b))) {
+            known.add(r.head);
+            step++;
+            t.push({ step, added: r.head, via: r.body.join(' ∧ ') + ' → ' + r.head });
+            changed = true;
+          }
         }
       }
+      trace = t;
+      knownAtEnd = [...known];
+      provedQuery = query.trim() === '' ? null : known.has(query.trim());
+    } else {
+      // Backward chaining: prove query recursively
+      const t: typeof trace = [];
+      let step = 0;
+      const facts_ = new Set(facts);
+      const visiting = new Set<string>();    // for cycle detection
+      function prove(goal: string, indent: number): boolean {
+        step++;
+        if (facts_.has(goal)) {
+          t.push({ step, added: goal, via: `${' '.repeat(indent * 2)}✓ known fact` });
+          return true;
+        }
+        if (visiting.has(goal)) {
+          t.push({ step, added: goal, via: `${' '.repeat(indent * 2)}✗ cycle — skip` });
+          return false;
+        }
+        visiting.add(goal);
+        const applicable = rules.filter((r) => r.head === goal);
+        if (applicable.length === 0) {
+          t.push({ step, added: goal, via: `${' '.repeat(indent * 2)}✗ no rule produces ${goal}` });
+          visiting.delete(goal);
+          return false;
+        }
+        for (const r of applicable) {
+          t.push({ step, added: goal, via: `${' '.repeat(indent * 2)}try rule: ${r.body.join(', ')} → ${goal}` });
+          const allOk = r.body.every((sub) => prove(sub, indent + 1));
+          if (allOk) {
+            step++;
+            t.push({ step, added: goal, via: `${' '.repeat(indent * 2)}✓ ${goal} proved` });
+            visiting.delete(goal);
+            return true;
+          }
+        }
+        step++;
+        t.push({ step, added: goal, via: `${' '.repeat(indent * 2)}✗ failed all rules for ${goal}` });
+        visiting.delete(goal);
+        return false;
+      }
+      const ok = query.trim() ? prove(query.trim(), 0) : null;
+      trace = t;
+      knownAtEnd = [...facts_];
+      provedQuery = ok;
     }
-    trace = t;
-    knownAtEnd = [...known];
-    provedQuery = query.trim() === '' ? null : known.has(query.trim());
   });
 </script>
 
@@ -80,14 +125,23 @@ E -> F`);
     </div>
   </div>
 
+  <div class="flex gap-2 items-center text-xs">
+    <span>Mode:</span>
+    <div class="flex rounded-md border border-ink-300 dark:border-ink-700 overflow-hidden">
+      <button class="px-2 py-1 {mode === 'forward' ? 'bg-accent-100 dark:bg-accent-900/40' : ''}" onclick={() => (mode = 'forward')}>Forward chaining</button>
+      <button class="px-2 py-1 {mode === 'backward' ? 'bg-accent-100 dark:bg-accent-900/40' : ''}" onclick={() => (mode = 'backward')}>Backward chaining</button>
+    </div>
+    <span class="text-ink-500 ml-2">{mode === 'forward' ? 'Data-driven: start from facts, fire rules.' : 'Goal-directed: try to prove the query recursively.'}</span>
+  </div>
+
   <div class="card !p-3">
-    <div class="text-xs font-semibold uppercase tracking-wider text-ink-500 mb-2">Forward chain trace</div>
+    <div class="text-xs font-semibold uppercase tracking-wider text-ink-500 mb-2">{mode === 'forward' ? 'Forward chain' : 'Backward chain'} trace</div>
     <ol class="text-xs font-mono space-y-1 list-none p-0">
       {#each trace as t}
-        <li>
+        <li class="whitespace-pre">
           <span class="text-ink-500 mr-2">{t.step}.</span>
           <span class="font-bold text-emerald-700 dark:text-emerald-300">{t.added}</span>
-          <span class="text-ink-500 ml-2">— via {t.via}</span>
+          <span class="text-ink-500 ml-2">— {t.via}</span>
         </li>
       {/each}
     </ol>

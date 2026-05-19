@@ -1,5 +1,6 @@
 export type VizKey =
   | 'SearchGrid'
+  | 'SearchCompare'
   | 'SearchTree'
   | 'MinimaxTree'
   | 'MCTSTree'
@@ -14,6 +15,7 @@ export type VizKey =
   | 'CDCL'
   | 'WalkSAT'
   | 'CNFEncoder'
+  | 'TseitinEncoder'
   | 'ComplexityTable';
 
 export type CalloutKind = 'pitfall' | 'keyfact' | 'whatif' | 'nightingale';

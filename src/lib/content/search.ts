@@ -491,6 +491,7 @@ Used historically for puzzles (15-puzzle, Rubik's cube) where memory mattered.` 
           title: 'Interactive: A* vs UCS vs Greedy on a grid',
           blocks: [
             { kind: 'viz', viz: 'SearchGrid', title: 'Compare informed and uninformed search', props: { mode: 'informed' } },
+            { kind: 'viz', viz: 'SearchCompare', title: 'Side-by-side compare', props: {} },
           ],
         },
       ],

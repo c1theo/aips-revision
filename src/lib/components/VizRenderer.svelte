@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { VizKey } from '../types';
   import SearchGrid from '../visualizers/SearchGrid.svelte';
+  import SearchCompare from '../visualizers/SearchCompare.svelte';
   import SearchTree from '../visualizers/SearchTree.svelte';
   import MinimaxTree from '../visualizers/MinimaxTree.svelte';
   import MCTSTree from '../visualizers/MCTSTree.svelte';
@@ -15,6 +16,7 @@
   import CDCL from '../visualizers/CDCL.svelte';
   import WalkSAT from '../visualizers/WalkSAT.svelte';
   import CNFEncoder from '../visualizers/CNFEncoder.svelte';
+  import TseitinEncoder from '../visualizers/TseitinEncoder.svelte';
   import ComplexityTable from '../visualizers/ComplexityTable.svelte';
   import { vizExplanations } from '../vizExplanations';
   import Md from './Md.svelte';
@@ -22,8 +24,8 @@
   let { viz, title, props = {} } = $props<{ viz: VizKey; title?: string; props?: Record<string, any> }>();
 
   const map: Record<VizKey, any> = {
-    SearchGrid, SearchTree, MinimaxTree, MCTSTree, AC3, NQueens, MinConflicts,
-    EssencePrime, TruthTable, Resolution, HornChain, DPLL, CDCL, WalkSAT, CNFEncoder, ComplexityTable,
+    SearchGrid, SearchCompare, SearchTree, MinimaxTree, MCTSTree, AC3, NQueens, MinConflicts,
+    EssencePrime, TruthTable, Resolution, HornChain, DPLL, CDCL, WalkSAT, CNFEncoder, TseitinEncoder, ComplexityTable,
   };
   const Comp = $derived(map[viz]);
   const explanation = $derived(vizExplanations[viz as VizKey]);

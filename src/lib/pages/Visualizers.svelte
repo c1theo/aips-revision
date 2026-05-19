@@ -6,7 +6,8 @@
     {
       title: 'Search',
       items: [
-        { key: 'SearchGrid', label: 'Pathfinding grid', description: 'BFS · DFS · UCS · Greedy · A* side-by-side on a configurable grid.' },
+        { key: 'SearchGrid', label: 'Pathfinding grid', description: 'BFS · DFS · UCS · Greedy · A* on a configurable grid with heuristic, diagonals & weighted cells.' },
+        { key: 'SearchCompare', label: 'Side-by-side compare', description: 'Run any two algorithms on the same grid simultaneously.' },
       ],
     },
     {
@@ -29,8 +30,10 @@
       title: 'Logic',
       items: [
         { key: 'TruthTable', label: 'Truth-table builder', description: 'Parse any formula and tabulate.' },
-        { key: 'Resolution', label: 'Resolution proof', description: 'Step through a refutation; derive ⊥.' },
-        { key: 'HornChain', label: 'Forward chaining', description: 'Watch facts propagate through Horn rules.' },
+        { key: 'Resolution', label: 'Resolution proof', description: 'Step through a refutation; KB ⊨ α via dedicated query box.' },
+        { key: 'HornChain', label: 'Forward / backward chaining', description: 'Both modes; watch facts propagate or goals decompose.' },
+        { key: 'CNFEncoder', label: 'CNF conversion (4-step)', description: 'Equivalence-preserving, can blow up.' },
+        { key: 'TseitinEncoder', label: 'Tseitin transformation', description: 'Equisatisfiable, linear-size CNF using fresh variables.' },
       ],
     },
     {

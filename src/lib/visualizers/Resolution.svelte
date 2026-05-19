@@ -5,8 +5,9 @@
 
   let input = $state(`P, Q
 ~P, R
-~Q, R
-~R`);
+~Q, R`);
+  let query = $state('R');
+  let useQuery = $state(true);
   let log = $state<{ step: number; a: string[]; b: string[]; r: string[]; pivot: string }[]>([]);
   let success = $state(false);
   let error = $state('');
@@ -45,8 +46,16 @@
     let localSuccess = false;
     let localError = '';
     try {
-      const clauses = parseClauses(input).map((c) => c.map(normLit));
-      let known: string[][] = clauses.map((c) => [...new Set(c)]);
+      const parsedKB = parseClauses(input).map((c) => c.map(normLit));
+      let kbWithQuery = parsedKB;
+      if (useQuery && query.trim()) {
+        // Add negated query as a clause
+        const negated = query.trim().split(/[,\s]+/).filter(Boolean).map((l) => normLit(negate(normLit(l))));
+        // Each literal in the query separately, since "negation of P∧Q" = "¬P ∨ ¬Q" — single clause
+        // But for queries like "R" (single literal), it's just one clause with the negated literal.
+        kbWithQuery = [...parsedKB, negated];
+      }
+      let known: string[][] = kbWithQuery.map((c) => [...new Set(c)]);
       let knownKeys = new Set(known.map(clauseKey));
       let step = 0;
       let changed = true;
@@ -79,14 +88,20 @@
     success = localSuccess;
     error = localError;
   }
-  $effect(() => { input; run(); });
+  $effect(() => { input; query; useQuery; run(); });
 </script>
 
 <div class="space-y-3">
   <label class="block">
-    <span class="text-xs text-ink-500 block mb-1">Clauses (one per line; literals comma-separated; <code class="text-xs">~</code> for negation)</span>
+    <span class="text-xs text-ink-500 block mb-1">Knowledge-base clauses (one per line; literals comma-separated; <code class="text-xs">~</code> for negation)</span>
     <textarea class="w-full font-mono text-sm p-3 rounded border border-ink-300 dark:border-ink-700 bg-white dark:bg-ink-900" rows="6" bind:value={input}></textarea>
   </label>
+
+  <div class="card !p-2 flex items-center gap-2 text-xs">
+    <label class="flex items-center gap-1"><input type="checkbox" bind:checked={useQuery}>Prove KB ⊨</label>
+    <input class="flex-1 font-mono px-2 py-1 rounded border border-ink-300 dark:border-ink-700 bg-white dark:bg-ink-900" bind:value={query} placeholder="e.g. R (single literal) — the negation gets appended as a clause" disabled={!useQuery} />
+    <span class="text-ink-500">The visualizer appends <code class="font-mono">¬({query || '…'})</code> as an extra clause and refutes.</span>
+  </div>
 
   <div class="flex gap-2 flex-wrap text-xs">
     Try:

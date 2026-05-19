@@ -291,6 +291,8 @@ The empty clause is unsatisfiable by definition (a disjunction of no literals).
           title: 'Interactive: resolution proof',
           blocks: [
             { kind: 'viz', viz: 'Resolution', title: 'Step through a resolution refutation', props: {} },
+            { kind: 'viz', viz: 'CNFEncoder', title: 'CNF conversion (4-step)', props: {} },
+            { kind: 'viz', viz: 'TseitinEncoder', title: 'Tseitin transformation (equisatisfiable, linear-size)', props: {} },
           ],
         },
       ],

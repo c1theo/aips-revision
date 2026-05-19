@@ -16,6 +16,8 @@
   let nextId = 0;
   let branching = $state(2);
   let maxDepth = $state(4);
+  let leafText = $state('1, 0, 1, 1, 0, 0, 1, 0, 1, 0, 0, 1, 1, 1, 0, 0');
+  let useCustomLeaves = $state(false);
 
   function makeLeaves(depth: number, leafVals: number[], i: { v: number }): MNode {
     if (depth === maxDepth) {
@@ -35,9 +37,18 @@
 
   function reset(): MNode {
     nextId = 0;
-    // Generate random leaf values (0 or 1) for the requested shape
     const totalLeaves = Math.pow(branching, maxDepth);
-    const leaves = Array.from({ length: totalLeaves }, () => Math.random() < 0.5 ? 1 : 0);
+    let leaves: number[];
+    if (useCustomLeaves) {
+      const parsed = leafText.split(/[,\s]+/).filter(Boolean).map((v) => Math.max(0, Math.min(1, Number(v)))).filter((v) => !Number.isNaN(v));
+      if (parsed.length === 0) {
+        leaves = Array.from({ length: totalLeaves }, () => Math.random() < 0.5 ? 1 : 0);
+      } else {
+        leaves = Array.from({ length: totalLeaves }, (_, i) => parsed[i % parsed.length]);
+      }
+    } else {
+      leaves = Array.from({ length: totalLeaves }, () => Math.random() < 0.5 ? 1 : 0);
+    }
     return makeLeaves(0, leaves, { v: 0 });
   }
   let root = $state(reset());
@@ -155,6 +166,14 @@
     <label class="text-xs flex items-center gap-1">depth =
       <input type="number" min="2" max="5" bind:value={maxDepth} onchange={resetAll} class="w-12 px-1 py-0.5 rounded border border-ink-300 dark:border-ink-700 bg-white dark:bg-ink-900" />
     </label>
+  </div>
+
+  <div class="flex flex-wrap gap-2 items-center text-xs">
+    <label class="flex items-center gap-1"><input type="checkbox" bind:checked={useCustomLeaves} onchange={resetAll}>Custom leaf values</label>
+    {#if useCustomLeaves}
+      <input class="flex-1 px-2 py-1 rounded border border-ink-300 dark:border-ink-700 bg-white dark:bg-ink-900 font-mono" bind:value={leafText} placeholder="0/1 values, e.g. 1, 0, 1, 0, ..." />
+      <button class="btn btn-sm" onclick={resetAll}>Apply</button>
+    {/if}
   </div>
 
   <div class="flex gap-2 items-center text-xs text-ink-500">

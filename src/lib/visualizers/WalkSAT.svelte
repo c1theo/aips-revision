@@ -5,6 +5,8 @@
   let ratio = $state(4.27);
   let p = $state(0.5);
   let seed = $state(42);
+  let mode = $state<'random' | 'custom'>('random');
+  let customCNF = $state('1 2 -3\n-1 2\n2 -3\n-2 3 -1');
 
   let clauses = $state<number[][]>([]);
   let assignment = $state<boolean[]>([]);
@@ -18,21 +20,29 @@
   }
 
   function generate() {
-    const m = Math.round(ratio * nvars);
     const sd = { s: seed * 31 + 1 };
-    const cs: number[][] = [];
-    for (let i = 0; i < m; i++) {
-      const c: number[] = [];
-      while (c.length < 3) {
-        const v = 1 + Math.floor(rand(sd) * nvars);
-        if (c.some((l) => Math.abs(l) === v)) continue;
-        const lit = rand(sd) < 0.5 ? -v : v;
-        c.push(lit);
+    let cs: number[][];
+    let varCount: number;
+    if (mode === 'custom') {
+      cs = customCNF.split('\n').map((l) => l.trim()).filter(Boolean).map((l) => l.split(/[\s,]+/).map(Number).filter((n) => !Number.isNaN(n) && n !== 0));
+      varCount = cs.length === 0 ? 1 : Math.max(...cs.flat().map(Math.abs));
+    } else {
+      const m = Math.round(ratio * nvars);
+      cs = [];
+      for (let i = 0; i < m; i++) {
+        const c: number[] = [];
+        while (c.length < 3) {
+          const v = 1 + Math.floor(rand(sd) * nvars);
+          if (c.some((l) => Math.abs(l) === v)) continue;
+          const lit = rand(sd) < 0.5 ? -v : v;
+          c.push(lit);
+        }
+        cs.push(c);
       }
-      cs.push(c);
+      varCount = nvars;
     }
     clauses = cs;
-    assignment = Array.from({ length: nvars + 1 }, () => rand(sd) < 0.5);
+    assignment = Array.from({ length: varCount + 1 }, () => rand(sd) < 0.5);
     flips = 0;
     history = [];
     recomputeUnsat();
@@ -103,15 +113,21 @@
 
 <div class="space-y-3">
   <div class="flex flex-wrap gap-3 items-center">
-    <label class="text-xs">n =
-      <input type="number" min="5" max="80" bind:value={nvars} class="w-12 px-1 py-0.5 rounded border border-ink-300 dark:border-ink-700 bg-white dark:bg-ink-900" />
-    </label>
-    <label class="text-xs">ratio m/n =
-      <input type="number" min="1" max="10" step="0.1" bind:value={ratio} class="w-14 px-1 py-0.5 rounded border border-ink-300 dark:border-ink-700 bg-white dark:bg-ink-900" />
-    </label>
-    <label class="text-xs">seed =
-      <input type="number" bind:value={seed} class="w-16 px-1 py-0.5 rounded border border-ink-300 dark:border-ink-700 bg-white dark:bg-ink-900" />
-    </label>
+    <div class="flex rounded-md border border-ink-300 dark:border-ink-700 overflow-hidden text-xs">
+      <button class="px-2 py-1 {mode === 'random' ? 'bg-accent-100 dark:bg-accent-900/40' : ''}" onclick={() => { mode = 'random'; generate(); }}>Random 3-SAT</button>
+      <button class="px-2 py-1 {mode === 'custom' ? 'bg-accent-100 dark:bg-accent-900/40' : ''}" onclick={() => { mode = 'custom'; generate(); }}>Custom CNF</button>
+    </div>
+    {#if mode === 'random'}
+      <label class="text-xs">n =
+        <input type="number" min="5" max="80" bind:value={nvars} class="w-12 px-1 py-0.5 rounded border border-ink-300 dark:border-ink-700 bg-white dark:bg-ink-900" />
+      </label>
+      <label class="text-xs">ratio m/n =
+        <input type="number" min="1" max="10" step="0.1" bind:value={ratio} class="w-14 px-1 py-0.5 rounded border border-ink-300 dark:border-ink-700 bg-white dark:bg-ink-900" />
+      </label>
+      <label class="text-xs">seed =
+        <input type="number" bind:value={seed} class="w-16 px-1 py-0.5 rounded border border-ink-300 dark:border-ink-700 bg-white dark:bg-ink-900" />
+      </label>
+    {/if}
     <label class="text-xs flex items-center gap-1">noise p =
       <input type="range" min="0" max="1" step="0.05" bind:value={p} class="w-32" />
       <span class="font-mono">{p.toFixed(2)}</span>
@@ -121,15 +137,22 @@
     <button class="btn btn-sm" onclick={step}>Step</button>
   </div>
 
+  {#if mode === 'custom'}
+    <label class="block">
+      <span class="text-xs text-ink-500 block mb-1">Custom CNF — one clause per line, integers for variables (negative = negation)</span>
+      <textarea class="w-full font-mono text-xs p-2 rounded border border-ink-300 dark:border-ink-700 bg-white dark:bg-ink-900" rows="4" bind:value={customCNF}></textarea>
+    </label>
+  {/if}
+
   <div class="text-sm">
     <b>{clauses.length}</b> clauses · <b>{unsatCount}</b> unsatisfied · <b>{flips}</b> flips
     {#if unsatCount === 0}<span class="ml-2 text-emerald-700 dark:text-emerald-300 font-medium">✓ SAT found!</span>{/if}
   </div>
 
   <div>
-    <div class="text-xs font-semibold mb-1 text-ink-500">Current assignment</div>
+    <div class="text-xs font-semibold mb-1 text-ink-500">Current assignment ({assignment.length - 1} vars)</div>
     <div class="flex flex-wrap gap-0.5 font-mono text-[10px]">
-      {#each Array(nvars) as _, idx (idx)}
+      {#each Array(Math.max(0, assignment.length - 1)) as _, idx (idx)}
         {@const v = assignment[idx + 1]}
         <div class="w-6 h-6 flex items-center justify-center rounded {v ? 'bg-emerald-200 dark:bg-emerald-800 text-emerald-900 dark:text-emerald-100' : 'bg-rose-200 dark:bg-rose-800 text-rose-900 dark:text-rose-100'} border border-ink-300 dark:border-ink-700" title="x{idx + 1} = {v ? 'T' : 'F'}">
           x{idx + 1}

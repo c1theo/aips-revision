@@ -4,6 +4,25 @@
 
   type Problem = 'australia' | 'custom';
   let problem = $state<Problem>('australia');
+  let customSpec = $state(`# Variables in form: name=domain (comma-list)
+# Edges in form: A-B  (means A≠B constraint, symmetric)
+WA=R,G,B
+NT=R,G,B
+SA=R,G,B
+Q=R,G,B
+NSW=R,G,B
+V=R,G,B
+T=R,G,B
+edges:
+WA-NT
+WA-SA
+NT-SA
+NT-Q
+SA-Q
+SA-NSW
+SA-V
+Q-NSW
+NSW-V`);
 
   type Domain = Record<string, (string | number)[]>;
 
@@ -22,7 +41,41 @@
     return { vars, D, C };
   }
 
+  function parseCustom(spec: string): { vars: string[]; D: Domain; C: Constraint[] } {
+    const vars: string[] = [];
+    const D: Domain = {};
+    const edges: [string, string][] = [];
+    let edgeMode = false;
+    for (const lineR of spec.split('\n')) {
+      const line = lineR.trim();
+      if (!line || line.startsWith('#')) continue;
+      if (line.toLowerCase() === 'edges:') { edgeMode = true; continue; }
+      if (!edgeMode) {
+        const m = line.match(/^([A-Za-z_]\w*)\s*=\s*(.+)$/);
+        if (m) {
+          vars.push(m[1]);
+          D[m[1]] = m[2].split(/[,\s]+/).filter(Boolean);
+        }
+      } else {
+        const parts = line.split(/[-\s,]+/).filter(Boolean);
+        if (parts.length === 2) edges.push([parts[0], parts[1]]);
+      }
+    }
+    const C: Constraint[] = [];
+    for (const [a, b] of edges) {
+      C.push({ a, b, predicate: (x, y) => x !== y, label: `${a} ≠ ${b}` });
+      C.push({ a: b, b: a, predicate: (x, y) => x !== y, label: `${b} ≠ ${a}` });
+    }
+    return { vars, D, C };
+  }
+
   let setup = $state(australia());
+  $effect(() => {
+    if (problem === 'australia') setup = australia();
+    else {
+      try { setup = parseCustom(customSpec); } catch (e) {}
+    }
+  });
   let initialQueue = $derived(setup.C.map((c) => ({ a: c.a, b: c.b, label: c.label })));
 
   interface Step {
@@ -78,28 +131,57 @@
 
   let steps = $state<Step[]>(runAC3());
   let idx = $state(0);
+  $effect(() => { setup; steps = runAC3(); idx = 0; });
   function reset() {
-    setup = australia();
+    if (problem === 'australia') setup = australia();
+    else setup = parseCustom(customSpec);
     steps = runAC3();
     idx = 0;
   }
 
   // Force a specific colour to see propagation
-  function force(varName: string, colour: string) {
+  function force(varName: string, colour: string | number) {
     setup.D[varName] = [colour];
     steps = runAC3();
     idx = 0;
   }
 
   function colourFor(c: string | number): string {
-    if (c === 'R') return '#fecaca';
-    if (c === 'G') return '#bbf7d0';
-    if (c === 'B') return '#bfdbfe';
-    return '#e2e8f0';
+    const s = String(c);
+    if (s === 'R') return '#fecaca';
+    if (s === 'G') return '#bbf7d0';
+    if (s === 'B') return '#bfdbfe';
+    if (s === 'Y') return '#fef3c7';
+    if (s === 'O') return '#fed7aa';
+    if (s === 'P') return '#e9d5ff';
+    // hash-based fallback
+    let h = 0; for (const ch of s) h = (h * 31 + ch.charCodeAt(0)) % 360;
+    return `hsl(${h}, 65%, 80%)`;
   }
+
+  const allDomainValues = $derived.by(() => {
+    const set = new Set<string | number>();
+    setup.vars.forEach((v) => setup.D[v].forEach((x) => set.add(x)));
+    return [...set];
+  });
 </script>
 
 <div class="space-y-3">
+  <div class="flex flex-wrap gap-2 items-center text-xs">
+    <span>Problem:</span>
+    <div class="flex rounded-md border border-ink-300 dark:border-ink-700 overflow-hidden">
+      <button class="px-2 py-1 {problem === 'australia' ? 'bg-accent-100 dark:bg-accent-900/40' : ''}" onclick={() => (problem = 'australia')}>Australia map</button>
+      <button class="px-2 py-1 {problem === 'custom' ? 'bg-accent-100 dark:bg-accent-900/40' : ''}" onclick={() => (problem = 'custom')}>Custom CSP</button>
+    </div>
+  </div>
+
+  {#if problem === 'custom'}
+    <label class="block">
+      <span class="text-xs text-ink-500 block mb-1">Custom CSP spec — variables (Name=v1,v2,…) then <code>edges:</code> then edge lines (A-B = the inequality X_A ≠ X_B). Comments with #.</span>
+      <textarea class="w-full font-mono text-xs p-2 rounded border border-ink-300 dark:border-ink-700 bg-white dark:bg-ink-900" rows="10" bind:value={customSpec}></textarea>
+    </label>
+  {/if}
+
   <div class="flex flex-wrap gap-2 items-center">
     <button class="btn btn-sm" onclick={() => (idx = Math.max(0, idx - 1))} disabled={idx === 0}>⏮ Prev</button>
     <button class="btn btn-sm btn-primary" onclick={() => (idx = Math.min(steps.length - 1, idx + 1))} disabled={idx >= steps.length - 1}>Next ⏭</button>
@@ -112,20 +194,20 @@
   <div class="grid sm:grid-cols-2 gap-4">
     <div>
       <h4 class="text-sm font-semibold mb-2">Domains</h4>
-      <div class="grid grid-cols-7 gap-1 text-xs font-mono">
+      <div class="grid {setup.vars.length > 8 ? 'grid-cols-4' : 'grid-cols-7'} gap-1 text-xs font-mono">
         {#each setup.vars as v}
           <div class="card !p-2 text-center">
             <div class="font-bold text-sm">{v}</div>
-            <div class="flex justify-center gap-0.5 mt-1">
-              {#each ['R','G','B'] as col}
+            <div class="flex justify-center gap-0.5 mt-1 flex-wrap">
+              {#each allDomainValues as col}
                 {@const inD = steps[idx]?.D[v]?.includes(col)}
-                <span class="inline-block w-4 h-4 rounded-sm border" style:background-color={inD ? colourFor(col) : '#f8fafc'} style:opacity={inD ? '1' : '0.2'} style:border-color={inD ? '#475569' : '#cbd5e1'} title={col}></span>
+                <span class="inline-block w-4 h-4 rounded-sm border" style:background-color={inD ? colourFor(col) : '#f8fafc'} style:opacity={inD ? '1' : '0.2'} style:border-color={inD ? '#475569' : '#cbd5e1'} title={String(col)}></span>
               {/each}
             </div>
             <div class="text-[10px] text-ink-500 mt-1">{steps[idx]?.D[v]?.join(',')}</div>
-            <div class="flex gap-0.5 justify-center mt-1">
-              {#each ['R','G','B'] as col}
-                <button class="text-[9px] px-1 rounded border border-ink-300 dark:border-ink-700 hover:bg-accent-100" onclick={() => force(v, col)}>{col}</button>
+            <div class="flex gap-0.5 justify-center mt-1 flex-wrap">
+              {#each setup.D[v] as col}
+                <button class="text-[9px] px-1 rounded border border-ink-300 dark:border-ink-700 hover:bg-accent-100" onclick={() => force(v, String(col))}>{col}</button>
               {/each}
             </div>
           </div>

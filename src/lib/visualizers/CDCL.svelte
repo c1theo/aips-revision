@@ -8,6 +8,8 @@
 -1 6
 -2 -6
 3 5 -6`);
+  let heuristic = $state<'first' | 'vsids'>('first');
+  let vsidsScores = new Map<number, number>();
 
   interface AssignedLit {
     var: number;
@@ -59,6 +61,12 @@
     let decisionLevel = 0;
     const allVars = new Set<number>();
     clauses.forEach((c) => c.forEach((l) => allVars.add(Math.abs(l))));
+    vsidsScores = new Map();
+    // initial scoring (DLIS-like)
+    clauses.forEach((c) => c.forEach((l) => {
+      const v = Math.abs(l);
+      vsidsScores.set(v, (vsidsScores.get(v) ?? 0) + 1);
+    }));
 
     function snapshot(msg: string, conflict?: Step['conflict'], backjumpTo?: number) {
       log.push({
@@ -101,8 +109,12 @@
     }
 
     function pickVar(): number | undefined {
-      for (const v of allVars) if (!assignment.has(v)) return v;
-      return undefined;
+      const unassigned = [...allVars].filter((v) => !assignment.has(v));
+      if (unassigned.length === 0) return undefined;
+      if (heuristic === 'first') return unassigned[0];
+      // VSIDS — pick highest-scored
+      unassigned.sort((a, b) => (vsidsScores.get(b) ?? 0) - (vsidsScores.get(a) ?? 0));
+      return unassigned[0];
     }
 
     function analyze(conflict: number[]): { learnt: number[]; backjumpLevel: number } {
@@ -150,6 +162,13 @@
         const { learnt: lc, backjumpLevel } = analyze(conflict.clause);
         snapshot(`Conflict! Learn clause ${fmtClause(lc)}; backjump from level ${decisionLevel} to ${backjumpLevel}.`, conflict, backjumpLevel);
         learnt.push(lc);
+        // VSIDS bump for each literal in learnt clause
+        for (const lit of lc) {
+          const v = Math.abs(lit);
+          vsidsScores.set(v, (vsidsScores.get(v) ?? 0) + 1);
+        }
+        // periodic decay
+        if (log.length % 8 === 0) for (const k of vsidsScores.keys()) vsidsScores.set(k, vsidsScores.get(k)! * 0.95);
         // undo trail to backjumpLevel
         while (trail.length > 0 && trail[trail.length - 1].decisionLevel > backjumpLevel) {
           const t = trail.pop()!;
@@ -174,7 +193,7 @@
     result = 'iteration limit';
     steps = log;
   }
-  $effect(() => { input; run(); });
+  $effect(() => { input; heuristic; run(); });
 
   function fmtClause(c: number[]) {
     if (c.length === 0) return '□';
@@ -193,6 +212,12 @@
     <button class="btn btn-sm" onclick={() => (input = '1 2 -3\n-2 4\n-3 -4 5\n-1 -5\n-1 6\n-2 -6\n3 5 -6')}>Example (forces learning)</button>
     <button class="btn btn-sm" onclick={() => (input = '1 2\n-1 2\n1 -2\n-1 -2')}>UNSAT</button>
     <button class="btn btn-sm" onclick={() => (input = '1 -2 3\n-1 2\n2 -3')}>SAT (simple)</button>
+    <label class="flex items-center gap-1 ml-3">Branching:
+      <select bind:value={heuristic} class="px-1 py-0.5 rounded border border-ink-300 dark:border-ink-700 bg-white dark:bg-ink-900">
+        <option value="first">First unassigned</option>
+        <option value="vsids">VSIDS</option>
+      </select>
+    </label>
   </div>
 
   <div class="text-sm font-medium">{result}</div>
@@ -230,6 +255,63 @@
           </div>
         </div>
       </div>
+
+      {#if steps[stepIdx].assignments.length > 0}
+        {@const trail = steps[stepIdx].assignments}
+        {@const levels = [...new Set(trail.map((a) => a.decisionLevel))].sort((a, b) => a - b)}
+        {@const xByLevel = Object.fromEntries(levels.map((l, i) => [l, 80 + i * 130]))}
+        {@const yByVar = Object.fromEntries(trail.map((a, i) => [a.var, 30 + (i % 6) * 40]))}
+        {@const W = Math.max(500, 80 + (levels.length + 1) * 130)}
+        {@const H = Math.max(220, 60 + Math.min(6, trail.length) * 40)}
+        <div class="mt-4">
+          <div class="text-xs font-semibold uppercase tracking-wider text-ink-500 mb-2">Implication graph</div>
+          <svg viewBox="0 0 {W} {H}" preserveAspectRatio="xMidYMid meet" class="w-full border border-ink-200 dark:border-ink-700 rounded bg-ink-50 dark:bg-ink-900" style="height: {H}px">
+            <!-- level columns -->
+            {#each levels as l}
+              <line x1={xByLevel[l]} y1="10" x2={xByLevel[l]} y2={H - 10} stroke="#cbd5e1" stroke-dasharray="2 2" />
+              <text x={xByLevel[l]} y="14" font-size="9" fill="#64748b" text-anchor="middle">L{l}</text>
+            {/each}
+            <!-- edges from antecedents -->
+            {#each trail as a}
+              {#if a.antecedent}
+                {#each a.antecedent.filter((l: number) => Math.abs(l) !== a.var) as antLit}
+                  {@const fromVar = Math.abs(antLit)}
+                  {@const fromTrail = trail.find((t) => t.var === fromVar)}
+                  {#if fromTrail}
+                    <line x1={xByLevel[fromTrail.decisionLevel]} y1={yByVar[fromVar]} x2={xByLevel[a.decisionLevel]} y2={yByVar[a.var]} stroke="#64748b" stroke-width="1" marker-end="url(#arrow)" />
+                  {/if}
+                {/each}
+              {/if}
+            {/each}
+            <!-- conflict edges -->
+            {#if steps[stepIdx].conflict}
+              {#each steps[stepIdx].conflict.clause.filter((l: number) => trail.find((t) => t.var === Math.abs(l))) as cLit}
+                {@const v = Math.abs(cLit)}
+                {@const fromTrail = trail.find((t) => t.var === v)}
+                {#if fromTrail}
+                  <line x1={xByLevel[fromTrail.decisionLevel]} y1={yByVar[v]} x2={W - 30} y2={H / 2} stroke="#dc2626" stroke-width="1.5" stroke-dasharray="3 2" />
+                {/if}
+              {/each}
+              <circle cx={W - 30} cy={H / 2} r="14" fill="#fecaca" stroke="#dc2626" stroke-width="2" />
+              <text x={W - 30} y={H / 2 + 4} font-size="10" font-weight="bold" text-anchor="middle" fill="#991b1b">⊥</text>
+            {/if}
+            <!-- nodes -->
+            {#each trail as a}
+              {@const isDecision = !a.antecedent}
+              <circle cx={xByLevel[a.decisionLevel]} cy={yByVar[a.var]} r="14" fill={isDecision ? '#dbeafe' : '#f1f5f9'} stroke={isDecision ? '#1e40af' : '#475569'} stroke-width={isDecision ? 2 : 1} />
+              <text x={xByLevel[a.decisionLevel]} y={yByVar[a.var] + 4} font-size="10" font-weight="bold" text-anchor="middle" fill="#0f172a">{a.val ? '' : '¬'}x{a.var}</text>
+            {/each}
+            <defs>
+              <marker id="arrow" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                <path d="M0,0 L8,4 L0,8 z" fill="#64748b" />
+              </marker>
+            </defs>
+          </svg>
+          <div class="text-xs text-ink-500 mt-1">
+            Blue nodes = decisions (no incoming edges). Grey = propagated. Red ⊥ = conflict node.
+          </div>
+        </div>
+      {/if}
     </div>
   {/if}
 
