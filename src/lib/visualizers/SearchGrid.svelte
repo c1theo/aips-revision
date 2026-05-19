@@ -49,6 +49,11 @@
     frontier: Set<string>;
     explored: Set<string>;
     current: [number, number] | null;
+    msg: string;
+    g?: number;
+    hVal?: number;
+    f?: number;
+    addedChildren?: { node: [number, number]; g: number; h: number; f: number }[];
     path?: [number, number][];
   };
   let steps = $state<Step[]>([]);
@@ -89,42 +94,64 @@
     const steps_: Step[] = [];
     const cameFrom = new Map<string, string>();
 
+    function fmt(node: [number, number]) { return `(${node[0]},${node[1]})`; }
+
     if (algo === 'BFS') {
       const frontier: [number, number][] = [s];
       const frontierSet = new Set<string>([key(...s)]);
       const explored = new Set<string>();
+      let expansion = 0;
       while (frontier.length) {
         const node = frontier.shift()!;
         frontierSet.delete(key(...node));
         explored.add(key(...node));
-        steps_.push({ frontier: new Set(frontierSet), explored: new Set(explored), current: node });
-        if (node[0] === g[0] && node[1] === g[1]) break;
-        for (const { node: nb } of neighbours(...node)) {
-          const k = key(...nb);
-          if (!explored.has(k) && !frontierSet.has(k)) {
-            cameFrom.set(k, key(...node));
-            frontier.push(nb); frontierSet.add(k);
+        expansion += 1;
+        const added: { node: [number, number]; g: number; h: number; f: number }[] = [];
+        const isGoal = node[0] === g[0] && node[1] === g[1];
+        const msg = isGoal
+          ? `Step ${expansion}: GOAL ${fmt(node)} reached. Path reconstruction begins.`
+          : `Step ${expansion}: Pop ${fmt(node)} (FIFO). Mark explored. Expanding…`;
+        if (!isGoal) {
+          for (const { node: nb } of neighbours(...node)) {
+            const k = key(...nb);
+            if (!explored.has(k) && !frontierSet.has(k)) {
+              cameFrom.set(k, key(...node));
+              frontier.push(nb); frontierSet.add(k);
+              added.push({ node: nb, g: 0, h: 0, f: 0 });
+            }
           }
         }
+        steps_.push({ frontier: new Set(frontierSet), explored: new Set(explored), current: node, msg, addedChildren: added });
+        if (isGoal) break;
       }
     } else if (algo === 'DFS') {
       const stack: [number, number][] = [s];
       const onStack = new Set<string>([key(...s)]);
       const explored = new Set<string>();
+      let expansion = 0;
       while (stack.length) {
         const node = stack.pop()!;
         onStack.delete(key(...node));
         if (explored.has(key(...node))) continue;
         explored.add(key(...node));
-        steps_.push({ frontier: new Set(onStack), explored: new Set(explored), current: node });
-        if (node[0] === g[0] && node[1] === g[1]) break;
-        for (const { node: nb } of neighbours(...node)) {
-          const k = key(...nb);
-          if (!explored.has(k)) {
-            cameFrom.set(k, key(...node));
-            stack.push(nb); onStack.add(k);
+        expansion += 1;
+        const isGoal = node[0] === g[0] && node[1] === g[1];
+        const added: { node: [number, number]; g: number; h: number; f: number }[] = [];
+        const msg = isGoal
+          ? `Step ${expansion}: GOAL ${fmt(node)} reached.`
+          : `Step ${expansion}: Pop ${fmt(node)} from stack (LIFO). Mark explored.`;
+        if (!isGoal) {
+          for (const { node: nb } of neighbours(...node)) {
+            const k = key(...nb);
+            if (!explored.has(k)) {
+              cameFrom.set(k, key(...node));
+              stack.push(nb); onStack.add(k);
+              added.push({ node: nb, g: 0, h: 0, f: 0 });
+            }
           }
         }
+        steps_.push({ frontier: new Set(onStack), explored: new Set(explored), current: node, msg, addedChildren: added });
+        if (isGoal) break;
       }
     } else {
       type PQItem = { node: [number, number]; g: number; f: number };
@@ -139,6 +166,7 @@
         return item.g + h(item.node, g);
       }
 
+      let expansion = 0;
       while (pq.length) {
         pq.sort((a, b) => priority(a) - priority(b));
         const item = pq.shift()!;
@@ -146,18 +174,35 @@
         frontierSet.delete(k0);
         if (explored.has(k0)) continue;
         explored.add(k0);
-        steps_.push({ frontier: new Set(frontierSet), explored: new Set(explored), current: item.node });
-        if (item.node[0] === g[0] && item.node[1] === g[1]) break;
-        for (const { node: nb, cost } of neighbours(...item.node)) {
-          const kn = key(...nb);
-          const tentative = item.g + cost;
-          if (!gScore.has(kn) || tentative < gScore.get(kn)!) {
-            gScore.set(kn, tentative);
-            cameFrom.set(kn, k0);
-            pq.push({ node: nb, g: tentative, f: priority({ node: nb, g: tentative, f: 0 }) });
-            frontierSet.add(kn);
+        expansion += 1;
+        const hv = h(item.node, g);
+        const fv = algo === 'Greedy' ? hv : item.g + hv;
+        const isGoal = item.node[0] === g[0] && item.node[1] === g[1];
+        const added: { node: [number, number]; g: number; h: number; f: number }[] = [];
+        let msg: string;
+        if (isGoal) {
+          msg = `Step ${expansion}: GOAL ${fmt(item.node)} reached. g=${item.g.toFixed(2)}.`;
+        } else {
+          const prio = algo === 'UCS' ? `g=${item.g.toFixed(2)}` : algo === 'Greedy' ? `h=${hv.toFixed(2)}` : `f=g+h=${item.g.toFixed(2)}+${hv.toFixed(2)}=${fv.toFixed(2)}`;
+          msg = `Step ${expansion}: Pop ${fmt(item.node)} (lowest ${algo === 'UCS' ? 'g' : algo === 'Greedy' ? 'h' : 'f'}=${(algo === 'UCS' ? item.g : algo === 'Greedy' ? hv : fv).toFixed(2)}). ${prio}.`;
+        }
+        if (!isGoal) {
+          for (const { node: nb, cost } of neighbours(...item.node)) {
+            const kn = key(...nb);
+            const tentative = item.g + cost;
+            if (!gScore.has(kn) || tentative < gScore.get(kn)!) {
+              gScore.set(kn, tentative);
+              cameFrom.set(kn, k0);
+              const nbH = h(nb, g);
+              const nbF = algo === 'Greedy' ? nbH : tentative + nbH;
+              pq.push({ node: nb, g: tentative, f: nbF });
+              frontierSet.add(kn);
+              added.push({ node: nb, g: tentative, h: nbH, f: nbF });
+            }
           }
         }
+        steps_.push({ frontier: new Set(frontierSet), explored: new Set(explored), current: item.node, msg, g: item.g, hVal: hv, f: fv, addedChildren: added });
+        if (isGoal) break;
       }
     }
 
@@ -365,4 +410,44 @@
     <span class="flex items-center gap-1"><span class="inline-block w-3 h-3 bg-accent-100 border border-accent-200 rounded-sm"></span>frontier</span>
     <span class="flex items-center gap-1"><span class="inline-block w-3 h-3 bg-amber-300 rounded-sm"></span>path</span>
   </div>
+
+  {#if steps[stepIdx]}
+    {@const cur = steps[stepIdx]}
+    <div class="grid lg:grid-cols-3 gap-3 mt-2">
+      <div class="card !p-3 lg:col-span-2">
+        <div class="text-xs uppercase tracking-wider text-ink-500 font-semibold mb-1">Live trace — current step</div>
+        <div class="text-sm font-medium">{cur.msg}</div>
+        {#if cur.addedChildren && cur.addedChildren.length > 0}
+          <div class="mt-2 text-xs">
+            <div class="text-ink-500 font-semibold mb-0.5">Children added to frontier:</div>
+            <ul class="font-mono text-xs space-y-0.5">
+              {#each cur.addedChildren as ch}
+                <li>· ({ch.node[0]},{ch.node[1]}) — {algo === 'BFS' || algo === 'DFS' ? '' : `g=${ch.g.toFixed(2)}, h=${ch.h.toFixed(2)}, f=${ch.f.toFixed(2)}`}</li>
+              {/each}
+            </ul>
+          </div>
+        {/if}
+        <div class="mt-2 grid grid-cols-2 gap-2 text-xs">
+          <div>
+            <div class="text-ink-500 font-semibold mb-0.5">Frontier ({cur.frontier.size})</div>
+            <div class="font-mono text-[10px] max-h-20 overflow-y-auto leading-tight">
+              {[...cur.frontier].map((k) => '(' + k + ')').join(', ') || '(empty)'}
+            </div>
+          </div>
+          <div>
+            <div class="text-ink-500 font-semibold mb-0.5">Explored ({cur.explored.size})</div>
+            <div class="text-ink-500 text-[11px]">{cur.explored.size} cells visited so far</div>
+          </div>
+        </div>
+      </div>
+      <div class="card !p-3">
+        <div class="text-xs uppercase tracking-wider text-ink-500 font-semibold mb-1">Recent expansions</div>
+        <ol class="font-mono text-[11px] space-y-0.5 list-none p-0 max-h-44 overflow-y-auto">
+          {#each steps.slice(Math.max(0, stepIdx - 9), stepIdx + 1).reverse() as st, i}
+            <li class="{i === 0 ? 'font-semibold text-accent-700 dark:text-accent-300' : 'text-ink-500'}">{st.msg}</li>
+          {/each}
+        </ol>
+      </div>
+    </div>
+  {/if}
 </div>

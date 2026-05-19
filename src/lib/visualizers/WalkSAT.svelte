@@ -13,6 +13,7 @@
   let unsatCount = $state(0);
   let history = $state<number[]>([]);
   let flips = $state(0);
+  let trace = $state<string[]>([]);
 
   function rand(seed_: { s: number }): number {
     seed_.s = (seed_.s * 9301 + 49297) % 233280;
@@ -45,6 +46,7 @@
     assignment = Array.from({ length: varCount + 1 }, () => rand(sd) < 0.5);
     flips = 0;
     history = [];
+    trace = [`Initial random assignment (${varCount} vars). ${cs.length} clauses generated.`];
     recomputeUnsat();
   }
   generate();
@@ -61,36 +63,41 @@
     history = [...history, unsatCount].slice(-300);
   }
 
+  function fmtClause(c: number[]): string {
+    return '(' + c.map((l) => (l < 0 ? '¬' : '') + 'x' + Math.abs(l)).join(' ∨ ') + ')';
+  }
+
   function step(): boolean {
     if (unsatCount === 0) return false;
     const unsat = clauses.filter((c) => !isSat(c, assignment));
     const c = unsat[Math.floor(Math.random() * unsat.length)];
     let chosen: number;
+    let reason: string;
     if (Math.random() < p) {
       chosen = c[Math.floor(Math.random() * c.length)];
+      reason = `random walk (p=${p.toFixed(2)})`;
     } else {
-      // min break-count
       let best: number[] = [];
       let bestN = Infinity;
       for (const lit of c) {
         const v = Math.abs(lit);
-        // flip and count break (currently sat clauses that become unsat)
         assignment[v] = !assignment[v];
         let breaks = 0;
         for (const cc of clauses) if (isSat(cc, assignment) === false) breaks += 1;
-        // restore
         assignment[v] = !assignment[v];
-        // breaks here is the new unsat count, but we want change. Simpler:
         if (breaks < bestN) { bestN = breaks; best = [lit]; }
         else if (breaks === bestN) best.push(lit);
       }
       chosen = best[Math.floor(Math.random() * best.length)];
+      reason = `greedy (min break-count = ${bestN})`;
     }
     const v = Math.abs(chosen);
+    const beforeVal = assignment[v];
     assignment[v] = !assignment[v];
     assignment = assignment;
     flips += 1;
     recomputeUnsat();
+    trace = [...trace, `Flip ${flips}: picked unsat clause ${fmtClause(c)} → flipped x${v} (${beforeVal ? 'T→F' : 'F→T'}) via ${reason}. Now ${unsatCount} unsat.`].slice(-100);
     return true;
   }
 
@@ -173,4 +180,13 @@
   </div>
 
   <div class="text-xs text-ink-500">Try p = 0 (pure greedy) vs p = 1 (pure random). Watch the time-to-SAT difference.</div>
+
+  <div class="card !p-3">
+    <div class="text-xs uppercase tracking-wider text-ink-500 font-semibold mb-1">Live trace ({trace.length} events)</div>
+    <ol class="font-mono text-[11px] space-y-0.5 list-none p-0 max-h-44 overflow-y-auto">
+      {#each trace.slice().reverse() as t, i}
+        <li class="{i === 0 ? 'font-semibold text-accent-700 dark:text-accent-300' : 'text-ink-500'}">{t}</li>
+      {/each}
+    </ol>
+  </div>
 </div>

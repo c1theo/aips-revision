@@ -21,9 +21,10 @@
       title: 'CSP',
       items: [
         { key: 'AC3', label: 'AC-3 stepper', description: 'Map colouring + arc queue, step or autoplay.' },
-        { key: 'NQueens', label: 'N-Queens backtracking', description: 'MRV / LCV / FC / MAC toggles; see the search tree.' },
-        { key: 'MinConflicts', label: 'Min-conflicts', description: 'Local-search n-queens animation.' },
-        { key: 'EssencePrime', label: 'Essence Prime editor', description: 'Browse and edit canonical models.' },
+        { key: 'NQueens', label: 'N-Queens / Graph colouring backtracking', description: 'MRV / LCV / FC toggles; see the search tree.' },
+        { key: 'MinConflicts', label: 'Min-conflicts', description: 'Local-search n-queens / graph colouring animation with live trace.' },
+        { key: 'TwoWayBranching', label: '2-way vs d-way branching', description: 'See how branching style reshapes the search tree.' },
+        { key: 'EssencePrime', label: 'Essence Prime editor', description: 'Browse, edit, and save custom models.' },
       ],
     },
     {

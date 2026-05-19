@@ -8,6 +8,7 @@
   let assignment = $state<number[]>([]);
   let history = $state<number[]>([]);
   let steps = $state(0);
+  let trace = $state<string[]>([]);
 
   function parseEdges(): [number, number][] {
     return edgesText.split('\n').map((l) => l.trim()).filter(Boolean).map((l) => {
@@ -28,6 +29,7 @@
     assignment = a;
     history = [conflicts(a)];
     steps = 0;
+    trace = [`Initial random assignment. Total conflicts: ${conflicts(a)}.`];
   }
   init();
   $effect(() => {
@@ -78,6 +80,8 @@
     const rows = rowsInConflict(assignment);
     if (rows.length === 0) return false;
     const r = rows[Math.floor(Math.random() * rows.length)];
+    const beforeVal = assignment[r];
+    const beforeConfAtR = conflictsAt(assignment, r, beforeVal);
     let best: number[] = [];
     let bestN = Infinity;
     const numVals = problem === 'queens' ? n : k;
@@ -86,10 +90,16 @@
       if (ck < bestN) { bestN = ck; best = [c]; }
       else if (ck === bestN) best.push(c);
     }
-    assignment[r] = best[Math.floor(Math.random() * best.length)];
+    const newVal = best[Math.floor(Math.random() * best.length)];
+    assignment[r] = newVal;
     assignment = assignment;
     steps += 1;
-    history = [...history, conflicts(assignment)].slice(-200);
+    const after = conflicts(assignment);
+    history = [...history, after].slice(-200);
+    const varName = problem === 'queens' ? `row ${r}` : `V${r + 1}`;
+    const valLabel = problem === 'queens' ? `col ${newVal}` : `colour ${newVal + 1}`;
+    const oldLabel = problem === 'queens' ? `col ${beforeVal}` : `colour ${beforeVal + 1}`;
+    trace = [...trace, `Step ${steps}: ${varName} was conflicted (${beforeConfAtR} attacks at ${oldLabel}). Best move: ${valLabel} (${bestN} conflicts). Total now ${after}.`].slice(-100);
     return true;
   }
 
@@ -173,5 +183,14 @@
         />
       {/if}
     </svg>
+  </div>
+
+  <div class="card !p-3">
+    <div class="text-xs uppercase tracking-wider text-ink-500 font-semibold mb-1">Live trace ({trace.length} events)</div>
+    <ol class="font-mono text-[11px] space-y-0.5 list-none p-0 max-h-44 overflow-y-auto">
+      {#each trace.slice().reverse() as t, i}
+        <li class="{i === 0 ? 'font-semibold text-accent-700 dark:text-accent-300' : 'text-ink-500'}">{t}</li>
+      {/each}
+    </ol>
   </div>
 </div>

@@ -4,6 +4,11 @@ import { adversarialModule } from './adversarial';
 import { cspModule } from './csp';
 import { logicModule } from './logic';
 import { satModule } from './sat';
+import { extraExamples, extraFlashcards } from './extras';
+import { advancedTopics } from './csp-advanced';
+
+// Merge advanced CSP topics into the CSP module
+cspModule.topics = [...cspModule.topics, ...advancedTopics];
 
 export const modules: Module[] = [
   searchModule,
@@ -12,6 +17,16 @@ export const modules: Module[] = [
   logicModule,
   satModule,
 ];
+
+// Merge extras into topics on import
+for (const m of modules) {
+  for (const t of m.topics) {
+    const extraEx = extraExamples[t.slug];
+    if (extraEx) t.examples = [...(t.examples ?? []), ...extraEx];
+    const extraFc = extraFlashcards[t.slug];
+    if (extraFc) t.flashcards = [...(t.flashcards ?? []), ...extraFc];
+  }
+}
 
 export const allTopics: Topic[] = modules.flatMap((m) => m.topics);
 

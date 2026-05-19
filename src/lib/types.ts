@@ -7,6 +7,7 @@ export type VizKey =
   | 'AC3'
   | 'NQueens'
   | 'MinConflicts'
+  | 'TwoWayBranching'
   | 'EssencePrime'
   | 'TruthTable'
   | 'Resolution'

@@ -78,6 +78,17 @@ export const vizExplanations: Partial<Record<VizKey, VizExplanation>> = {
     ],
     relatedConcepts: ['MRV / Degree / LCV', 'Forward checking', 'MAC vs FC'],
   },
+  TwoWayBranching: {
+    whatItShows: 'The full search tree for an n-queens solve with MRV variable ordering and forward checking. Toggle between **2-way branching** (X=v / X≠v at each node) and **d-way branching** (one child per value).',
+    howToUse: 'Pick n (3–7) and the branching mode. The viz re-runs the search and renders the resulting tree with SAT/UNSAT colouring at leaves.',
+    whatToLookFor: [
+      "For small n=4 the trees often have similar size — n-queens is easy and a satisfying assignment is found before much branching happens.",
+      'For n=6 or n=7, observe how 2-way may create *deeper* paths but with smaller branching factor; d-way is shallower but wider.',
+      'The right-branch (X≠v) in 2-way restricts only one value; subsequent nodes in that subtree may have more flexibility than equivalent positions in the d-way tree.',
+      "If the solver finds SAT early, both stop — the tree just shows that prefix.",
+    ],
+    relatedConcepts: ['2-way branching', 'd-way branching', 'MRV', 'Forward checking'],
+  },
   MinConflicts: {
     whatItShows: 'An n-queens board with all queens placed (one per column). Queens in conflict are highlighted red. Each step picks a conflicted row and reassigns its column to minimise total conflicts. The chart at the bottom plots conflict count over time.',
     howToUse: 'Set n. Click "Random init" for a fresh starting configuration. "▶ Auto" runs to solution; "Step" advances once.',
