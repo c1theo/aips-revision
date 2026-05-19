@@ -6,7 +6,11 @@
 
   const tools = [
     { path: '/ask', label: '🔮 Ask (intelligent search)' },
+    { path: '/mock-exam', label: '📝 Mock exam' },
     { path: '/flashcards', label: 'Flashcards' },
+    { path: '/concept-map', label: '🗺 Concept map' },
+    { path: '/pseudocode', label: 'Pseudocode reference' },
+    { path: '/proofs', label: 'Proofs archive' },
     { path: '/glossary', label: 'Glossary' },
     { path: '/cheatsheet', label: 'Cheatsheets' },
     { path: '/complexity', label: 'Complexity table' },

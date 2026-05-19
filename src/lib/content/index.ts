@@ -8,6 +8,7 @@ import { extraExamples, extraFlashcards } from './extras';
 import { examStyleExamples } from './exam-style';
 import { researchQuestions } from './research-questions';
 import { advancedTopics } from './csp-advanced';
+import { deepAdditions } from './deep-additions';
 
 // Merge advanced CSP topics into the CSP module
 cspModule.topics = [...cspModule.topics, ...advancedTopics];
@@ -72,6 +73,16 @@ for (const m of modules) {
   for (const t of m.topics) {
     const rs = researchByTopic[t.slug];
     if (rs) t.examples = [...(t.examples ?? []), ...rs];
+  }
+}
+
+// Append deep-additions blocks as a new "Deep additions" section per topic
+for (const m of modules) {
+  for (const t of m.topics) {
+    const blocks = deepAdditions[t.slug];
+    if (blocks && blocks.length > 0) {
+      t.sections = [...t.sections, { id: 'deep-additions', title: 'Deep additions (extra exam-friendly content)', blocks }];
+    }
   }
 }
 

@@ -3,6 +3,10 @@
   import Home from '../pages/Home.svelte';
   import TopicPage from '../pages/TopicPage.svelte';
   import Ask from '../pages/Ask.svelte';
+  import Pseudocode from '../pages/Pseudocode.svelte';
+  import Proofs from '../pages/Proofs.svelte';
+  import MockExam from '../pages/MockExam.svelte';
+  import ConceptMap from '../pages/ConceptMap.svelte';
   import Flashcards from '../pages/Flashcards.svelte';
   import Glossary from '../pages/Glossary.svelte';
   import Cheatsheet from '../pages/Cheatsheet.svelte';
@@ -19,6 +23,14 @@
   <TopicPage slug={$route.path.slice('/topic/'.length)} />
 {:else if $route.path === '/ask'}
   <Ask />
+{:else if $route.path === '/pseudocode'}
+  <Pseudocode />
+{:else if $route.path === '/proofs'}
+  <Proofs />
+{:else if $route.path === '/mock-exam'}
+  <MockExam />
+{:else if $route.path === '/concept-map'}
+  <ConceptMap />
 {:else if $route.path === '/flashcards'}
   <Flashcards />
 {:else if $route.path === '/glossary'}

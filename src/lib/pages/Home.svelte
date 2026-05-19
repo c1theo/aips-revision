@@ -38,7 +38,27 @@
     <a href={href('/pitfalls')} class="card hover:border-accent-400 no-underline block">
       <div class="text-xs uppercase tracking-wider text-accent-600 font-semibold">Avoid</div>
       <div class="font-semibold mt-1">Examiner pitfalls</div>
-      <div class="text-sm text-ink-500 mt-1">Common traps & York-specific gotchas</div>
+      <div class="text-sm text-ink-500 mt-1">18 mark-losing traps with York/Nightingale focus</div>
+    </a>
+    <a href={href('/mock-exam')} class="card hover:border-accent-400 no-underline block">
+      <div class="text-xs uppercase tracking-wider text-accent-600 font-semibold">📝 Practice</div>
+      <div class="font-semibold mt-1">Mock exam</div>
+      <div class="text-sm text-ink-500 mt-1">Timed random selection from the question bank with self-grading</div>
+    </a>
+    <a href={href('/pseudocode')} class="card hover:border-accent-400 no-underline block">
+      <div class="text-xs uppercase tracking-wider text-accent-600 font-semibold">Reference</div>
+      <div class="font-semibold mt-1">Pseudocode</div>
+      <div class="text-sm text-ink-500 mt-1">Canonical pseudocode for every algorithm — printable</div>
+    </a>
+    <a href={href('/proofs')} class="card hover:border-accent-400 no-underline block">
+      <div class="text-xs uppercase tracking-wider text-accent-600 font-semibold">Reference</div>
+      <div class="font-semibold mt-1">Proofs archive</div>
+      <div class="text-sm text-ink-500 mt-1">A* optimality, AC-3 complexity, alpha-beta best case, 2-SAT polytime, …</div>
+    </a>
+    <a href={href('/concept-map')} class="card hover:border-accent-400 no-underline block">
+      <div class="text-xs uppercase tracking-wider text-accent-600 font-semibold">🗺 Overview</div>
+      <div class="font-semibold mt-1">Concept map</div>
+      <div class="text-sm text-ink-500 mt-1">Visual graph of all algorithms and how they relate</div>
     </a>
   </div>
 
