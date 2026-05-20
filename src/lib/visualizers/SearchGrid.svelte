@@ -1,5 +1,6 @@
 <script lang="ts">
   import MathText from '../components/MathText.svelte';
+  import ExamAnswer from '../components/ExamAnswer.svelte';
   type Algo = 'BFS' | 'DFS' | 'UCS' | 'Greedy' | 'A*';
   type Heuristic = 'Manhattan' | 'Euclidean' | 'Chebyshev' | 'Zero';
   type PaintMode = 'wall' | 'weight' | 'erase';
@@ -338,6 +339,61 @@
     if (weights[r][c] > 1) return `weight ${weights[r][c]}`;
     return '';
   }
+
+  const examAnswer = $derived.by(() => {
+    const lines: string[] = [];
+    let wallCount = 0, weightedCount = 0;
+    for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) {
+      if (cells[r][c] === 'wall') wallCount++;
+      else if (weights[r][c] > 1) weightedCount++;
+    }
+    const usesH = algo === 'A*' || algo === 'Greedy';
+
+    lines.push('**Setup.**');
+    lines.push(`- Grid: ${ROWS} × ${COLS}; start = (${startPos[0]}, ${startPos[1]}); goal = (${goalPos[0]}, ${goalPos[1]}).`);
+    lines.push(`- Walls: ${wallCount}; weighted cells (cost > 1): ${weightedCount}.`);
+    lines.push(`- Algorithm: **${algo}**${usesH ? `, heuristic = **${heuristic}**` : ''}; diagonals: ${diagonals ? 'on (cost √2)' : 'off'}.`);
+    lines.push('');
+
+    const last = steps[steps.length - 1];
+    const expanded = steps.length;
+    const path = last?.path ?? [];
+    const pathSteps = path.length > 0 ? path.length - 1 : 0;
+    const pathCost = path.length > 1 ? path.slice(1).reduce((sum, n, i) => {
+      const prev = path[i];
+      const diag = prev[0] !== n[0] && prev[1] !== n[1];
+      const base = weights[n[0]][n[1]] || 1;
+      return sum + (diag ? base * Math.SQRT2 : base);
+    }, 0) : 0;
+
+    lines.push(`**Result.**`);
+    if (path.length > 0) {
+      lines.push(`- Nodes expanded: **${expanded}**.`);
+      lines.push(`- Path length: **${pathSteps} step${pathSteps === 1 ? '' : 's'}**, total cost ≈ **${pathCost.toFixed(2)}**.`);
+    } else {
+      lines.push(`- Nodes expanded: ${expanded}.`);
+      lines.push(`- No path found — goal is unreachable from the start.`);
+    }
+    lines.push('');
+
+    lines.push(`**Optimality.**`);
+    if (path.length === 0) {
+      lines.push(`- Not applicable — no solution.`);
+    } else if (algo === 'BFS') {
+      lines.push(`- BFS returns the shallowest path. On an **unweighted** grid this is optimal; on a weighted grid (any cell with cost > 1) it is **not necessarily optimal** in cost.`);
+    } else if (algo === 'DFS') {
+      lines.push(`- DFS is **not optimal** — it returns the first path found by LIFO expansion, which may be far from cheapest.`);
+    } else if (algo === 'UCS') {
+      lines.push(`- UCS expands by lowest $g$ and is **optimal** for any non-negative edge costs.`);
+    } else if (algo === 'Greedy') {
+      lines.push(`- Greedy best-first uses only $h$ and is **not optimal** even with an admissible heuristic — it can be misled by deceptive heuristic gradients.`);
+    } else { // A*
+      const admissible = heuristic === 'Manhattan' || heuristic === 'Zero' || (heuristic === 'Chebyshev' && diagonals) || (heuristic === 'Euclidean' && diagonals);
+      lines.push(`- A* is **optimal** when $h$ is admissible (never over-estimates). For this grid: ${heuristic} is ${admissible ? '**admissible** here' : '**not necessarily admissible** for this movement model'}.`);
+    }
+
+    return lines.join('\n');
+  });
 </script>
 
 <div class="space-y-3" onmouseleave={onMouseUp} role="presentation">
@@ -451,4 +507,6 @@
       </div>
     </div>
   {/if}
+
+  <ExamAnswer answer={examAnswer} summary={`${algo}${algo === 'A*' || algo === 'Greedy' ? ` · ${heuristic}` : ''} · ${steps.length} expansions`} />
 </div>

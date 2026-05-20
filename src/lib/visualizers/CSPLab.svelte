@@ -1,5 +1,6 @@
 <script lang="ts">
   import MathText from '../components/MathText.svelte';
+  import ExamAnswer from '../components/ExamAnswer.svelte';
 
   // CSPLab — the complete CSP pipeline on a user-defined CSP:
   //   NC (optional)  →  AC-3 (optional)  →  Backtracking
@@ -440,6 +441,62 @@ c1 < c3`;
     if (n.kind === 'root') return '#475569';
     return '#0284c7';
   }
+
+  // Build an exam-paper-style answer string from the current run.
+  const examAnswer = $derived.by(() => {
+    const csp = parsed;
+    const r = result;
+    const sol = r.nodes.find((n) => n.kind === 'solution');
+    const fails = r.nodes.filter((n) => n.kind === 'fail').length;
+    const trys = r.nodes.filter((n) => n.kind === 'try').length;
+    const lines: string[] = [];
+    lines.push(`**Setup.**`);
+    lines.push(`- Variables: ${csp.vars.join(', ')}.`);
+    lines.push(`- Initial domains: ${csp.vars.map((v) => `D(${v}) = {${csp.D[v].join(', ')}}`).join('; ')}.`);
+    if (csp.U.length) lines.push(`- Unary constraints: ${csp.U.map((u) => '`' + u.src + '`').join(', ')}.`);
+    if (csp.B.length) {
+      const binaryShown = csp.B.filter((c, i) => i % 2 === 0).map((c) => '`' + c.src + '`');
+      lines.push(`- Binary constraints: ${binaryShown.join(', ')}.`);
+    }
+    lines.push('');
+    lines.push(`**Settings.** Propagation = **${propagation.toUpperCase()}**, branching = **${branching}**, variable order = **${varOrder}**${varOrder === 'custom' ? ` (\`${customVarOrder}\`)` : ''}, value order = **${valOrder}**${valOrder === 'custom' ? ` (\`${customValOrder}\`)` : ''}.`);
+    lines.push('');
+
+    if (applyNC || preAC3) {
+      lines.push(`**Pre-search inference.**`);
+      if (applyNC) lines.push(`- Node consistency applied: each unary constraint removes its forbidden values from the relevant domain.`);
+      if (preAC3) lines.push(`- AC-3 ran to fixpoint before any decision was made.`);
+      lines.push('');
+    }
+
+    lines.push(`**Search trace.** The algorithm explored ${r.nodes.length - 1} decision node${r.nodes.length - 1 === 1 ? '' : 's'} (${trys} successful tries, ${fails} failures).`);
+    lines.push('');
+
+    if (r.nodes.length <= 25) {
+      lines.push('| # | Depth | Decision | Outcome |');
+      lines.push('|---|---|---|---|');
+      for (const n of r.nodes) {
+        if (n.kind === 'root') continue;
+        const out = n.kind === 'solution' ? '✓ **solution**' : n.kind === 'fail' ? `✗ ${n.failureReason ?? 'fail'}` : 'continue';
+        lines.push(`| ${n.id} | ${n.depth} | \`${n.decision}\` | ${out} |`);
+      }
+      lines.push('');
+    }
+
+    if (sol) {
+      lines.push(`**Solution found.**`);
+      lines.push('');
+      lines.push(`$$${csp.vars.map((v) => `${v} = ${sol.assignment[v]}`).join(', \\quad ')}$$`);
+      lines.push('');
+    } else {
+      lines.push(`**No solution found** — the search exhausted the tree.`);
+      lines.push('');
+    }
+
+    lines.push(`**Comparison hint.** With these settings the search expanded ${r.nodes.length} node${r.nodes.length === 1 ? '' : 's'}. Toggle propagation between None/FC/MAC (or branching between d-way/2-way) and re-run to compare node counts — that comparison is exactly what exam questions ask for.`);
+
+    return lines.join('\n');
+  });
 </script>
 
 <div class="space-y-3">
@@ -583,4 +640,6 @@ c1 < c3`;
   <div class="text-xs text-ink-500">
     Toggle <b>None / FC / MAC</b> and <b>d-way / 2-way</b> and watch the tree shrink/grow. MAC after each decision often kills entire subtrees that FC alone misses (because MAC propagates beyond directly-affected neighbours).
   </div>
+
+  <ExamAnswer answer={examAnswer} summary={`${propagation === 'none' ? 'Backtracking' : propagation === 'fc' ? 'BT + FC' : 'BT + MAC'} · ${branching} · ${result.nodes.length} nodes`} />
 </div>

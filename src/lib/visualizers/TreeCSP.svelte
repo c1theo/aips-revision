@@ -1,5 +1,6 @@
 <script lang="ts">
   import MathText from '../components/MathText.svelte';
+  import ExamAnswer from '../components/ExamAnswer.svelte';
   // Directional arc consistency on a tree-structured CSP. O(nd²) solver.
 
   let spec = $state(`X1 = 1, 2, 3
@@ -159,6 +160,70 @@ constraints: X1<X2, X2<X3, X1<X4, X4<X5`);
   const steps = $derived.by(() => solve());
   let stepIdx = $state(0);
   $effect(() => { steps; stepIdx = 0; });
+
+  const examAnswer = $derived.by(() => {
+    const { vars, D: D0, constraints } = parse(spec);
+    const lines: string[] = [];
+
+    lines.push(`**Tree CSP.**`);
+    lines.push(`- Variables: ${vars.join(', ')}.`);
+    lines.push(`- Initial domains: ${vars.map((v) => `$D(${v}) = \\{${(D0[v] ?? []).join(', ')}\\}$`).join('; ')}.`);
+    if (constraints.length) {
+      lines.push(`- Constraints (${constraints.length}): ${constraints.map((c) => `$${c.a} ${c.op} ${c.b}$`).join(', ')}.`);
+    }
+    lines.push('');
+
+    const treeOk = isTree(vars, constraints);
+    if (!treeOk) {
+      lines.push(`**This CSP is not a tree** — ${constraints.length} constraints but ${vars.length - 1} expected. The tree-CSP algorithm does not apply directly; cutset conditioning or tree decomposition would be needed first.`);
+      return lines.join('\n');
+    }
+
+    // Recover the topological order from the second step's msg ("Variable order from root: ...").
+    let order: string[] = [];
+    const m = steps[1]?.msg.match(/Variable order from root:\s*(.+)\./);
+    if (m) order = m[1].split(/\s*→\s*/).map((s) => s.trim()).filter(Boolean);
+    else order = [...vars];
+
+    lines.push(`**(1) Topological order from root ${order[0] ?? vars[0]}:** ${order.join(' → ')}.`);
+    lines.push('');
+
+    // Backward pass summary
+    lines.push(`**(2) Backward pass — directional arc consistency.** For each non-root variable $X_i$ from leaves to root, REVISE$(parent(X_i), X_i)$ removes from the parent's domain any value with no support in the child's domain.`);
+    lines.push('');
+
+    const consistencySteps = steps.filter((s) => s.phase === 'consistency' && /REVISE/.test(s.msg));
+    if (consistencySteps.length && consistencySteps.length <= 20) {
+      lines.push('| # | Action |');
+      lines.push('|---|---|');
+      consistencySteps.forEach((s, i) => {
+        const msg = s.msg.replace(/\|/g, '\\|');
+        lines.push(`| ${i + 1} | ${msg} |`);
+      });
+      lines.push('');
+    }
+
+    const finalStep = steps[steps.length - 1];
+    if (finalStep && /infeasible/.test(finalStep.msg)) {
+      lines.push(`**Result.** ✗ A domain was wiped during the backward pass → the CSP is **infeasible**.`);
+      return lines.join('\n');
+    }
+
+    // Forward pass + final assignment
+    lines.push(`**(3) Forward pass — assignment.** Walk root → leaves and pick any value in $D(X_i)$ consistent with the already-assigned parent. After the backward pass guaranteed directional arc consistency, this never backtracks.`);
+    lines.push('');
+
+    if (finalStep && finalStep.phase === 'done' && Object.keys(finalStep.assignment).length) {
+      lines.push(`**Assignment found.**`);
+      lines.push('');
+      lines.push(`$$${order.map((v) => `${v} = ${finalStep.assignment[v]}`).join(', \\quad ')}$$`);
+      lines.push('');
+    }
+
+    lines.push(`**Complexity.** $O(n d^2)$ — $n - 1$ REVISE calls each costing $O(d^2)$, then a single linear pass. Tree-structured CSPs are tractable in polynomial time.`);
+
+    return lines.join('\n');
+  });
 </script>
 
 <div class="space-y-3">
@@ -199,4 +264,6 @@ constraints: X1<X2, X2<X3, X1<X4, X4<X5`);
   <div class="text-xs text-ink-500">
     <b>Tree-CSP algorithm (O(nd²)).</b> Choose a root. (1) <b>Backward pass:</b> from leaves to root, make each parent arc-consistent with its child via REVISE. (2) <b>Forward pass:</b> assign root → leaf, picking any consistent value at each step. The first pass guarantees the second never backtracks.
   </div>
+
+  <ExamAnswer answer={examAnswer} summary={`${steps.length} steps · ${steps[steps.length - 1] && /infeasible/.test(steps[steps.length - 1].msg) ? 'INFEASIBLE' : steps[steps.length - 1] && steps[steps.length - 1].phase === 'done' ? 'solved' : 'in progress'}`} />
 </div>

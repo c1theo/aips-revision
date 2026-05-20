@@ -1,4 +1,5 @@
 <script lang="ts">
+  import ExamAnswer from '../components/ExamAnswer.svelte';
   // Forward chaining over a Horn KB. Rules: "p1, p2, ... -> q" or just facts "q".
 
   let input = $state(`A
@@ -102,6 +103,47 @@ E -> F`);
       provedQuery = ok;
     }
   });
+
+  const examAnswer = $derived.by(() => {
+    const lines: string[] = [];
+    const { facts, rules } = parse(input);
+    lines.push('**Setup.**');
+    if (facts.length) lines.push(`- Facts: ${facts.map((f) => '`' + f + '`').join(', ')}.`);
+    if (rules.length) {
+      lines.push('- Rules:');
+      rules.forEach((r, i) => lines.push(`  ${i + 1}. \`${r.body.join(' ∧ ')} → ${r.head}\``));
+    }
+    lines.push(`- Goal: $\\alpha = ${query.trim() || '\\text{(none)}'}$.`);
+    lines.push(`- Mode: **${mode === 'forward' ? 'forward chaining' : 'backward chaining'}**.`);
+    lines.push('');
+
+    if (trace.length) {
+      lines.push(`**Inference trace.**`);
+      lines.push('');
+      lines.push('| # | Derived / step | Justification |');
+      lines.push('|---|---|---|');
+      for (const t of trace) {
+        const via = t.via.replace(/`/g, '').replace(/\|/g, '\\|');
+        lines.push(`| ${t.step} | \`${t.added}\` | ${via.trim()} |`);
+      }
+      lines.push('');
+    }
+
+    if (mode === 'forward') {
+      lines.push(`**Closure.** Known facts after fixpoint: ${knownAtEnd.map((f) => '`' + f + '`').join(', ')} (${knownAtEnd.length} total).`);
+      lines.push('');
+    }
+
+    if (provedQuery === true) {
+      lines.push(`**Conclusion.** \`${query.trim()}\` is **entailed** by the KB.`);
+    } else if (provedQuery === false) {
+      lines.push(`**Conclusion.** \`${query.trim()}\` is **not entailed** by the KB.`);
+    } else {
+      lines.push(`**Conclusion.** No query supplied.`);
+    }
+
+    return lines.join('\n');
+  });
 </script>
 
 <div class="space-y-3">
@@ -146,4 +188,6 @@ E -> F`);
       {/each}
     </ol>
   </div>
+
+  <ExamAnswer answer={examAnswer} summary={`${mode === 'forward' ? 'Forward' : 'Backward'} · ${provedQuery === true ? `${query} entailed` : provedQuery === false ? `${query} not entailed` : 'no query'}`} />
 </div>

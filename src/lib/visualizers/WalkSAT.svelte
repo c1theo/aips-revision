@@ -1,5 +1,6 @@
 <script lang="ts">
   import MathText from '../components/MathText.svelte';
+  import ExamAnswer from '../components/ExamAnswer.svelte';
   // WALKSAT on a random 3-SAT instance, with noise parameter slider and chart.
 
   let nvars = $state(20);
@@ -117,6 +118,50 @@
     };
     tick();
   }
+
+  const examAnswer = $derived.by(() => {
+    const lines: string[] = [];
+    lines.push(`**Setup.**`);
+    if (mode === 'random') {
+      lines.push(`- Random 3-SAT instance: $n = ${nvars}$ variables, ratio $m/n = ${ratio}$ ⇒ $m = ${Math.round(ratio * nvars)}$ clauses (seed = ${seed}).`);
+    } else {
+      lines.push(`- Custom CNF, ${clauses.length} clauses, max variable index = ${Math.max(0, assignment.length - 1)}.`);
+    }
+    lines.push(`- WalkSAT noise parameter $p = ${p.toFixed(2)}$ (with probability $p$ flip a random literal from an unsat clause; with probability $1 - p$ flip the one that **minimises break-count**).`);
+    lines.push('');
+
+    lines.push(`**CNF.**`);
+    lines.push('');
+    for (let i = 0; i < Math.min(clauses.length, 20); i++) {
+      lines.push(`- $C_{${i + 1}} = ${fmtClause(clauses[i])}$`);
+    }
+    if (clauses.length > 20) lines.push(`- … and ${clauses.length - 20} more.`);
+    lines.push('');
+
+    lines.push(`**Run statistics.**`);
+    lines.push(`- Flips executed: **${flips}**.`);
+    lines.push(`- Unsatisfied clauses now: **${unsatCount}** / ${clauses.length}.`);
+    if (history.length > 1) {
+      const maxH = Math.max(...history);
+      const minH = Math.min(...history);
+      lines.push(`- Unsat-clause trajectory: min = ${minH}, max = ${maxH} (over last ${history.length} recorded flips).`);
+    }
+    lines.push('');
+
+    lines.push(`**Current assignment.**`);
+    lines.push('');
+    const asnLine = Array.from({ length: assignment.length - 1 }, (_, i) => `$x_{${i + 1}} = ${assignment[i + 1] ? 'T' : 'F'}$`).join(', ');
+    lines.push(asnLine || '*(none)*');
+    lines.push('');
+
+    if (unsatCount === 0) {
+      lines.push(`**Outcome.** $\\boxed{\\text{Satisfied}}$ after ${flips} flip${flips === 1 ? '' : 's'} — the assignment above satisfies every clause. WalkSAT is **incomplete** (it cannot prove UNSAT), but when an instance is satisfiable it tends to find a model very fast, especially with $p \\approx 0.5$ on hard random 3-SAT.`);
+    } else {
+      lines.push(`**Outcome so far.** ${unsatCount} clause${unsatCount === 1 ? '' : 's'} still unsatisfied (**not yet SAT** — WalkSAT may need more flips, or the instance may be unsatisfiable). Reported as **${unsatCount === 0 ? 'satisfied' : `${flips} flips / max iterations`}**.`);
+    }
+
+    return lines.join('\n');
+  });
 </script>
 
 <div class="space-y-3">
@@ -190,4 +235,6 @@
       {/each}
     </ol>
   </div>
+
+  <ExamAnswer answer={examAnswer} summary={`${unsatCount === 0 ? '✓ SAT' : `${unsatCount} unsat`} · ${flips} flips · p = ${p.toFixed(2)}`} />
 </div>

@@ -1,5 +1,6 @@
 <script lang="ts">
   import MathText from '../components/MathText.svelte';
+  import ExamAnswer from '../components/ExamAnswer.svelte';
   // AC-4: counter-based arc consistency.
   // Maintains counter[X_i, v, X_j] = |{w in D(X_j) : (v,w) supports constraint c(X_i, X_j)}|
   // and S queue of (variable, value) deletions to process.
@@ -217,6 +218,92 @@ x3 - x4
 
   function step() { stepIdx = Math.min(result.steps.length - 1, stepIdx + 1); }
   function prev() { stepIdx = Math.max(0, stepIdx - 1); }
+
+  const examAnswer = $derived.by(() => {
+    const { vars, D: D0 } = parseDomains(varSpec);
+    const cs = parseConstraints(constraintSpec);
+    const assigns = parseAssignments(initialAssignment, D0);
+    const lines: string[] = [];
+
+    lines.push(`**Setup.**`);
+    lines.push(`- Variables: ${vars.join(', ')}.`);
+    lines.push(`- Initial domains: ${vars.map((v) => `$D(${v}) = \\{${(D0[v] ?? []).join(', ')}\\}$`).join('; ')}.`);
+    const ckeys = Object.keys(assigns);
+    if (ckeys.length) {
+      lines.push(`- Initial assignment: ${ckeys.map((k) => `$${k} = ${assigns[k]}$`).join(', ')} (domains pre-restricted accordingly).`);
+    } else {
+      lines.push(`- Initial assignment: (none).`);
+    }
+    if (cs.length) {
+      lines.push(`- Constraints (allowed tuples):`);
+      for (const c of cs) {
+        const tuples = [...c.allowed].map((t) => `(${t})`).join(', ');
+        lines.push(`  - $c(${c.a}, ${c.b})$: ${tuples || '(empty)'}`);
+      }
+    }
+    lines.push('');
+
+    // Use the "initialisation" step (index 1) to summarise the counter initialisation.
+    const initStep = result.steps[1];
+    if (initStep) {
+      lines.push(`**Counter initialisation.** For every $(X_i, v, X_j)$ we compute the number of supports $v$ has in $D(X_j)$ for the constraint $c(X_i, X_j)$. Values whose counter is 0 are queued for removal.`);
+      lines.push('');
+      const ckeys2 = Object.keys(initStep.counters);
+      if (ckeys2.length && ckeys2.length <= 60) {
+        lines.push('| $(X_i, v, X_j)$ | counter |');
+        lines.push('|---|---|');
+        for (const k of ckeys2) {
+          const [a, v, b] = k.split(',');
+          lines.push(`| $(${a}, ${v}, ${b})$ | ${initStep.counters[k]} |`);
+        }
+        lines.push('');
+      }
+      if (initStep.S.length) {
+        lines.push(`Initial S-queue (unsupported values): ${initStep.S.map((e) => `$(${e.var} \\ne ${e.val})$`).join(', ')}.`);
+      } else {
+        lines.push(`Initial S-queue is empty.`);
+      }
+      lines.push('');
+    }
+
+    // Trace propagation steps (those with an "S" pop or counter decrement).
+    const propSteps = result.steps.slice(2, result.steps.length - 1);
+    if (propSteps.length) {
+      lines.push(`**Propagation trace.** ${propSteps.length} step${propSteps.length === 1 ? '' : 's'} executed.`);
+      lines.push('');
+      if (propSteps.length <= 30) {
+        lines.push('| # | Event | $|S|$ after |');
+        lines.push('|---|---|---|');
+        propSteps.forEach((s, i) => {
+          const msg = s.msg.replace(/\|/g, '\\|');
+          lines.push(`| ${i + 1} | ${msg} | ${s.S.length} |`);
+        });
+        lines.push('');
+      }
+    } else {
+      lines.push(`**Propagation trace.** No further work — initial counters were already enough.`);
+      lines.push('');
+    }
+
+    const last = result.steps[result.steps.length - 1];
+    lines.push(`**Final domains.**`);
+    for (const v of vars) {
+      const d = last?.D[v] ?? [];
+      lines.push(`- $D(${v}) = ${d.length === 0 ? '\\emptyset' : '\\{' + d.join(', ') + '\\}'}$`);
+    }
+    lines.push('');
+
+    const infeasible = vars.some((v) => (last?.D[v] ?? []).length === 0);
+    if (infeasible) {
+      lines.push(`**Verdict.** A domain has been wiped out — the CSP is **infeasible** under this assignment.`);
+    } else {
+      lines.push(`**Verdict.** AC-4 reached a fixed point with every domain non-empty — the CSP is **arc-consistent**. (Note: this does not by itself guarantee a solution exists for non-binary CSPs, but for binary CSPs it rules out single-arc inconsistencies.)`);
+    }
+    lines.push('');
+    lines.push(`**Complexity.** AC-4 runs in $O(c \\cdot d^2)$ — each support is processed at most once via the counters, giving the optimal worst-case bound for arc consistency.`);
+
+    return lines.join('\n');
+  });
 </script>
 
 <div class="space-y-3">
@@ -286,4 +373,6 @@ x3 - x4
   <div class="text-xs text-ink-500">
     AC-4 uses <b>counters</b> instead of REVISE: counter[X_i, v, X_j] = number of supports value <code>v</code> has in <code>D(X_j)</code> for the constraint between X_i and X_j. When a value is removed, decrement counters of its former supporters; if a counter hits 0, that value is removed too. Time $O(c \cdot d^2)$ — optimal arc-consistency complexity.
   </div>
+
+  <ExamAnswer answer={examAnswer} summary={`${result.steps.length} steps · ${result.vars.some((v) => (result.steps[result.steps.length - 1]?.D[v] ?? []).length === 0) ? 'infeasible' : 'arc-consistent'}`} />
 </div>

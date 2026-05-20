@@ -1,5 +1,6 @@
 <script lang="ts">
   import MathText from '../components/MathText.svelte';
+  import ExamAnswer from '../components/ExamAnswer.svelte';
   // Backtracking solver for N-Queens OR small graph k-colouring problems.
   type Problem = 'queens' | 'colour';
   let problem = $state<Problem>('queens');
@@ -128,6 +129,44 @@
     };
     tick();
   }
+
+  const examAnswer = $derived.by(() => {
+    const lines: string[] = [];
+    const finalStep = steps[steps.length - 1];
+    const isSolution = finalStep && /Solution found/.test(finalStep.msg);
+
+    lines.push(`**Problem.** ${problem === 'queens' ? `**${n}-Queens** — place $n=${n}$ non-attacking queens on an $n \\times n$ board. Variables $V_1, \\dots, V_n$ (one per row); $D(V_i) = \\{0, \\dots, ${n - 1}\\}$ (column index); constraints: $V_i \\ne V_j$ and $|V_i - V_j| \\ne |i - j|$ for all $i < j$.` : `**Graph $k$-colouring** with $k=${k}$ colours and edges from the spec.`}`);
+    lines.push('');
+
+    lines.push(`**Settings.** MRV = **${mrv ? 'on' : 'off'}**, LCV = **${lcv ? 'on' : 'off'}**, Forward-checking = **${fc ? 'on' : 'off'}**.`);
+    lines.push('');
+
+    if (problem === 'queens' && isSolution && finalStep) {
+      lines.push(`**Solution board.**`);
+      lines.push('');
+      for (let r = 0; r < n; r++) {
+        lines.push(`- Row ${r + 1}: column ${finalStep.assignment[r] + 1}`);
+      }
+      lines.push('');
+    } else if (problem === 'colour' && isSolution && finalStep) {
+      lines.push(`**Solution colouring.**`);
+      lines.push('');
+      finalStep.assignment.forEach((a, i) => {
+        lines.push(`- $V_{${i + 1}}$ = colour ${a + 1}`);
+      });
+      lines.push('');
+    } else {
+      lines.push(`**No solution found** with current settings.`);
+      lines.push('');
+    }
+
+    lines.push(`**Search statistics.** Nodes expanded: **${stats.nodes}**; backtracks: **${stats.backtracks}**; trace length: ${steps.length} step${steps.length === 1 ? '' : 's'}.`);
+    lines.push('');
+
+    lines.push(`**Heuristics — why they help.** MRV (minimum-remaining-values) variable choice and forward-checking domain pruning combine to detect dead ends as early as possible. LCV value ordering then tries values that leave the most flexibility for the rest of the search, which often finds a solution with fewer backtracks. Toggle them off to see the node count jump.`);
+
+    return lines.join('\n');
+  });
 </script>
 
 <div class="space-y-3">
@@ -210,4 +249,6 @@
       {/each}
     </div>
   {/if}
+
+  <ExamAnswer answer={examAnswer} summary={`${problem === 'queens' ? `n=${n}` : `k=${k}`} · nodes ${stats.nodes} · backtracks ${stats.backtracks}`} />
 </div>

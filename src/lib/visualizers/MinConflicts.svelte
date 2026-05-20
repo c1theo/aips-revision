@@ -1,5 +1,6 @@
 <script lang="ts">
   import MathText from '../components/MathText.svelte';
+  import ExamAnswer from '../components/ExamAnswer.svelte';
   import { untrack } from 'svelte';
   type Problem = 'queens' | 'colour';
   let problem = $state<Problem>('queens');
@@ -115,6 +116,52 @@
     };
     tick();
   }
+
+  const examAnswer = $derived.by(() => {
+    const lines: string[] = [];
+    const finalConf = conflicts(assignment);
+    const found = finalConf === 0;
+    const initConf = history[0] ?? 0;
+
+    lines.push(`**Problem.** ${problem === 'queens' ? `**${n}-Queens** via local search — random start, then on each step pick a conflicted variable and move it to a value that minimises conflicts (random tie-break).` : `**Graph $k$-colouring** ($k=${k}$) via local search — same min-conflicts heuristic.`}`);
+    lines.push('');
+
+    lines.push(`**Algorithm: Min-Conflicts.**`);
+    lines.push(`1. Initialise: random assignment ($${initConf}$ initial conflict${initConf === 1 ? '' : 's'}).`);
+    lines.push(`2. Repeat until conflict-free or iteration limit:`);
+    lines.push(`   - pick a variable currently in conflict (uniformly at random);`);
+    lines.push(`   - reassign it to a value in its domain that yields the **fewest** conflicts with the current assignment (random tie-break);`);
+    lines.push(`3. Terminate when total conflicts $= 0$.`);
+    lines.push('');
+
+    lines.push(`**Run trace.**`);
+    lines.push(`- Iterations executed: **${steps}**.`);
+    lines.push(`- Initial conflicts: **${initConf}**.`);
+    lines.push(`- Final conflicts: **${finalConf}**.`);
+    lines.push('');
+
+    if (found) {
+      lines.push(`**Result.** **Solution found in ${steps} iteration${steps === 1 ? '' : 's'}.**`);
+      lines.push('');
+      if (problem === 'queens') {
+        lines.push(`Final placement (row → column):`);
+        lines.push('');
+        assignment.forEach((c, r) => lines.push(`- Row ${r + 1}: column ${c + 1}`));
+      } else {
+        lines.push(`Final colouring:`);
+        lines.push('');
+        assignment.forEach((a, i) => lines.push(`- $V_{${i + 1}}$ = colour ${a + 1}`));
+      }
+      lines.push('');
+    } else {
+      lines.push(`**Result.** Not yet converged — current assignment still has ${finalConf} conflict${finalConf === 1 ? '' : 's'}. Press **Step** or **Auto** to continue; with a high-enough iteration budget min-conflicts solves million-queens in roughly linear time on average.`);
+      lines.push('');
+    }
+
+    lines.push(`**Discussion.** Min-conflicts is **incomplete** but empirically very effective on $n$-queens and many other dense CSPs — it can solve $n$-queens for $n \\approx 10^6$ in linear time on average. It can get stuck in local minima; random-restart or simulated annealing mitigates this.`);
+
+    return lines.join('\n');
+  });
 </script>
 
 <div class="space-y-3">
@@ -194,4 +241,6 @@
       {/each}
     </ol>
   </div>
+
+  <ExamAnswer answer={examAnswer} summary={`${steps} iter · conflicts = ${conflicts(assignment)}${conflicts(assignment) === 0 ? ' · solved' : ''}`} />
 </div>

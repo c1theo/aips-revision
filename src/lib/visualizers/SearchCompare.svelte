@@ -1,4 +1,5 @@
 <script lang="ts">
+  import ExamAnswer from '../components/ExamAnswer.svelte';
   type Algo = 'BFS' | 'DFS' | 'UCS' | 'Greedy' | 'A*';
   const ROWS = 14, COLS = 22;
   type Cell = 'empty' | 'wall' | 'start' | 'goal';
@@ -130,6 +131,57 @@
     }
     cells = cells;
   }
+
+  function wallCount() {
+    let n = 0;
+    for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) if (cells[r][c] === 'wall') n++;
+    return n;
+  }
+
+  function noteFor(a: Algo): string {
+    switch (a) {
+      case 'BFS':    return 'shallowest path; optimal on unit-cost grids';
+      case 'DFS':    return 'follows one branch as far as possible; not optimal';
+      case 'UCS':    return 'lowest-$g$ frontier; optimal for non-negative costs';
+      case 'Greedy': return 'lowest-$h$ only; fast but not optimal';
+      case 'A*':     return 'lowest $f=g+h$; optimal with admissible $h$';
+    }
+  }
+
+  const examAnswer = $derived.by(() => {
+    const lines: string[] = [];
+    lines.push('**Setup.**');
+    lines.push(`- Shared grid: ${ROWS} × ${COLS}; start = (${startPos[0]}, ${startPos[1]}); goal = (${goalPos[0]}, ${goalPos[1]}); walls = ${wallCount()}; all cells unit cost; ${'unit-cost manhattan heuristic where applicable'}.`);
+    lines.push(`- Comparing **${leftAlgo}** (left) vs **${rightAlgo}** (right).`);
+    lines.push('');
+
+    const lPath = left.path.length > 0 ? left.path.length - 1 : 0;
+    const rPath = right.path.length > 0 ? right.path.length - 1 : 0;
+
+    lines.push('**Side-by-side stats.**');
+    lines.push('');
+    lines.push('| Algorithm | Nodes expanded | Path length |');
+    lines.push('|---|---|---|');
+    lines.push(`| ${leftAlgo} | ${left.explored.size} | ${left.path.length ? lPath + ' steps' : '— not found'} |`);
+    lines.push(`| ${rightAlgo} | ${right.explored.size} | ${right.path.length ? rPath + ' steps' : '— not found'} |`);
+    lines.push('');
+
+    lines.push('**Notes.**');
+    lines.push(`- ${leftAlgo}: ${noteFor(leftAlgo)}.`);
+    lines.push(`- ${rightAlgo}: ${noteFor(rightAlgo)}.`);
+
+    if (left.path.length && right.path.length) {
+      if (left.explored.size < right.explored.size) lines.push(`- On this layout, **${leftAlgo}** explored fewer nodes (${left.explored.size} vs ${right.explored.size}).`);
+      else if (right.explored.size < left.explored.size) lines.push(`- On this layout, **${rightAlgo}** explored fewer nodes (${right.explored.size} vs ${left.explored.size}).`);
+      else lines.push(`- Both explored the same number of nodes on this layout.`);
+
+      if (lPath < rPath) lines.push(`- **${leftAlgo}** also found a shorter path (${lPath} vs ${rPath} steps).`);
+      else if (rPath < lPath) lines.push(`- **${rightAlgo}** also found a shorter path (${rPath} vs ${lPath} steps).`);
+      else lines.push(`- Both paths are the same length (${lPath} steps).`);
+    }
+
+    return lines.join('\n');
+  });
 </script>
 
 <div class="space-y-3" onmouseleave={onMouseUp} role="presentation">
@@ -160,4 +212,6 @@
       </div>
     {/each}
   </div>
+
+  <ExamAnswer answer={examAnswer} summary={`${leftAlgo} (${left.explored.size}) vs ${rightAlgo} (${right.explored.size})`} />
 </div>

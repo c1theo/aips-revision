@@ -1,4 +1,5 @@
 <script lang="ts">
+  import ExamAnswer from '../components/ExamAnswer.svelte';
   // Run a simple DPLL solver many times across clause/variable ratios and plot SAT probability + solve time.
 
   let nvars = $state(15);
@@ -95,6 +96,52 @@
 
   const W = 700, H = 280, PAD = 40;
   const maxOps = $derived(Math.max(1, ...ratios.map((r) => r.avgFlips)));
+
+  const examAnswer = $derived.by(() => {
+    const lines: string[] = [];
+    lines.push(`**Setup.**`);
+    lines.push(`- Random 3-SAT, $n = ${nvars}$ variables, **${trialsPerRatio} trials per ratio**.`);
+    lines.push(`- Clause/variable ratio $r = m/n$ swept from 2.0 to 7.0 in steps of 0.25 — ${ratios.length} grid points collected.`);
+    lines.push(`- Each instance is solved by DPLL (unit propagation + first-unassigned splitting).`);
+    lines.push('');
+
+    if (ratios.length === 0) {
+      lines.push(`*No data yet — click "Run benchmark" to populate the empirical curve.*`);
+      return lines.join('\n');
+    }
+
+    lines.push(`**Empirical $P(\\text{SAT})$ per ratio.**`);
+    lines.push('');
+    lines.push('| $r = m/n$ | $P(\\text{SAT})$ | avg DPLL ops |');
+    lines.push('|---|---|---|');
+    for (const row of ratios) {
+      lines.push(`| ${row.r.toFixed(2)} | ${(row.satFrac * 100).toFixed(0)}% | ${Math.round(row.avgFlips)} |`);
+    }
+    lines.push('');
+
+    // Find empirical phase transition = ratio where satFrac crosses 0.5
+    let xover: number | null = null;
+    for (let i = 1; i < ratios.length; i++) {
+      const a = ratios[i - 1], b = ratios[i];
+      if ((a.satFrac - 0.5) * (b.satFrac - 0.5) <= 0 && a.satFrac !== b.satFrac) {
+        // linear interpolation
+        const t = (0.5 - a.satFrac) / (b.satFrac - a.satFrac);
+        xover = a.r + t * (b.r - a.r);
+        break;
+      }
+    }
+    const hardest = [...ratios].sort((a, b) => b.avgFlips - a.avgFlips)[0];
+
+    lines.push(`**Phase-transition location.**`);
+    lines.push(`- Theoretical (3-SAT): $r^\\star \\approx 4.267$.`);
+    lines.push(`- Empirical crossover where $P(\\text{SAT})$ passes 50%: ${xover === null ? '*not observed — try more ratios or trials*' : `$r \\approx ${xover.toFixed(2)}$`}.`);
+    lines.push(`- Hardest ratio in this run (most avg DPLL operations): $r = ${hardest.r.toFixed(2)}$ with ${Math.round(hardest.avgFlips)} ops per instance.`);
+    lines.push('');
+
+    lines.push(`**Observation.** Below the transition, instances are **under-constrained** — many satisfying models, easy to find one. Above the transition, instances are **over-constrained** — most have a short UNSAT proof. Right at $r^\\star$, half of instances are SAT and half UNSAT, and *both* directions are hard to prove — this is the famous "easy–hard–easy" pattern characterising the random 3-SAT phase transition.`);
+
+    return lines.join('\n');
+  });
 </script>
 
 <div class="space-y-3">
@@ -141,4 +188,6 @@
   <div class="text-xs text-ink-500">
     <b>What to watch.</b> Below $r \approx 4.27$: most instances SAT (blue → 100%) and easy to solve (red low). Above: most UNSAT (blue → 0%) but provable cheaply via short refutations. <b>At the transition</b>: SAT/UNSAT split 50/50 and solve time peaks sharply — this is the empirical "hard region" of random 3-SAT.
   </div>
+
+  <ExamAnswer answer={examAnswer} summary={`${ratios.length} ratios sampled · n = ${nvars} · ${trialsPerRatio} trials each`} />
 </div>

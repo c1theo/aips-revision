@@ -1,5 +1,6 @@
 <script lang="ts">
   import MathText from '../components/MathText.svelte';
+  import ExamAnswer from '../components/ExamAnswer.svelte';
   // AC-3 step-by-step on a small constraint graph with rich relation parsing.
   // Supports unary node-consistency phase, binary constraints with arbitrary
   // predicates (=, !=, <, >, <=, >=, abs(...) op n, etc.), manual queue control,
@@ -358,6 +359,67 @@ j2 < j3`;
     parsed.vars.forEach((v) => parsed.D[v]?.forEach((x) => set.add(x)));
     return [...set];
   });
+
+  const examAnswer = $derived.by(() => {
+    const allSteps = queueMode === 'fifo' ? steps : manualSteps;
+    const lines: string[] = [];
+    lines.push(`**Setup.**`);
+    lines.push(`- Variables: ${parsed.vars.join(', ')}.`);
+    lines.push(`- Initial domains: ${parsed.vars.map((v) => `D(${v}) = {${parsed.D[v].join(', ')}}`).join('; ')}.`);
+    if (parsed.U.length) lines.push(`- Unary constraints: ${parsed.U.map((u) => '`' + u.src + '`').join(', ')}.`);
+    const binShown = parsed.B.filter((_c, i) => i % 2 === 0).map((c) => '`' + c.src + '`');
+    if (binShown.length) lines.push(`- Binary constraints: ${binShown.join(', ')}.`);
+    lines.push('');
+
+    // NC phase summary
+    if (applyNC) {
+      const ncSteps = allSteps.filter((s) => s.phase === 'nc');
+      if (ncSteps.length) {
+        lines.push('**Phase 1 — global node consistency.**');
+        for (const s of ncSteps) lines.push(`- ${s.msg}`);
+        lines.push('');
+      }
+    }
+
+    // AC phase summary as table
+    const acSteps = allSteps.filter((s) => s.phase === 'ac');
+    if (acSteps.length) {
+      lines.push('**Phase 2 — AC-3 trace.**');
+      lines.push('');
+      lines.push('| # | Action | Domains after |');
+      lines.push('|---|---|---|');
+      acSteps.forEach((s, i) => {
+        const dom = parsed.vars.map((v) => `D(${v}) = {${s.D[v]?.join(',') ?? ''}}`).join('; ');
+        lines.push(`| ${i + 1} | ${s.msg} | ${dom} |`);
+      });
+      lines.push('');
+    }
+
+    const finalStep = allSteps[allSteps.length - 1];
+    if (finalStep?.failure) {
+      lines.push(`**Outcome.** Infeasibility detected — a domain became empty.`);
+    } else if (finalStep) {
+      lines.push(`**Final (arc-consistent) domains.** ${parsed.vars.map((v) => `D(${v}) = {${finalStep.D[v].join(', ')}}`).join('; ')}.`);
+      const allSingleton = parsed.vars.every((v) => finalStep.D[v].length === 1);
+      if (allSingleton) {
+        lines.push('');
+        lines.push(`Every domain is a singleton — the unique solution is $$${parsed.vars.map((v) => `${v} = ${finalStep.D[v][0]}`).join(', \\quad ')}$$`);
+      } else {
+        lines.push('');
+        lines.push(`The CSP is **arc-consistent**, but not yet solved — backtracking search is still required.`);
+      }
+    }
+
+    // Revision-count summary
+    const revs = finalStep?.arcRevCount ?? {};
+    const multi = Object.entries(revs).filter(([_, n]) => Number(n) > 1);
+    if (multi.length) {
+      lines.push('');
+      lines.push(`**Arcs revised more than once:** ${multi.map(([k, n]) => `${k.replace('->', '→')} (${n}×)`).join(', ')}.`);
+    }
+
+    return lines.join('\n');
+  });
 </script>
 
 <div class="space-y-3">
@@ -453,4 +515,6 @@ j2 < j3`;
   </div>
 
   <div class="text-xs text-ink-500">Switch to <b>Manual</b> queue mode to control the arc order yourself, then experiment with orderings that cause arcs to be revised more than once.</div>
+
+  <ExamAnswer answer={examAnswer} summary={`${queueMode === 'manual' ? 'Manual order' : 'FIFO order'} · ${cur?.phase ?? '—'}`} />
 </div>

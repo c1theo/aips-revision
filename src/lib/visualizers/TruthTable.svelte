@@ -1,4 +1,5 @@
 <script lang="ts">
+  import ExamAnswer from '../components/ExamAnswer.svelte';
   // Truth table builder for an arbitrary propositional formula.
 
   // Tokenizer
@@ -142,6 +143,50 @@
       summary = '';
     }
   });
+
+  const examAnswer = $derived.by(() => {
+    const lines: string[] = [];
+    lines.push(`**Setup.**`);
+    lines.push(`- Formula: \`${formula}\`.`);
+    if (error) {
+      lines.push('');
+      lines.push(`**Error.** ${error}`);
+      return lines.join('\n');
+    }
+    if (!table) return lines.join('\n');
+
+    const vs = table.headers.slice(0, -1);
+    lines.push(`- Variables: ${vs.join(', ')} (${vs.length} → ${table.rows.length} rows).`);
+    lines.push('');
+
+    lines.push(`**Truth table.**`);
+    lines.push('');
+    lines.push('| ' + table.headers.join(' | ') + ' |');
+    lines.push('|' + table.headers.map(() => '---').join('|') + '|');
+    for (const row of table.rows) {
+      const cells = [...row.vals.map((v) => (v ? 'T' : 'F')), row.result ? '**T**' : '**F**'];
+      lines.push('| ' + cells.join(' | ') + ' |');
+    }
+    lines.push('');
+
+    const trueRows = table.rows.filter((r) => r.result);
+    const N = table.rows.length;
+    const tCount = trueRows.length;
+    if (tCount === N) {
+      lines.push(`**Verdict.** The formula is a **tautology** — true in all ${N} models.`);
+    } else if (tCount === 0) {
+      lines.push(`**Verdict.** The formula is a **contradiction** — false in all ${N} models (unsatisfiable).`);
+    } else {
+      lines.push(`**Verdict.** The formula is **contingent** — satisfied by ${tCount}/${N} models.`);
+      lines.push('');
+      lines.push(`**Satisfying assignments.**`);
+      for (const r of trueRows) {
+        lines.push('- ' + vs.map((v, i) => `${v}=${r.vals[i] ? 'T' : 'F'}`).join(', ') + '.');
+      }
+    }
+
+    return lines.join('\n');
+  });
 </script>
 
 <div class="space-y-3">
@@ -193,4 +238,6 @@
       </table>
     </div>
   {/if}
+
+  <ExamAnswer answer={examAnswer} summary={summary || (error ? 'parse error' : '—')} />
 </div>

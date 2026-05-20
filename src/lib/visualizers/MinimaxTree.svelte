@@ -1,4 +1,5 @@
 <script lang="ts">
+  import ExamAnswer from '../components/ExamAnswer.svelte';
   let { pruning: initialPruning = false } = $props<{ pruning?: boolean }>();
   let pruning = $state(initialPruning);
   $effect(() => { pruning = initialPruning; });
@@ -165,6 +166,83 @@
     { label: '4-3', value: '4, 3' },
     { label: '2-2-2-2', value: '2, 2, 2, 2' },
   ];
+
+  // Collect all internal nodes grouped by depth, in the order they appear in
+  // the tree (which is the order the children were created), so we can show
+  // backed-up values level by level.
+  function collectByDepth(root: Node): Node[][] {
+    const byDepth: Node[][] = [];
+    function walk(n: Node) {
+      (byDepth[n.depth] ??= []).push(n);
+      for (const c of n.children) walk(c);
+    }
+    walk(root);
+    return byDepth;
+  }
+
+  const examAnswer = $derived.by(() => {
+    const { root, log, shape, needed } = computed;
+    const lines: string[] = [];
+    const vals = leafText.split(/[,\s]+/).filter(Boolean).map(Number).filter((v) => !Number.isNaN(v));
+    const safeVals = vals.length >= 2 ? vals : [3, 12, 8, 2, 4, 6, 14, 5, 2];
+    const usedLeaves = safeVals.slice(0, needed).concat(
+      safeVals.length < needed ? Array.from({ length: needed - safeVals.length }, (_, i) => safeVals[(safeVals.length + i) % safeVals.length] ?? 0) : []
+    );
+
+    lines.push(`**Setup.**`);
+    lines.push(`- Tree shape: [${shape.join('-')}] (root is MAX, levels alternate MAX / MIN).`);
+    lines.push(`- Leaf values (left-to-right): ${usedLeaves.join(', ')}.`);
+    lines.push(`- $\\alpha$-$\\beta$ pruning: **${pruning ? 'ON' : 'OFF'}**.`);
+    lines.push('');
+
+    // Backed-up values, level by level (bottom-up)
+    const byDepth = collectByDepth(root);
+    lines.push('**Backed-up values (bottom-up).**');
+    for (let d = byDepth.length - 1; d >= 0; d--) {
+      const lvl = byDepth[d];
+      if (!lvl || lvl.length === 0) continue;
+      const isLeafLevel = lvl[0].children.length === 0;
+      if (isLeafLevel) {
+        lines.push(`- Leaves (depth ${d}): ${lvl.map((n) => n.leafValue).join(', ')}.`);
+        continue;
+      }
+      const role = lvl[0].isMax ? 'MAX' : 'MIN';
+      const op = lvl[0].isMax ? 'max' : 'min';
+      const parts = lvl.map((n) => {
+        const childVals = n.children.map((c) => c.visited ? (c.value ?? '·') : '×');
+        const visitedVals = n.children.filter((c) => c.visited).map((c) => c.value ?? '·');
+        return `${op}(${childVals.join(', ')}) = ${n.value ?? '?'}`;
+      });
+      lines.push(`- ${role} level (depth ${d}): ${parts.join(' ; ')}.`);
+    }
+    lines.push('');
+
+    lines.push(`**Root value (minimax value of the game):** $${root.value ?? '?'}$.`);
+    lines.push('');
+
+    if (pruning) {
+      const cuts = log.filter((l) => l.includes('cut'));
+      if (cuts.length === 0) {
+        lines.push(`**Pruning.** No $\\alpha$-$\\beta$ cuts occurred for this leaf ordering — the move ordering is "worst case" for pruning.`);
+      } else {
+        lines.push(`**$\\alpha$-$\\beta$ cuts (${cuts.length}).**`);
+        for (const c of cuts) lines.push(`- ${c}`);
+      }
+      lines.push('');
+      const totalLeaves = needed;
+      const examined = root ? countVisitedLeaves(root) : 0;
+      lines.push(`**Leaves examined:** ${examined} of ${totalLeaves} (savings: ${totalLeaves - examined}).`);
+    } else {
+      lines.push(`**Pruning.** Disabled — plain minimax visits all ${needed} leaves. Toggle $\\alpha$-$\\beta$ ON to see how many can be cut for this leaf ordering.`);
+    }
+
+    return lines.join('\n');
+  });
+
+  function countVisitedLeaves(n: Node): number {
+    if (n.children.length === 0) return n.visited ? 1 : 0;
+    return n.children.reduce((s, c) => s + countVisitedLeaves(c), 0);
+  }
 </script>
 
 <div class="space-y-3">
@@ -259,4 +337,6 @@
       </ol>
     </details>
   {/if}
+
+  <ExamAnswer answer={examAnswer} summary={`${pruning ? 'α-β ON' : 'plain minimax'} · root = ${computed.root.value ?? '?'}`} />
 </div>

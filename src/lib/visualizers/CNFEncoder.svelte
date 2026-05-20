@@ -1,4 +1,5 @@
 <script lang="ts">
+  import ExamAnswer from '../components/ExamAnswer.svelte';
   // CNF conversion stepper: eliminate ⇔, ⇒, push ¬, distribute ∨ over ∧.
   // Reuses tokenizer/parser of TruthTable.
 
@@ -133,6 +134,44 @@
       error = e.message; steps = [];
     }
   });
+
+  // Walk a CNF AST to extract its conjuncts (top-level clauses).
+  function extractClauses(a: AST): string[] {
+    function conjuncts(n: AST): AST[] {
+      if (n.kind === 'and') return [...conjuncts(n.a!), ...conjuncts(n.b!)];
+      return [n];
+    }
+    return conjuncts(a).map((c) => ppr(c));
+  }
+
+  const examAnswer = $derived.by(() => {
+    const lines: string[] = [];
+    lines.push('**Setup.**');
+    lines.push(`- Input formula: \`${formula}\`.`);
+    lines.push('');
+
+    if (error) {
+      lines.push(`**Error.** ${error}`);
+      return lines.join('\n');
+    }
+    if (steps.length === 0) return lines.join('\n');
+
+    lines.push('**Conversion to CNF — 4 transformation steps.**');
+    lines.push('');
+    lines.push('| # | Step | Formula |');
+    lines.push('|---|---|---|');
+    for (let i = 0; i < steps.length; i++) {
+      lines.push(`| ${i} | ${steps[i].name} | \`${ppr(steps[i].ast)}\` |`);
+    }
+    lines.push('');
+
+    const cnf = steps[steps.length - 1].ast;
+    const clauses = extractClauses(cnf);
+    lines.push(`**Final CNF clauses (${clauses.length}).**`);
+    clauses.forEach((c, i) => lines.push(`${i + 1}. \`${c}\``));
+
+    return lines.join('\n');
+  });
 </script>
 
 <div class="space-y-3">
@@ -146,4 +185,6 @@
       </div>
     {/each}
   </div>
+
+  <ExamAnswer answer={examAnswer} summary={error ? 'parse error' : `CNF (${steps.length ? extractClauses(steps[steps.length - 1].ast).length : 0} clauses)`} />
 </div>

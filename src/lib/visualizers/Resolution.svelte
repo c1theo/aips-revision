@@ -1,4 +1,5 @@
 <script lang="ts">
+  import ExamAnswer from '../components/ExamAnswer.svelte';
   // Resolution refutation visualiser.
   // Input: list of clauses (one per line) as comma-separated literals (e.g. "P, ~Q").
   // Algorithm: BFS through pairwise resolutions until empty clause or saturation.
@@ -89,6 +90,58 @@
     error = localError;
   }
   $effect(() => { input; query; useQuery; run(); });
+
+  function fmtClause(c: string[]): string {
+    if (c.length === 0) return '∅';
+    return '{' + c.join(', ') + '}';
+  }
+
+  const examAnswer = $derived.by(() => {
+    const lines: string[] = [];
+    const kb = parseClauses(input).map((c) => c.map(normLit));
+    lines.push('**Setup.**');
+    lines.push('- KB clauses:');
+    kb.forEach((c, i) => lines.push(`  ${i + 1}. ${fmtClause(c)}`));
+    if (useQuery && query.trim()) {
+      lines.push(`- Query: $\\alpha = ${query.trim()}$.`);
+      const negated = query.trim().split(/[,\s]+/).filter(Boolean).map((l) => normLit(negate(normLit(l))));
+      lines.push(`- Append $\\neg\\alpha$ as clause: ${fmtClause(negated)}.`);
+    } else {
+      lines.push(`- No query — testing the KB itself for UNSAT.`);
+    }
+    lines.push('');
+
+    if (error) {
+      lines.push(`**Error.** ${error}`);
+      return lines.join('\n');
+    }
+
+    if (log.length === 0) {
+      lines.push(`**Trace.** No resolutions were derivable from the input — clauses already saturated.`);
+    } else {
+      lines.push(`**Resolution refutation trace.**`);
+      lines.push('');
+      lines.push('| # | Resolve | Pivot | Resolvent |');
+      lines.push('|---|---|---|---|');
+      for (const e of log) {
+        const res = e.r.length === 0 ? '$\\square$ (empty)' : fmtClause(e.r);
+        lines.push(`| ${e.step} | ${fmtClause(e.a)} with ${fmtClause(e.b)} | ${e.pivot} | ${res} |`);
+      }
+      lines.push('');
+    }
+
+    if (success) {
+      lines.push(useQuery
+        ? `**Conclusion.** Derived $\\square$ $\\Rightarrow$ $KB \\cup \\{\\neg\\alpha\\}$ is UNSAT $\\Rightarrow$ $KB \\models \\alpha$.`
+        : `**Conclusion.** Derived $\\square$ $\\Rightarrow$ the clause set is UNSAT.`);
+    } else {
+      lines.push(useQuery
+        ? `**Conclusion.** Saturated without deriving $\\square$ $\\Rightarrow$ $KB \\not\\models \\alpha$.`
+        : `**Conclusion.** Saturated without $\\square$ $\\Rightarrow$ the clause set is satisfiable.`);
+    }
+
+    return lines.join('\n');
+  });
 </script>
 
 <div class="space-y-3">
@@ -147,4 +200,6 @@
       </table>
     </div>
   {/if}
+
+  <ExamAnswer answer={examAnswer} summary={`${log.length} resolution${log.length === 1 ? '' : 's'} · ${success ? (useQuery ? 'KB ⊨ α' : 'UNSAT') : (useQuery ? 'KB ⊭ α' : 'saturated')}`} />
 </div>

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import ExamAnswer from '../components/ExamAnswer.svelte';
   // Tseitin transformation: introduce a fresh variable for each subformula and
   // post equivalences. Produces an EQUISATISFIABLE CNF in linear size.
 
@@ -138,6 +139,58 @@
     if (c.length === 0) return '□';
     return '(' + c.map((l) => (l.neg ? '¬' : '') + l.name).join(' ∨ ') + ')';
   }
+
+  // Count operators in the AST as a rough naive-CNF estimate proxy.
+  function countOps(a: AST): number {
+    if (a.kind === 'var') return 0;
+    if (a.kind === 'not') return 1 + countOps(a.a!);
+    return 1 + countOps(a.a!) + countOps(a.b!);
+  }
+
+  const examAnswer = $derived.by(() => {
+    const lines: string[] = [];
+    lines.push('**Setup.**');
+    lines.push(`- Input formula: \`${formula}\`.`);
+    lines.push('');
+
+    if (error) {
+      lines.push(`**Error.** ${error}`);
+      return lines.join('\n');
+    }
+    if (!result) return lines.join('\n');
+
+    lines.push(`**Step 1 — fresh variables.** Introduce a Tseitin variable for each non-atomic subformula:`);
+    lines.push('');
+    if (result.subexpressions.length === 0) {
+      lines.push('- (None — formula is atomic.)');
+    } else {
+      for (const s of result.subexpressions) {
+        lines.push(`- $${s.name} \\leftrightarrow ${s.expr.replace(/¬/g, '\\neg ').replace(/∧/g, '\\land').replace(/∨/g, '\\lor').replace(/→/g, '\\to').replace(/↔/g, '\\leftrightarrow')}$`);
+      }
+    }
+    lines.push('');
+
+    lines.push(`**Step 2 — equivalence clauses.** Encoding the ${result.subexpressions.length} equivalence${result.subexpressions.length === 1 ? '' : 's'} as CNF plus the unit clause asserting the root:`);
+    lines.push('');
+    for (let i = 0; i < result.clauses.length; i++) {
+      lines.push(`${i + 1}. \`${fmtClause(result.clauses[i])}\``);
+    }
+    lines.push('');
+
+    lines.push(`**Root unit clause.** \`(${result.rootName})\` asserts the top of the formula is true.`);
+    lines.push('');
+
+    try {
+      const a = parse(formula);
+      const ops = countOps(a);
+      lines.push(`**Size comparison.**`);
+      lines.push(`- Tseitin output: **${result.clauses.length} clauses**, **${result.subexpressions.length} new variables** — linear in formula size.`);
+      lines.push(`- Naive CNF (distribute ∨ over ∧) on this ${ops}-operator formula can blow up exponentially with nested implications/biconditionals — Tseitin avoids that.`);
+      lines.push(`- The two CNFs are **equisatisfiable** (same SAT/UNSAT verdict), not logically equivalent.`);
+    } catch {}
+
+    return lines.join('\n');
+  });
 </script>
 
 <div class="space-y-3">
@@ -172,4 +225,6 @@
       Compare: naive CNF distribution can be exponential in the formula size; Tseitin is always O(|formula|) clauses.
     </div>
   {/if}
+
+  <ExamAnswer answer={examAnswer} summary={error ? 'parse error' : result ? `${result.clauses.length} clauses · ${result.subexpressions.length} fresh vars` : '—'} />
 </div>

@@ -1,5 +1,6 @@
 <script lang="ts">
   import MathText from '../components/MathText.svelte';
+  import ExamAnswer from '../components/ExamAnswer.svelte';
   // DPLL with unit propagation, pure literal, splitting.
   // Input: CNF as clauses of literals (positive int = variable, negative = negation).
 
@@ -207,6 +208,47 @@
   $effect(() => { input; heuristic; overrideSpec; run(); });
 
   function fmtClause(c: number[]) { return '(' + c.map((l) => (l < 0 ? '¬' : '') + 'x' + Math.abs(l)).join(' ∨ ') + ')'; }
+
+  const examAnswer = $derived.by(() => {
+    const lines: string[] = [];
+    const clauses = parse(input);
+    const overrides = parseOverrides(overrideSpec);
+    lines.push(`**Setup.**`);
+    lines.push(`- CNF (${clauses.length} clauses): $${clauses.map(fmtClause).join(' \\wedge ')}$.`);
+    lines.push(`- Decision heuristic: **${heuristic}**.`);
+    if (overrides.length) {
+      lines.push(`- User-forced decision order: ${overrides.map((o) => `$x_{${o.var}} = ${o.val ? 'T' : 'F'}$`).join(', ')}.`);
+    }
+    lines.push('');
+
+    lines.push(`**Trace (${steps.length} steps).**`);
+    lines.push('');
+    if (steps.length === 0) {
+      lines.push('No steps yet.');
+    } else {
+      let n = 1;
+      for (const s of steps) {
+        // Strip the inline KaTeX to keep the table cells short — leave markdown-friendly text
+        const plain = s.msg.replace(/\$([^$]+)\$/g, '$1');
+        lines.push(`${n}. ${plain}`);
+        n++;
+      }
+    }
+    lines.push('');
+
+    if (result.startsWith('SAT')) {
+      lines.push(`**Outcome.** $\\boxed{\\text{SAT}}$.`);
+      lines.push('');
+      const model = result.replace(/^SAT — model:\s*/, '');
+      lines.push(`**Satisfying model:** ${model.split(', ').map((kv) => `$${kv.replace('x', 'x_{').replace('=', '} = ')}$`).join(', ')}.`);
+    } else if (result === 'UNSAT') {
+      lines.push(`**Outcome.** $\\boxed{\\text{UNSAT}}$ — every branch of the search tree closes with an empty clause.`);
+    } else {
+      lines.push(`**Outcome.** ${result}.`);
+    }
+
+    return lines.join('\n');
+  });
 </script>
 
 <div class="space-y-3">
@@ -289,6 +331,8 @@
       <div class="text-xs text-ink-500 mt-1">Green = SAT subtree. Red = UNSAT subtree. Each branch = a decision (x=T or x=F).</div>
     </div>
   {/if}
+
+  <ExamAnswer answer={examAnswer} summary={`${result.startsWith('SAT') ? 'SAT' : result === 'UNSAT' ? 'UNSAT' : '—'} · ${steps.length} steps · heuristic = ${heuristic}`} />
 </div>
 
 <script lang="ts" module>

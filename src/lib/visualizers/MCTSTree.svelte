@@ -1,4 +1,5 @@
 <script lang="ts">
+  import ExamAnswer from '../components/ExamAnswer.svelte';
   // MCTS demo on a simple "binary tree game" with known terminal outcomes.
   // Iteration: Selection (UCB1) → Expansion → Simulation (random) → Backprop.
 
@@ -149,6 +150,45 @@
     root = reset();
     iter = 0; lastLog = [];
   }
+
+  const examAnswer = $derived.by(() => {
+    const lines: string[] = [];
+    lines.push(`**Setup.**`);
+    lines.push(`- Game tree: branching factor $b = ${branching}$, depth $d = ${maxDepth}$ ⇒ $${Math.pow(branching, maxDepth)}$ leaves.`);
+    lines.push(`- Exploration constant $C = ${C.toFixed(3)}$ (UCB1: $\\bar{X}_i + C\\sqrt{\\ln N / N_i}$).`);
+    lines.push(`- Iterations run so far: **${iter}**.`);
+    lines.push('');
+
+    if (iter === 0 || root.N === 0) {
+      lines.push(`No iterations yet — click "+1 iteration" or "▶ Auto" to populate visit counts.`);
+      return lines.join('\n');
+    }
+
+    lines.push(`**Root statistics.** $N_{\\text{root}} = ${root.N}$, mean reward $= ${(root.W / root.N).toFixed(3)}$.`);
+    lines.push('');
+
+    lines.push(`**Root children — visit counts and mean rewards.**`);
+    lines.push('');
+    lines.push('| Move | Visits $N_i$ | Mean $\\bar{X}_i = W_i/N_i$ | UCB1 |');
+    lines.push('|---|---|---|---|');
+    for (const c of root.children) {
+      const mean = c.N === 0 ? '—' : (c.W / c.N).toFixed(3);
+      const ucb = c.N === 0 ? '$+\\infty$' : ucb1(c, root.N).toFixed(3);
+      lines.push(`| ${c.move} | ${c.N} | ${mean} | ${ucb} |`);
+    }
+    lines.push('');
+
+    // Recommended action = most-visited root child (robust child)
+    const best = [...root.children].sort((a, b) => b.N - a.N)[0];
+    if (best) {
+      lines.push(`**Recommended move.** MCTS plays the **most-visited** root child (robust-child rule): **move ${best.move}** with $N = ${best.N}$ visits and mean reward $${(best.W / Math.max(1, best.N)).toFixed(3)}$.`);
+    }
+    lines.push('');
+
+    lines.push(`**Why most-visited (not highest mean)?** In MCTS the most-visited child is the one the bandit policy converged to as best — using mean directly is noisy when some children have very few visits. Tournament-strength MCTS engines (AlphaGo, etc.) all use the visit-count rule at the root.`);
+
+    return lines.join('\n');
+  });
 </script>
 
 <div class="space-y-3">
@@ -218,4 +258,6 @@
       </ol>
     </details>
   {/if}
+
+  <ExamAnswer answer={examAnswer} summary={`${iter} iterations · C = ${C.toFixed(2)}`} />
 </div>

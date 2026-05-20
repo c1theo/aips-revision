@@ -1,4 +1,5 @@
 <script lang="ts">
+  import ExamAnswer from '../components/ExamAnswer.svelte';
   // 2-SAT solver via implication graph + Tarjan's SCC. Polynomial time.
 
   let input = $state(`1 2
@@ -106,6 +107,55 @@
   }
 
   const result = $derived.by(() => solve());
+
+  function litLabel(lit: number): string {
+    return (lit > 0 ? '' : '\\lnot ') + `x_{${Math.abs(lit)}}`;
+  }
+
+  const examAnswer = $derived.by(() => {
+    const lines: string[] = [];
+    const clauses = parse(input);
+    lines.push(`**Setup.**`);
+    lines.push(`- 2-CNF (${clauses.length} clauses): $${clauses.map(([a, b]) => `(${litLabel(a)} \\vee ${litLabel(b)})`).join(' \\wedge ')}$.`);
+    lines.push('');
+
+    lines.push(`**Implication graph.** Each clause $(\\ell_1 \\vee \\ell_2)$ adds two edges: $\\lnot\\ell_1 \\Rightarrow \\ell_2$ and $\\lnot\\ell_2 \\Rightarrow \\ell_1$.`);
+    lines.push('');
+    for (const [a, b] of clauses) {
+      lines.push(`- $(${litLabel(a)} \\vee ${litLabel(b)})$ ⇒ $${litLabel(-a)} \\Rightarrow ${litLabel(b)}$ and $${litLabel(-b)} \\Rightarrow ${litLabel(a)}$.`);
+    }
+    lines.push('');
+
+    lines.push(`**Strongly connected components (${result.sccs.filter((s) => s.length > 0).length}).** (computed via Kosaraju.)`);
+    lines.push('');
+    result.sccs.forEach((scc, i) => {
+      if (scc.length === 0) return;
+      const labels = scc.map((id) => {
+        const v = Math.floor(id / 2);
+        return (id % 2 === 0 ? '' : '\\lnot ') + `x_{${v}}`;
+      });
+      lines.push(`- SCC ${i}: $\\{${labels.join(', ')}\\}$.`);
+    });
+    lines.push('');
+
+    if (result.sat === null) {
+      lines.push(`**Outcome.** No clauses to evaluate.`);
+    } else if (result.sat) {
+      lines.push(`**Verdict.** $\\boxed{\\text{SAT}}$ — for every variable $x_i$, the literals $x_i$ and $\\lnot x_i$ lie in **different** SCCs.`);
+      lines.push('');
+      lines.push(`**Satisfying model** (reverse topological rule — assign each literal **true** in the SCC ordered later):`);
+      lines.push('');
+      const modelLine = Object.entries(result.model).map(([v, b]) => `$x_{${v}} = ${b ? 'T' : 'F'}$`).join(', ');
+      lines.push(modelLine);
+    } else {
+      lines.push(`**Verdict.** $\\boxed{\\text{UNSAT}}$ — variable${result.conflict && result.conflict.length > 1 ? 's' : ''} ${result.conflict?.map((v) => `$x_{${v}}$`).join(', ')} ${result.conflict && result.conflict.length === 1 ? 'has' : 'have'} both polarities in the same SCC, forcing $x_i \\Leftrightarrow \\lnot x_i$ — a contradiction.`);
+    }
+    lines.push('');
+
+    lines.push(`**Complexity.** 2-SAT is solvable in $O(n + m)$ via SCCs — in stark contrast to general SAT (NP-complete). The "tipping point" between $k = 2$ (polynomial) and $k = 3$ (NP-complete) is the textbook example of how a tiny change in clause length flips a problem's complexity class.`);
+
+    return lines.join('\n');
+  });
 </script>
 
 <div class="space-y-3">
@@ -156,4 +206,6 @@
   <div class="text-xs text-ink-500">
     <b>2-SAT in linear time.</b> Each clause $(\ell_1 \vee \ell_2)$ corresponds to two implications: $\lnot\ell_1 \Rightarrow \ell_2$ and $\lnot\ell_2 \Rightarrow \ell_1$. Build the implication graph; compute SCCs (Kosaraju/Tarjan). <b>UNSAT iff</b> some variable $x$ has $x$ and $\lnot x$ in the same SCC (both forced equal). Otherwise SAT — assign each variable so the literal in the later SCC (reverse topological order) is true.
   </div>
+
+  <ExamAnswer answer={examAnswer} summary={`${result.sat === null ? '—' : result.sat ? 'SAT' : 'UNSAT'} · ${result.sccs.filter((s) => s.length > 0).length} SCCs`} />
 </div>

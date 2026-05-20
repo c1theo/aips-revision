@@ -1,4 +1,5 @@
 <script lang="ts">
+  import ExamAnswer from '../components/ExamAnswer.svelte';
   // 1D function landscape with hill climbing, random-restart hill climbing, and simulated annealing.
 
   let funcChoice = $state<'multi-peak' | 'plateau' | 'spike' | 'rugged'>('multi-peak');
@@ -107,6 +108,63 @@
     };
     tick();
   }
+
+  const funcFormula = $derived(
+    funcChoice === 'multi-peak' ? '\\sin x + 0.5 \\sin 3x + 0.3 \\cos 5x'
+    : funcChoice === 'plateau' ? '\\max(-0.2, \\min(1, \\sin x)) + \\text{(plateau region near }[4,6]\\text{)}'
+    : funcChoice === 'spike' ? '-0.2(x-5)^2 + \\text{spike at } x\\approx 7'
+    : '\\sin x \\cdot \\cos 2x + 0.3 \\sin 7x'
+  );
+
+  // Global maximum on the sampled grid (proxy for the "true" optimum).
+  const globalMax = $derived.by(() => {
+    let bestX = points[0].x, bestY = points[0].y;
+    for (const p of points) if (p.y > bestY) { bestY = p.y; bestX = p.x; }
+    return { x: bestX, y: bestY };
+  });
+
+  const peakSoFar = $derived.by(() => {
+    let bestX = trace[0].x, bestY = trace[0].y;
+    for (const t of trace) if (t.y > bestY) { bestY = t.y; bestX = t.x; }
+    return { x: bestX, y: bestY };
+  });
+
+  const algoName = $derived(algo === 'hill-climb' ? 'Hill climbing' : algo === 'random-restart' ? 'Random-restart hill climbing' : 'Simulated annealing');
+
+  const examAnswer = $derived.by(() => {
+    const lines: string[] = [];
+    lines.push('**Setup.**');
+    lines.push(`- Function: $f(x) = ${funcFormula}$ on $x \\in [${xMin}, ${xMax}]$ (preset: **${funcChoice}**).`);
+    lines.push(`- Algorithm: **${algoName}**.`);
+    lines.push(`- Step size: ${stepSize}${algo === 'sa' ? `; initial temperature $T_0 = ${T0}$; cooling $\\alpha = ${alpha}$` : ''}.`);
+    lines.push('');
+
+    lines.push('**Run.**');
+    lines.push(`- Iterations run: **${steps}**.`);
+    if (algo === 'random-restart') lines.push(`- Restarts triggered: **${restarts}**.`);
+    if (algo === 'sa') lines.push(`- Current temperature: $T \\approx ${temperature.toFixed(4)}$.`);
+    lines.push(`- Current position: $x \\approx ${currentX.toFixed(3)}$, $f(x) \\approx ${f(currentX).toFixed(3)}$.`);
+    lines.push(`- Best $(x, f(x))$ visited so far: $(${peakSoFar.x.toFixed(3)}, ${peakSoFar.y.toFixed(3)})$.`);
+    lines.push('');
+
+    lines.push('**Comparison with the global maximum (from a dense sample).**');
+    lines.push(`- Approx. global max: $f \\approx ${globalMax.y.toFixed(3)}$ at $x \\approx ${globalMax.x.toFixed(3)}$.`);
+    const gap = globalMax.y - peakSoFar.y;
+    if (gap < 0.05) {
+      lines.push(`- Search has reached (close to) the global optimum (gap ≈ ${gap.toFixed(3)}).`);
+    } else {
+      lines.push(`- Search is below the global optimum by $\\Delta f \\approx ${gap.toFixed(3)}$.`);
+      if (algo === 'hill-climb') {
+        lines.push(`- **Stuck at a local maximum** — plain hill climbing cannot escape because both neighbours have lower $f$.`);
+      } else if (algo === 'random-restart') {
+        lines.push(`- Random restart bounces out of basins, but may need more restarts to land in the global basin.`);
+      } else {
+        lines.push(`- Simulated annealing can still escape by accepting worse moves at higher $T$ — give it more iterations or raise $T_0$.`);
+      }
+    }
+
+    return lines.join('\n');
+  });
 </script>
 
 <div class="space-y-3">
@@ -161,4 +219,6 @@
   <div class="text-xs text-ink-500">
     <b>What to watch:</b> On the multi-peak landscape, plain hill climbing gets stuck on the first local max it finds. Random-restart hopes one of the restarts lands in the global basin. Simulated annealing accepts downhill moves with Boltzmann probability — at high T it walks almost randomly; as T decreases it transitions to hill-climbing behaviour.
   </div>
+
+  <ExamAnswer answer={examAnswer} summary={`${algoName} · ${steps} step${steps === 1 ? '' : 's'} · peak ≈ ${peakSoFar.y.toFixed(2)} (global ≈ ${globalMax.y.toFixed(2)})`} />
 </div>

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import ExamAnswer from '../components/ExamAnswer.svelte';
   // Expectimax: minimax + chance nodes. For stochastic games like backgammon.
 
   interface Node {
@@ -94,6 +95,66 @@
     walk(tree);
     return e;
   });
+
+  // Collect nodes by depth, in tree order
+  function collectByKind(root: Node): { leaves: Node[]; mins: Node[]; chances: Node[]; maxes: Node[] } {
+    const leaves: Node[] = [], mins: Node[] = [], chances: Node[] = [], maxes: Node[] = [];
+    function walk(n: Node) {
+      if (n.kind === 'leaf') leaves.push(n);
+      else if (n.kind === 'min') mins.push(n);
+      else if (n.kind === 'chance') chances.push(n);
+      else maxes.push(n);
+      for (const c of n.children) walk(c.node);
+    }
+    walk(root);
+    return { leaves, mins, chances, maxes };
+  }
+
+  const examAnswer = $derived.by(() => {
+    const lines: string[] = [];
+    const { leaves, mins, chances, maxes } = collectByKind(tree);
+    const probs = probsText.split(/[,\s]+/).filter(Boolean).map(Number);
+    const p1 = probs[0] ?? 0.5, p2 = probs[1] ?? 0.5;
+
+    lines.push(`**Setup.**`);
+    lines.push(`- Tree: **MAX** root with 2 actions → each leads to a **CHANCE** node with 2 outcomes → each chance outcome leads to a **MIN** node with 2 actions → 8 leaves total.`);
+    lines.push(`- Chance probabilities: $p_1 = ${p1}$, $p_2 = ${p2}$ (must sum to 1; ${(p1 + p2).toFixed(2)} here).`);
+    lines.push(`- Leaf values (left-to-right): ${leaves.map((l) => l.leafValue).join(', ')}.`);
+    lines.push('');
+
+    lines.push(`**Bottom-up evaluation.**`);
+    lines.push('');
+    lines.push(`*Step 1 — MIN nodes (take the min of their two action leaves).*`);
+    for (let i = 0; i < mins.length; i++) {
+      const m = mins[i];
+      const vs = m.children.map((c) => c.node.value);
+      lines.push(`- MIN node ${i + 1}: $\\min(${vs.join(', ')}) = ${m.value}$.`);
+    }
+    lines.push('');
+    lines.push(`*Step 2 — CHANCE nodes (expected value $\\sum_i p_i \\cdot V_i$).*`);
+    for (let i = 0; i < chances.length; i++) {
+      const ch = chances[i];
+      const terms = ch.children.map((c) => `${c.prob} \\times ${c.node.value}`);
+      lines.push(`- CHANCE node ${i + 1}: $${terms.join(' + ')} = ${ch.value?.toFixed(2)}$.`);
+    }
+    lines.push('');
+    lines.push(`*Step 3 — MAX root (pick the action with the higher expected value).*`);
+    const maxRoot = maxes[0];
+    if (maxRoot) {
+      const vs = maxRoot.children.map((c) => c.node.value);
+      lines.push(`- $\\max(${vs.map((v) => v?.toFixed(2)).join(', ')}) = ${maxRoot.value?.toFixed(2)}$.`);
+      const bestIdx = vs.reduce((bi, v, i, arr) => (v! > arr[bi]! ? i : bi), 0);
+      lines.push('');
+      lines.push(`**Root expectimax value:** $${maxRoot.value?.toFixed(2)}$.`);
+      lines.push('');
+      lines.push(`**Optimal action at the root:** **action ${bestIdx + 1}** (the ${bestIdx === 0 ? 'left' : 'right'} subtree), expected value $${vs[bestIdx]?.toFixed(2)}$.`);
+    }
+    lines.push('');
+
+    lines.push(`**Note on pruning.** Standard $\\alpha$-$\\beta$ does **not** prune across chance nodes — the expected value can change with any outcome, so we can only prune chance branches if we have bounds on leaf values. Expectimax is therefore typically slower than minimax.`);
+
+    return lines.join('\n');
+  });
 </script>
 
 <div class="space-y-3">
@@ -146,4 +207,6 @@
   <div class="text-xs text-ink-500">
     <b>Expectimax</b> generalises minimax to stochastic games. MAX maximises, MIN minimises, CHANCE computes the <b>expected value</b> $\sum_a P(a) \cdot \mathrm{Expectimax}(\mathrm{Result}(s, a))$ over weighted children. Used in backgammon, poker (partial info if combined with belief states). <b>Alpha-beta does NOT prune chance nodes</b> without bounds on the expected sum, so expectimax is typically slower.
   </div>
+
+  <ExamAnswer answer={examAnswer} summary={`root EV = ${tree.value?.toFixed(2) ?? '—'}`} />
 </div>

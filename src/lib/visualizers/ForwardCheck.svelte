@@ -1,5 +1,6 @@
 <script lang="ts">
   import MathText from '../components/MathText.svelte';
+  import ExamAnswer from '../components/ExamAnswer.svelte';
   // Generic Forward-Checking + backtracking with d-way branching.
   // User specifies variables, domains, and constraints as algebraic predicates.
 
@@ -154,6 +155,67 @@ abs(x2 - x3) >= 3`);
 
   function step() { stepIdx = Math.min(result.steps.length - 1, stepIdx + 1); }
   function prev() { stepIdx = Math.max(0, stepIdx - 1); }
+
+  const examAnswer = $derived.by(() => {
+    const { vars, D: D0 } = parseDomains(varSpec);
+    const cs = parseConstraints(constraintSpec);
+    const lines: string[] = [];
+
+    lines.push(`**Setup.**`);
+    lines.push(`- Variables: ${vars.join(', ')}.`);
+    lines.push(`- Initial domains: ${vars.map((v) => `$D(${v}) = \\{${(D0[v] ?? []).join(', ')}\\}$`).join('; ')}.`);
+    if (cs.length) {
+      lines.push(`- Constraints: ${cs.map((c) => '`' + c.src + '`').join(', ')}.`);
+    }
+    lines.push('');
+
+    lines.push(`**Settings.** Variable order = **${varOrderingMode}**${varOrderingMode === 'custom' ? ` (\`${customVarOrder}\`)` : ''}; value order = **${valueOrdering}**; algorithm = backtracking + forward-checking (d-way branching).`);
+    lines.push('');
+
+    // Pull decisions: each "Assign X = v" step with its FC outcome.
+    const decisions: { step: number; depth: number; v: string; val: number; ok: boolean | null; fc: string; failVar?: string }[] = [];
+    let lastAssign: { step: number; v: string; val: number } | null = null;
+    result.steps.forEach((s, i) => {
+      if (s.decisionVar && s.triedVal !== undefined && /^Assign /.test(s.msg)) {
+        lastAssign = { step: i, v: s.decisionVar, val: s.triedVal };
+      } else if (s.outcome === 'ok' && lastAssign && s.fcRemovals) {
+        const fcDesc = s.fcRemovals.length === 0 ? 'no values pruned' : s.fcRemovals.map((r) => `$D(${r.var})$ loses \\{${r.removed.join(',')}\\}`).join('; ');
+        decisions.push({ step: lastAssign.step, depth: Object.keys(s.assignment).length, v: lastAssign.v, val: lastAssign.val, ok: true, fc: fcDesc });
+        lastAssign = null;
+      } else if (s.outcome === 'fail' && lastAssign && s.fcRemovals) {
+        const failVar = s.fcRemovals.find((r) => true)?.var;
+        decisions.push({ step: lastAssign.step, depth: Object.keys(s.assignment).length, v: lastAssign.v, val: lastAssign.val, ok: false, fc: `$D(${failVar ?? '?'})$ wiped`, failVar });
+        lastAssign = null;
+      }
+    });
+
+    const backtracks = result.steps.filter((s) => s.outcome === 'fail').length;
+    const totalNodes = decisions.length;
+
+    lines.push(`**BT + FC trace.** ${totalNodes} decision node${totalNodes === 1 ? '' : 's'} expanded, ${backtracks} backtrack${backtracks === 1 ? '' : 's'}.`);
+    lines.push('');
+
+    if (decisions.length && decisions.length <= 25) {
+      lines.push('| # | Depth | Decision | FC result |');
+      lines.push('|---|---|---|---|');
+      decisions.forEach((d, i) => {
+        const outcome = d.ok ? d.fc : `✗ ${d.fc} → backtrack`;
+        lines.push(`| ${i + 1} | ${d.depth} | $${d.v} = ${d.val}$ | ${outcome} |`);
+      });
+      lines.push('');
+    }
+
+    const sol = result.steps.find((s) => s.outcome === 'solution');
+    if (sol) {
+      lines.push(`**Solution found.**`);
+      lines.push('');
+      lines.push(`$$${vars.map((v) => `${v} = ${sol.assignment[v]}`).join(', \\quad ')}$$`);
+    } else {
+      lines.push(`**No solution.** The search tree was exhausted under BT + FC with these orderings.`);
+    }
+
+    return lines.join('\n');
+  });
 </script>
 
 <div class="space-y-3">
@@ -234,4 +296,6 @@ abs(x2 - x3) >= 3`);
   <div class="text-xs text-ink-500">
     Variable order = top to bottom in the spec. Each variable is assigned values in the chosen order; after each assignment, forward-checking prunes neighbours' domains. If any becomes empty → backtrack and try the next value. <b>d-way branching</b> means each level tries each value in turn (rather than 2-way's X=v / X≠v split).
   </div>
+
+  <ExamAnswer answer={examAnswer} summary={`BT + FC · ${varOrderingMode} / ${valueOrdering} · ${result.steps.some((s) => s.outcome === 'solution') ? 'solution found' : 'no solution'}`} />
 </div>

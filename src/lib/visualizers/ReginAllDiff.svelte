@@ -1,4 +1,5 @@
 <script lang="ts">
+  import ExamAnswer from '../components/ExamAnswer.svelte';
   // Régin's GAC for AllDifferent — bipartite matching visualization.
 
   let spec = $state(`X1 = a, b
@@ -85,6 +86,75 @@ X3 = a, b, c`);
 
   const allVals = $derived([...new Set(result.vars.flatMap((v) => result.D[v] ?? []))].sort());
   const positions = $derived(layout(result.vars, allVals));
+
+  // Hall's condition check: find a witness subset S of vars whose combined
+  // domain has fewer values than |S| — that proves infeasibility.
+  function findHallWitness(vars: string[], D: Record<string, string[]>): { S: string[]; N: string[] } | null {
+    const n = vars.length;
+    // Enumerate non-empty subsets (only safe for small n; we cap at 12 to be safe).
+    if (n > 12) return null;
+    for (let mask = 1; mask < (1 << n); mask++) {
+      const S: string[] = [];
+      for (let i = 0; i < n; i++) if (mask & (1 << i)) S.push(vars[i]);
+      const N = [...new Set(S.flatMap((v) => D[v] ?? []))];
+      if (N.length < S.length) return { S, N };
+    }
+    return null;
+  }
+
+  const examAnswer = $derived.by(() => {
+    const r = result;
+    const lines: string[] = [];
+
+    lines.push(`**Setup.** AllDifferent constraint over variables ${r.vars.join(', ')}.`);
+    lines.push('');
+    lines.push(`**Variables and domains.**`);
+    for (const v of r.vars) {
+      lines.push(`- $D(${v}) = \\{${(r.D[v] ?? []).join(', ')}\\}$`);
+    }
+    lines.push('');
+
+    lines.push(`**Bipartite matching.** Build a bipartite graph with variables on the left, values on the right, and an edge $(X_i, v)$ whenever $v \\in D(X_i)$. Run maximum-cardinality matching (e.g. Hopcroft-Karp, $O(\\sqrt{|V|} \\cdot |E|)$).`);
+    lines.push('');
+    lines.push(`- Matching size: **${r.maxSize}**`);
+    lines.push(`- Number of variables: **${r.vars.length}**`);
+    if (r.matching.size > 0) {
+      const ms = [...r.matching.entries()].map(([v, val]) => `$(${v}, ${val})$`).join(', ');
+      lines.push(`- One maximum matching: ${ms}`);
+    }
+    lines.push('');
+
+    if (!r.feasible) {
+      const w = findHallWitness(r.vars, r.D);
+      lines.push(`**Hall's condition.** A perfect matching of variables to distinct values exists **iff** for every $S \\subseteq \\{X_1, \\dots, X_n\\}$, $|N(S)| \\ge |S|$ where $N(S) = \\bigcup_{X \\in S} D(X)$.`);
+      lines.push('');
+      lines.push(`Maximum matching has size ${r.maxSize} < ${r.vars.length} = number of variables → **Hall's condition is violated** → AllDifferent is **infeasible**.`);
+      if (w) {
+        lines.push('');
+        lines.push(`**Hall witness.** $S = \\{${w.S.join(', ')}\\}$, with $N(S) = \\{${w.N.join(', ')}\\}$, and $|N(S)| = ${w.N.length} < ${w.S.length} = |S|$.`);
+      }
+      lines.push('');
+      lines.push(`**Verdict.** ✗ **Infeasible** — no GAC pruning is performed (the constraint is already unsatisfiable).`);
+    } else {
+      lines.push(`**Hall's condition holds** — a perfect matching exists, so AllDifferent is satisfiable.`);
+      lines.push('');
+      lines.push(`**Régin's GAC step.** For each edge $(X_i, v)$, check whether it lies in **some** maximum matching. Equivalently, build the residual graph from one maximum matching: an edge is in some max matching iff it is in $M$ OR it lies on an alternating cycle / path from a free value. Edges that do not — these values cannot participate in any AllDifferent solution — are **removed** from the corresponding variable's domain.`);
+      lines.push('');
+
+      if (r.removed.length === 0) {
+        lines.push(`**Edges removed by GAC.** None — every (variable, value) edge already participates in some maximum matching, so the constraint is already GAC.`);
+      } else {
+        lines.push(`**Edges removed by GAC (${r.removed.length}).**`);
+        for (const rem of r.removed) {
+          lines.push(`- remove $${rem.val}$ from $D(${rem.var})$`);
+        }
+      }
+      lines.push('');
+      lines.push(`**Verdict.** ✓ **Feasible**, and the constraint is now generalised-arc-consistent. Régin's algorithm runs in polynomial time and catches pruning that pairwise $\\ne$ propagation (AC-3 over the $\\binom{n}{2}$ binary $\\ne$ constraints) systematically misses.`);
+    }
+
+    return lines.join('\n');
+  });
 </script>
 
 <div class="space-y-3">
@@ -163,4 +233,6 @@ X3 = a, b, c`);
   <div class="text-xs text-ink-500">
     <b>Régin's algorithm.</b> Bipartite graph: variables on left, values on right, edge iff value in domain. Find a maximum matching (e.g. Hopcroft-Karp). Any edge NOT in some maximum matching ↔ that value cannot participate in any AllDifferent satisfying assignment → remove from the variable's domain. Achieves <b>generalised arc consistency</b> for AllDifferent in polynomial time, catching deductions that pairwise ≠ propagation misses.
   </div>
+
+  <ExamAnswer answer={examAnswer} summary={`matching ${result.maxSize}/${result.vars.length} · ${result.feasible ? 'feasible' : 'INFEASIBLE'} · ${result.removed.length} edge${result.removed.length === 1 ? '' : 's'} pruned`} />
 </div>

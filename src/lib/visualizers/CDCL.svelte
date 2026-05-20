@@ -1,5 +1,6 @@
 <script lang="ts">
   import MathText from '../components/MathText.svelte';
+  import ExamAnswer from '../components/ExamAnswer.svelte';
   // Simplified CDCL with implication graph, 1-UIP-ish learning, non-chronological backjump.
 
   let input = $state(`1 2 -3
@@ -215,6 +216,61 @@
     if (c.length === 0) return '□';
     return '(' + c.map((l) => (l < 0 ? '¬' : '') + 'x' + Math.abs(l)).join(' ∨ ') + ')';
   }
+
+  const examAnswer = $derived.by(() => {
+    const lines: string[] = [];
+    const clauses = parse(input);
+    lines.push(`**Setup.**`);
+    lines.push(`- CNF (${clauses.length} clauses): $${clauses.map(fmtClause).join(' \\wedge ')}$.`);
+    lines.push(`- Branching heuristic: **${heuristic === 'vsids' ? 'VSIDS' : 'first unassigned'}**.`);
+    lines.push('');
+
+    // Conflict / learning events
+    const conflicts = steps.filter((s) => s.conflict);
+    lines.push(`**CDCL run.** ${steps.length} steps, ${conflicts.length} conflict${conflicts.length === 1 ? '' : 's'}.`);
+    lines.push('');
+
+    // Step-by-step trace
+    lines.push(`**Trace.**`);
+    let n = 1;
+    for (const s of steps) {
+      const plain = s.msg.replace(/\$([^$]+)\$/g, '$1');
+      lines.push(`${n}. ${plain}`);
+      n++;
+    }
+    lines.push('');
+
+    // Decision stack at the end
+    const last = steps[steps.length - 1];
+    if (last) {
+      lines.push(`**Final decision trail.**`);
+      if (last.assignments.length === 0) {
+        lines.push(`- (empty)`);
+      } else {
+        for (const a of last.assignments) {
+          lines.push(`- L${a.decisionLevel}: $${a.val ? '' : '\\lnot '}x_{${a.var}}$ ${a.antecedent ? `(propagated from ${fmtClause(a.antecedent)})` : '*(decision)*'}.`);
+        }
+      }
+      lines.push('');
+
+      if (last.learnt.length > 0) {
+        lines.push(`**Learnt clauses (${last.learnt.length}).** Each is the 1-UIP clause from resolving the conflict back through the implication graph until exactly one literal remains at the conflict level.`);
+        last.learnt.forEach((c, i) => lines.push(`- $C_{\\text{learn}}^{${i + 1}} = ${fmtClause(c)}$.`));
+        lines.push('');
+      }
+
+      // Backjump info
+      const lastConflict = conflicts[conflicts.length - 1];
+      if (lastConflict && lastConflict.backjumpTo !== undefined) {
+        lines.push(`**Last backjump.** From decision level ${lastConflict.decisionLevel} to level ${lastConflict.backjumpTo} (non-chronological — jumps over irrelevant decisions).`);
+        lines.push('');
+      }
+    }
+
+    lines.push(`**Outcome.** ${result.startsWith('SAT') ? `$\\boxed{\\text{SAT}}$ — ${result.replace(/^SAT — /, '')}.` : result === 'UNSAT' ? `$\\boxed{\\text{UNSAT}}$ — conflict at decision level 0 means no consistent assignment exists.` : result + '.'}`);
+
+    return lines.join('\n');
+  });
 </script>
 
 <div class="space-y-3">
@@ -332,4 +388,6 @@
   {/if}
 
   <div class="text-xs text-ink-500">A simplified CDCL (no VSIDS, no two-watched literals, no restarts). The learning step uses 1-UIP-style resolution on the implication graph to derive an asserting learnt clause, then backjumps to the second-highest decision level.</div>
+
+  <ExamAnswer answer={examAnswer} summary={`${result.startsWith('SAT') ? 'SAT' : result === 'UNSAT' ? 'UNSAT' : '—'} · ${steps.length} steps · ${steps[steps.length - 1]?.learnt.length ?? 0} learnt`} />
 </div>
