@@ -4,11 +4,45 @@
   // Generic Forward-Checking + backtracking with d-way branching.
   // User specifies variables, domains, and constraints as algebraic predicates.
 
-  let varSpec = $state(`x1 = 2, 4, 7
+  let { initialSpec = '' } = $props<{ initialSpec?: string }>();
+
+  // Split a CSPLab-style spec on "binary:" into variable lines and constraint
+  // lines. Strips comments and the optional "unary:" block (unary constraints
+  // can't be expressed in this UI's varSpec/constraintSpec split cleanly).
+  // Converts shorthand "A-B" (CSPLab's A != B) into "A != B".
+  function splitCSPLabSpec(src: string): { vars: string; cons: string } {
+    const lines = src.split('\n').map((l) => l.replace(/#.*$/, '').trim());
+    const varLines: string[] = [];
+    const conLines: string[] = [];
+    let section: 'vars' | 'unary' | 'binary' = 'vars';
+    for (const line of lines) {
+      if (!line) continue;
+      const lower = line.toLowerCase();
+      if (lower === 'unary:') { section = 'unary'; continue; }
+      if (lower === 'binary:') { section = 'binary'; continue; }
+      if (section === 'vars') {
+        if (/^\w+\s*=\s*.+$/.test(line)) varLines.push(line);
+      } else if (section === 'binary') {
+        // Shorthand: "A-B" → "A != B" (only when no other operator present)
+        const shorthand = line.match(/^(\w+)\s*-\s*(\w+)\s*$/);
+        if (shorthand) {
+          conLines.push(`${shorthand[1]} != ${shorthand[2]}`);
+        } else {
+          conLines.push(line);
+        }
+      }
+      // unary lines are dropped — this UI doesn't have a separate unary slot
+    }
+    return { vars: varLines.join('\n'), cons: conLines.join('\n') };
+  }
+
+  const _split = initialSpec ? splitCSPLabSpec(initialSpec) : null;
+
+  let varSpec = $state(_split?.vars || `x1 = 2, 4, 7
 x2 = 1, 2, 5, 7
 x3 = 2, 3, 7`);
 
-  let constraintSpec = $state(`abs(x1 - x2) >= 3
+  let constraintSpec = $state(_split?.cons || `abs(x1 - x2) >= 3
 abs(x1 - x3) >= 3
 abs(x2 - x3) >= 3`);
 

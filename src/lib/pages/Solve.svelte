@@ -13,10 +13,61 @@
 — "Apply AC2001 to this CSP and record changes to the Last data structure"`;
 
   let question = $state('');
-  let lastSolved = $state('');
   let openViz = $state<string | null>(null);
+  let pendingProps = $state<Record<string, any>>({});
+
+  // Editable extracted specs — initialised from the result; user can edit before opening a viz.
+  let editedCspSpec = $state('');
+  let editedCnf = $state('');
+  let editedFormula = $state('');
+  let editedHorn = $state('');
+  let editedKB = $state('');
+  let editedQuery = $state('');
+  let editedLeaves = $state('');
 
   const result = $derived(question.trim().length > 5 ? routeQuestion(question) : null);
+
+  // Sync editable specs whenever the extraction result changes
+  $effect(() => {
+    if (!result) return;
+    editedCspSpec = result.extraction.cspLabSpec;
+    editedCnf = result.extraction.cnfText;
+    editedFormula = result.extraction.formula.formula;
+    editedHorn = result.extraction.hornText;
+    editedKB = result.extraction.resolution.kbClauses.join('\n');
+    editedQuery = result.extraction.resolution.query ?? '';
+    editedLeaves = result.extraction.leaves.leaves.join(', ');
+  });
+
+  function openExtracted(viz: string) {
+    const props: Record<string, any> = {};
+    if (viz === 'CSPLab' || viz === 'AC3' || viz === 'AC2001' || viz === 'AC4' || viz === 'ForwardCheck' || viz === 'ReginAllDiff') {
+      props.initialSpec = editedCspSpec;
+    }
+    if (viz === 'DPLL' || viz === 'CDCL' || viz === 'WalkSAT' || viz === 'TwoSAT') {
+      props.initialCNF = editedCnf;
+    }
+    if (viz === 'TruthTable' || viz === 'CNFEncoder' || viz === 'TseitinEncoder') {
+      props.initialFormula = editedFormula;
+    }
+    if (viz === 'HornChain') {
+      props.initialHorn = editedHorn;
+    }
+    if (viz === 'Resolution') {
+      props.initialKB = editedKB;
+      props.initialQuery = editedQuery;
+    }
+    if (viz === 'MinimaxTree') {
+      props.initialLeaves = editedLeaves;
+    }
+    pendingProps = props;
+    openViz = viz;
+    // Scroll the embedded viz into view after the render flush
+    setTimeout(() => {
+      const el = document.getElementById('autofilled-viz');
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 50);
+  }
 
   function tryExample(text: string) {
     question = text;
@@ -144,43 +195,169 @@ Write out the CSP. Apply AC2001 / AC-3.1 to establish global arc consistency. Af
         {/if}
       </div>
 
-      <!-- Structural extraction -->
-      {#if result.extraction.csp.confidence > 30 || result.extraction.cnf.confidence > 30 || result.extraction.leaves.confidence > 30}
+      <!-- Structural extraction — rich -->
+      {#if result.extraction.cspRich.totalConfidence > 20 || result.extraction.csp.confidence > 30 || result.extraction.cnf.confidence > 30 || result.extraction.formula.confidence > 30 || result.extraction.horn.confidence > 30 || result.extraction.leaves.confidence > 30}
         <div class="card !p-4">
-          <h3 class="!mt-0 text-base font-semibold mb-2">🧬 Structured extraction</h3>
-          <div class="text-xs text-ink-500 mb-3">The router parsed structured information out of the question. You can paste this directly into the matching visualiser, or open one below to autofill.</div>
+          <h3 class="!mt-0 text-base font-semibold mb-1">🧬 Algorithm-specific rule extraction</h3>
+          <div class="text-xs text-ink-500 mb-3">The router parsed structured rules out of the question text. Each block below is editable — fix anything that's wrong, then click "Open viz with these rules" to launch the visualiser pre-loaded.</div>
 
-          {#if result.extraction.csp.confidence > 30}
-            <div class="mb-3">
-              <div class="text-xs uppercase tracking-wider text-ink-500 font-semibold">CSP extraction (confidence {result.extraction.csp.confidence}%)</div>
-              <div class="text-xs mt-1">
-                Variables: <b>{result.extraction.csp.variables.length}</b> ·
-                Unary constraints: <b>{result.extraction.csp.unary.length}</b> ·
-                Binary constraints: <b>{result.extraction.csp.binary.length}</b>
-                {#if result.extraction.csp.allDifferent}· AllDifferent({result.extraction.csp.allDifferent.vars.join(', ')}){/if}
+          {#if result.extraction.cspRich.totalConfidence > 20 || result.extraction.csp.confidence > 30}
+            <details class="border border-ink-200 dark:border-ink-800 rounded p-3 mb-2" open>
+              <summary class="cursor-pointer text-sm font-semibold">
+                CSP extraction
+                <span class="text-xs font-normal text-ink-500 ml-2">
+                  confidence {Math.max(result.extraction.cspRich.totalConfidence, result.extraction.csp.confidence)}% ·
+                  {result.extraction.cspRich.variables.length || result.extraction.csp.variables.length} vars ·
+                  {result.extraction.cspRich.constraints.length || (result.extraction.csp.unary.length + result.extraction.csp.binary.length)} constraints
+                </span>
+              </summary>
+              <div class="mt-2 text-xs space-y-2">
+                {#if result.extraction.cspRich.variables.length > 0}
+                  <div>
+                    <div class="text-ink-500 uppercase tracking-wider font-semibold mb-1">Detected variables</div>
+                    <ul class="font-mono">
+                      {#each result.extraction.cspRich.variables as v}
+                        <li>D({v.name}) = {'{' + v.domain.join(', ') + '}'} <span class="text-ink-500">— {v.source} ({v.confidence}%)</span></li>
+                      {/each}
+                    </ul>
+                  </div>
+                {/if}
+                {#if result.extraction.cspRich.tasks.length > 0}
+                  <div>
+                    <div class="text-ink-500 uppercase tracking-wider font-semibold mb-1">Detected tasks / durations</div>
+                    <ul class="font-mono">
+                      {#each result.extraction.cspRich.tasks as t}
+                        <li>{t.id} → {t.varName}{t.duration !== undefined ? ` · duration ${t.duration}` : ''}</li>
+                      {/each}
+                    </ul>
+                  </div>
+                {/if}
+                {#if result.extraction.cspRich.resources.length > 0}
+                  <div>
+                    <div class="text-ink-500 uppercase tracking-wider font-semibold mb-1">Detected resources (mutex groups)</div>
+                    <ul class="font-mono">
+                      {#each result.extraction.cspRich.resources as r}
+                        <li>{r.id}: pairwise mutex on {r.mutexTasks.join(', ')}</li>
+                      {/each}
+                    </ul>
+                  </div>
+                {/if}
+                {#if result.extraction.cspRich.deadline !== undefined}
+                  <div class="font-mono">Deadline: {result.extraction.cspRich.deadline}</div>
+                {/if}
+                {#if result.extraction.cspRich.constraints.length > 0}
+                  <div>
+                    <div class="text-ink-500 uppercase tracking-wider font-semibold mb-1">Synthesised constraints</div>
+                    <ul class="font-mono">
+                      {#each result.extraction.cspRich.constraints as c}
+                        <li>{c.src} <span class="text-ink-500">— {c.why} ({c.confidence}%)</span></li>
+                      {/each}
+                    </ul>
+                  </div>
+                {/if}
+                {#if result.extraction.cspRich.notes.length > 0}
+                  <details class="mt-2">
+                    <summary class="cursor-pointer text-ink-500">▸ Extraction notes ({result.extraction.cspRich.notes.length})</summary>
+                    <ul class="list-disc pl-5 text-ink-500 mt-1">{#each result.extraction.cspRich.notes as n}<li>{n}</li>{/each}</ul>
+                  </details>
+                {/if}
+                <div>
+                  <div class="text-ink-500 uppercase tracking-wider font-semibold mb-1">Editable CSPLab spec</div>
+                  <textarea class="w-full font-mono p-2 rounded border border-ink-300 dark:border-ink-700 bg-white dark:bg-ink-900" rows="10" bind:value={editedCspSpec}></textarea>
+                  <div class="mt-2 flex flex-wrap gap-2">
+                    <button class="btn btn-sm btn-primary" onclick={() => openExtracted('CSPLab')}>▸ Open CSPLab with these rules</button>
+                    <button class="btn btn-sm" onclick={() => openExtracted('AC3')}>▸ Open AC-3 stepper</button>
+                    <button class="btn btn-sm" onclick={() => openExtracted('AC2001')}>▸ Open AC-2001</button>
+                    <button class="btn btn-sm" onclick={() => openExtracted('AC4')}>▸ Open AC-4</button>
+                    <button class="btn btn-sm" onclick={() => openExtracted('ForwardCheck')}>▸ Open ForwardCheck</button>
+                    <button class="btn btn-sm" onclick={() => openExtracted('ReginAllDiff')}>▸ Open Régin (AllDiff)</button>
+                  </div>
+                </div>
               </div>
-              {#if result.extraction.cspLabSpec}
-                <pre class="text-xs font-mono bg-ink-50 dark:bg-ink-900 p-2 mt-2 rounded overflow-x-auto whitespace-pre">{result.extraction.cspLabSpec}</pre>
-              {/if}
-              {#if result.extraction.csp.warnings.length}
-                <div class="text-xs text-amber-700 dark:text-amber-300 mt-1">⚠ {result.extraction.csp.warnings.join(' ')}</div>
-              {/if}
-            </div>
+            </details>
           {/if}
 
           {#if result.extraction.cnf.confidence > 30}
-            <div class="mb-3">
-              <div class="text-xs uppercase tracking-wider text-ink-500 font-semibold">CNF extraction (confidence {result.extraction.cnf.confidence}%)</div>
-              <div class="text-xs mt-1">{result.extraction.cnf.clauses.length} clauses · {result.extraction.cnf.varCount} variables</div>
-              <pre class="text-xs font-mono bg-ink-50 dark:bg-ink-900 p-2 mt-2 rounded overflow-x-auto">{result.extraction.cnf.clauses.map((c) => '(' + c + ')').join(' ∧ ')}</pre>
-            </div>
+            <details class="border border-ink-200 dark:border-ink-800 rounded p-3 mb-2" open>
+              <summary class="cursor-pointer text-sm font-semibold">
+                CNF extraction
+                <span class="text-xs font-normal text-ink-500 ml-2">{result.extraction.cnf.clauses.length} clauses · {result.extraction.cnf.variables.length} vars · confidence {result.extraction.cnf.confidence}%</span>
+              </summary>
+              <div class="mt-2 text-xs">
+                <textarea class="w-full font-mono p-2 rounded border border-ink-300 dark:border-ink-700 bg-white dark:bg-ink-900" rows="4" bind:value={editedCnf}></textarea>
+                <div class="mt-2 flex flex-wrap gap-2">
+                  <button class="btn btn-sm btn-primary" onclick={() => openExtracted('DPLL')}>▸ Open DPLL</button>
+                  <button class="btn btn-sm" onclick={() => openExtracted('CDCL')}>▸ Open CDCL</button>
+                  <button class="btn btn-sm" onclick={() => openExtracted('WalkSAT')}>▸ Open WalkSAT</button>
+                  <button class="btn btn-sm" onclick={() => openExtracted('TwoSAT')}>▸ Open 2-SAT (if 2-CNF)</button>
+                </div>
+              </div>
+            </details>
+          {/if}
+
+          {#if result.extraction.formula.confidence > 30}
+            <details class="border border-ink-200 dark:border-ink-800 rounded p-3 mb-2">
+              <summary class="cursor-pointer text-sm font-semibold">
+                Propositional formula
+                <span class="text-xs font-normal text-ink-500 ml-2">{result.extraction.formula.variables.length} vars · confidence {result.extraction.formula.confidence}%</span>
+              </summary>
+              <div class="mt-2 text-xs">
+                <input class="w-full font-mono p-2 rounded border border-ink-300 dark:border-ink-700 bg-white dark:bg-ink-900" bind:value={editedFormula} />
+                <div class="mt-2 flex flex-wrap gap-2">
+                  <button class="btn btn-sm btn-primary" onclick={() => openExtracted('TruthTable')}>▸ Open Truth-table builder</button>
+                  <button class="btn btn-sm" onclick={() => openExtracted('CNFEncoder')}>▸ Open CNF encoder</button>
+                  <button class="btn btn-sm" onclick={() => openExtracted('TseitinEncoder')}>▸ Open Tseitin encoder</button>
+                </div>
+              </div>
+            </details>
+          {/if}
+
+          {#if result.extraction.horn.confidence > 30}
+            <details class="border border-ink-200 dark:border-ink-800 rounded p-3 mb-2">
+              <summary class="cursor-pointer text-sm font-semibold">
+                Horn KB extraction
+                <span class="text-xs font-normal text-ink-500 ml-2">{result.extraction.horn.facts.length} facts · {result.extraction.horn.rules.length} rules · goal: {result.extraction.horn.goal ?? '—'} · confidence {result.extraction.horn.confidence}%</span>
+              </summary>
+              <div class="mt-2 text-xs">
+                <textarea class="w-full font-mono p-2 rounded border border-ink-300 dark:border-ink-700 bg-white dark:bg-ink-900" rows="6" bind:value={editedHorn}></textarea>
+                <div class="mt-2 flex flex-wrap gap-2">
+                  <button class="btn btn-sm btn-primary" onclick={() => openExtracted('HornChain')}>▸ Open Horn chaining</button>
+                </div>
+              </div>
+            </details>
+          {/if}
+
+          {#if result.extraction.resolution.confidence > 30}
+            <details class="border border-ink-200 dark:border-ink-800 rounded p-3 mb-2">
+              <summary class="cursor-pointer text-sm font-semibold">
+                Resolution problem (KB + α)
+                <span class="text-xs font-normal text-ink-500 ml-2">{result.extraction.resolution.kbClauses.length} KB clauses · α = {result.extraction.resolution.query ?? '—'} · confidence {result.extraction.resolution.confidence}%</span>
+              </summary>
+              <div class="mt-2 text-xs">
+                <div class="font-mono mb-1">KB:</div>
+                <textarea class="w-full font-mono p-2 rounded border border-ink-300 dark:border-ink-700 bg-white dark:bg-ink-900" rows="4" bind:value={editedKB}></textarea>
+                <div class="font-mono mt-2 mb-1">Query α:</div>
+                <input class="w-full font-mono p-2 rounded border border-ink-300 dark:border-ink-700 bg-white dark:bg-ink-900" bind:value={editedQuery} />
+                <div class="mt-2 flex flex-wrap gap-2">
+                  <button class="btn btn-sm btn-primary" onclick={() => openExtracted('Resolution')}>▸ Open Resolution refutation</button>
+                </div>
+              </div>
+            </details>
           {/if}
 
           {#if result.extraction.leaves.confidence > 30}
-            <div>
-              <div class="text-xs uppercase tracking-wider text-ink-500 font-semibold">Game-tree leaves (confidence {result.extraction.leaves.confidence}%)</div>
-              <div class="text-xs mt-1">Leaves: {result.extraction.leaves.leaves.join(', ')} · branching {result.extraction.leaves.branchingFactor} · depth ≈ {result.extraction.leaves.depth}</div>
-            </div>
+            <details class="border border-ink-200 dark:border-ink-800 rounded p-3" open>
+              <summary class="cursor-pointer text-sm font-semibold">
+                Game-tree leaves
+                <span class="text-xs font-normal text-ink-500 ml-2">{result.extraction.leaves.leaves.length} leaves · branching {result.extraction.leaves.branchingFactor} · depth ≈ {result.extraction.leaves.depth} · confidence {result.extraction.leaves.confidence}%</span>
+              </summary>
+              <div class="mt-2 text-xs">
+                <input class="w-full font-mono p-2 rounded border border-ink-300 dark:border-ink-700 bg-white dark:bg-ink-900" bind:value={editedLeaves} />
+                <div class="mt-2 flex flex-wrap gap-2">
+                  <button class="btn btn-sm btn-primary" onclick={() => openExtracted('MinimaxTree')}>▸ Open Minimax tree</button>
+                </div>
+              </div>
+            </details>
           {/if}
         </div>
       {/if}
@@ -215,8 +392,9 @@ Write out the CSP. Apply AC2001 / AC-3.1 to establish global arc consistency. Af
       <!-- Inline viz (autofilled where supported) -->
       {#if openViz}
         {@const top = result.topAlgorithms.find((a) => a.viz === openViz)}
-        {@const props = (openViz === 'CSPLab' || openViz === 'AC3' || openViz === 'AC2001') && result.extraction.cspLabSpec ? { initialSpec: result.extraction.cspLabSpec } : {}}
-        <VizRenderer viz={openViz as any} title={top?.label ?? openViz} {props} />
+        <div id="autofilled-viz">
+          <VizRenderer viz={openViz as any} title={top?.label ?? openViz} props={pendingProps} />
+        </div>
       {/if}
 
       <!-- Topic playbooks (fallback / supplement) -->

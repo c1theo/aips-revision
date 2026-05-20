@@ -1,6 +1,6 @@
 <script lang="ts">
   import ExamAnswer from '../components/ExamAnswer.svelte';
-  let { pruning: initialPruning = false } = $props<{ pruning?: boolean }>();
+  let { pruning: initialPruning = false, initialLeaves = '' } = $props<{ pruning?: boolean; initialLeaves?: string }>();
   let pruning = $state(initialPruning);
   $effect(() => { pruning = initialPruning; });
 
@@ -18,7 +18,7 @@
     visited?: boolean;
   }
 
-  let leafText = $state('3, 12, 8, 2, 4, 6, 14, 5, 2');
+  let leafText = $state(initialLeaves || '3, 12, 8, 2, 4, 6, 14, 5, 2');
   let shapeText = $state('3, 3');   // branching per level (root → leaves); 'auto' = fit to leaf count
 
   function parseShape(s: string): number[] | 'auto' {

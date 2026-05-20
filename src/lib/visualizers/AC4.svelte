@@ -5,13 +5,38 @@
   // Maintains counter[X_i, v, X_j] = |{w in D(X_j) : (v,w) supports constraint c(X_i, X_j)}|
   // and S queue of (variable, value) deletions to process.
 
+  let { initialSpec = '' } = $props<{ initialSpec?: string }>();
+
   interface Constraint {
     a: string;     // first variable name
     b: string;     // second variable name
     tuples: string;    // user-input tuples (one per line, format "v, w")
   }
 
-  let varSpec = $state(`x1 = 1, 2, 3, 4
+  // The incoming CSPLab spec has "var = vals" lines plus an optional
+  // "binary:" block with algebraic predicates. AC-4's UI needs *tabular*
+  // (allowed-tuple) constraints, which is a materially different format —
+  // so we extract just the variable lines from initialSpec and leave the
+  // constraint tuples to the user. Comments and unary/binary sections are
+  // dropped.
+  function extractVarLines(src: string): string {
+    const out: string[] = [];
+    let inSpecialSection = false;
+    for (const raw of src.split('\n')) {
+      const line = raw.trim();
+      if (!line) continue;
+      if (line.startsWith('#')) continue;
+      const lower = line.toLowerCase();
+      if (lower === 'binary:' || lower === 'unary:') { inSpecialSection = true; continue; }
+      if (inSpecialSection) continue;
+      if (/^\w+\s*=\s*.+$/.test(line)) out.push(line);
+    }
+    return out.join('\n');
+  }
+
+  const _initialVarLines = initialSpec ? extractVarLines(initialSpec) : '';
+
+  let varSpec = $state(_initialVarLines || `x1 = 1, 2, 3, 4
 x2 = 1, 2, 3, 4
 x3 = 1, 2, 3, 4
 x4 = 1, 2, 3, 4`);

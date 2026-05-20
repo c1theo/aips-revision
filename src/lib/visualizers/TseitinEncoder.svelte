@@ -3,6 +3,8 @@
   // Tseitin transformation: introduce a fresh variable for each subformula and
   // post equivalences. Produces an EQUISATISFIABLE CNF in linear size.
 
+  let { initialFormula = '' } = $props<{ initialFormula?: string }>();
+
   type AST = { kind: string; v?: string; a?: AST; b?: AST };
 
   function tokenize(src: string) {
@@ -120,7 +122,7 @@
     return { clauses, rootName: root, subexpressions: subs };
   }
 
-  let formula = $state('(P -> Q) -> (Q -> R)');
+  let formula = $state(initialFormula || '(P -> Q) -> (Q -> R)');
   let result = $state<ReturnType<typeof tseitin> | null>(null);
   let error = $state('');
   let astFmt = $state('');

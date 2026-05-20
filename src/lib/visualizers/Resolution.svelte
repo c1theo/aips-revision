@@ -4,10 +4,12 @@
   // Input: list of clauses (one per line) as comma-separated literals (e.g. "P, ~Q").
   // Algorithm: BFS through pairwise resolutions until empty clause or saturation.
 
-  let input = $state(`P, Q
+  let { initialKB = '', initialQuery = '' } = $props<{ initialKB?: string; initialQuery?: string }>();
+
+  let input = $state(initialKB || `P, Q
 ~P, R
 ~Q, R`);
-  let query = $state('R');
+  let query = $state(initialQuery || 'R');
   let useQuery = $state(true);
   let log = $state<{ step: number; a: string[]; b: string[]; r: string[]; pivot: string }[]>([]);
   let success = $state(false);

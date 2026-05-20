@@ -535,6 +535,287 @@ export const profiles: AlgorithmProfile[] = [
   },
 ];
 
+// ──────────────────────────────────────────────────────────────────────
+//  Topic-only profiles — algorithms without a dedicated viz.
+//  These funnel to a topic page + a related viz.
+// ──────────────────────────────────────────────────────────────────────
+
+const topicOnly: AlgorithmProfile[] = [
+  // Search
+  {
+    viz: 'SearchGrid', label: 'Iterative deepening (IDS)', module: 'search',
+    blurb: 'DFS with increasing depth limit — combines BFS\'s completeness with DFS\'s space.',
+    intents: ['TRACE', 'ANALYZE'],
+    triggers: {
+      strong: ['iterative deepening', 'ids', 'iterative-deepening'],
+      medium: ['depth limit', 'increase depth', 'redo previous'],
+      weak: ['deepening'],
+      anti: ['minimax', 'csp', 'cnf'],
+    },
+    patterns: [{ pattern: /\bIDS\b/, weight: 50, label: 'IDS abbreviation' }],
+  },
+  {
+    viz: 'SearchGrid', label: 'IDA* (iterative deepening A*)', module: 'search',
+    blurb: 'IDS using f = g + h as the cutoff threshold — memory-efficient A*.',
+    intents: ['TRACE', 'ANALYZE'],
+    triggers: {
+      strong: ['ida*', 'iterative deepening a*'],
+      medium: ['f-bound', 'threshold', 'cost cutoff'],
+      weak: [],
+      anti: ['minimax', 'csp'],
+    },
+    patterns: [{ pattern: /\bIDA\*\b/, weight: 70, label: 'IDA*' }],
+  },
+  {
+    viz: 'SearchCompare', label: 'Bidirectional search', module: 'search',
+    blurb: 'Run two simultaneous searches from start and goal; meet in the middle. $O(b^{d/2})$.',
+    intents: ['ANALYZE', 'TRACE'],
+    triggers: {
+      strong: ['bidirectional search', 'meet in the middle'],
+      medium: ['forward search', 'backward search'],
+      weak: [],
+      anti: ['csp', 'minimax'],
+    },
+    patterns: [],
+  },
+  {
+    viz: 'HillClimbSA', label: 'Beam search', module: 'search',
+    blurb: 'Local beam search keeps $k$ best states per generation.',
+    intents: ['SOLVE', 'TRACE'],
+    triggers: {
+      strong: ['beam search', 'local beam', 'stochastic beam'],
+      medium: ['k best', 'breadth k'],
+      weak: ['beam'],
+      anti: ['csp', 'cnf', 'minimax'],
+    },
+    patterns: [],
+  },
+  // Adversarial
+  {
+    viz: 'MinimaxTree', label: 'Quiescence search / horizon effect', module: 'adversarial',
+    blurb: 'Extend search beyond the cutoff for noisy positions to avoid the horizon effect.',
+    intents: ['DEFINE', 'TRACE'],
+    triggers: {
+      strong: ['quiescence search', 'horizon effect', 'noisy moves'],
+      medium: ['extend on capture', 'extend on check'],
+      weak: ['captures', 'check'],
+      anti: ['csp', 'cnf'],
+    },
+    patterns: [{ pattern: /\bquiescence\b/i, weight: 60, label: 'quiescence' }],
+  },
+  {
+    viz: 'MinimaxTree', label: 'Transposition table (Zobrist hashing)', module: 'adversarial',
+    blurb: 'Cache previously-seen positions with their backed-up value, depth and bound flag.',
+    intents: ['DEFINE'],
+    triggers: {
+      strong: ['transposition table', 'zobrist hashing', 'position cache'],
+      medium: ['hash position', 'cache value'],
+      weak: ['cache'],
+      anti: ['csp', 'cnf'],
+    },
+    patterns: [{ pattern: /\btransposition\s+table\b/i, weight: 60, label: 'transposition table' }],
+  },
+  {
+    viz: 'MinimaxTree', label: 'Killer / history / iterative deepening for games', module: 'adversarial',
+    blurb: 'Move-ordering tricks that maximise α-β pruning.',
+    intents: ['DEFINE', 'COMPARE'],
+    triggers: {
+      strong: ['killer heuristic', 'history heuristic'],
+      medium: ['move ordering for ab', 'iterative deepening for games'],
+      weak: ['killer'],
+      anti: ['csp'],
+    },
+    patterns: [],
+  },
+  // CSP
+  {
+    viz: 'AC3', label: 'PC-2 / Path consistency / k-consistency', module: 'csp',
+    blurb: 'Stronger consistency than AC; needed for backtrack-free search on width-$w$ CSPs.',
+    intents: ['ENFORCE', 'DEFINE', 'ANALYZE'],
+    triggers: {
+      strong: ['path consistency', 'pc-2', 'k-consistency', 'strong k-consistency', 'freuder', 'backtrack-free'],
+      medium: ['width of a csp', 'induced width'],
+      weak: ['triple'],
+      anti: ['minimax', 'cnf'],
+    },
+    patterns: [{ pattern: /\bpath\s+consistency\b/i, weight: 70, label: 'path consistency' }],
+  },
+  {
+    viz: 'AC3', label: 'Singleton arc consistency (SAC)', module: 'csp',
+    blurb: 'Per-value probe: tentatively assign, run AC, remove if wipeout.',
+    intents: ['ENFORCE'],
+    triggers: {
+      strong: ['singleton arc consistency', 'sac', 'failed-literal probing for csp'],
+      medium: ['probing', 'dead value'],
+      weak: [],
+      anti: ['minimax'],
+    },
+    patterns: [{ pattern: /\bsingleton\s+arc\s+consistency\b/i, weight: 70, label: 'SAC' }],
+  },
+  {
+    viz: 'CSPLab', label: 'Conflict-directed backjumping (CBJ)', module: 'csp',
+    blurb: 'Backjump to the most recent conflict, not chronologically.',
+    intents: ['TRACE'],
+    triggers: {
+      strong: ['conflict-directed backjumping', 'cbj', 'backjumping', 'conflict set'],
+      medium: ['nogood', 'chronological backtracking'],
+      weak: ['conflict'],
+      anti: ['cnf'],
+    },
+    patterns: [{ pattern: /\bbackjump(ing)?\b/i, weight: 50, label: 'backjumping' }],
+  },
+  {
+    viz: 'CSPLab', label: 'Bucket / variable elimination', module: 'csp',
+    blurb: 'Eliminate vars by joining + projecting bucketed constraints. O(n · d^{w*+1}).',
+    intents: ['SOLVE', 'TRACE'],
+    triggers: {
+      strong: ['bucket elimination', 'variable elimination for csp', 'dechter'],
+      medium: ['induced width', 'join then project'],
+      weak: [],
+      anti: ['cnf'],
+    },
+    patterns: [],
+  },
+  {
+    viz: 'CSPLab', label: 'Symmetry breaking (lex / SBDS / GE-tree)', module: 'csp',
+    blurb: 'Avoid exploring equivalent solutions via static or dynamic symmetry-breaking.',
+    intents: ['MODEL'],
+    triggers: {
+      strong: ['symmetry breaking', 'lex-leader', 'lex leader', 'sbds', 'ge-tree'],
+      medium: ['equivalent solutions', 'canonical solution'],
+      weak: ['symmetry'],
+      anti: ['cnf'],
+    },
+    patterns: [{ pattern: /\bsymmetry\s+breaking\b/i, weight: 60, label: 'symmetry breaking' }],
+  },
+  // Logic
+  {
+    viz: 'TruthTable', label: 'Tableau / analytic tableau', module: 'logic',
+    blurb: 'Refutation by branching expansion rules.',
+    intents: ['PROVE', 'TRACE'],
+    triggers: {
+      strong: ['tableau', 'analytic tableau', 'beth tableau'],
+      medium: ['signed formula', 'branch closure'],
+      weak: [],
+      anti: ['csp'],
+    },
+    patterns: [{ pattern: /\btableau\b/i, weight: 60, label: 'tableau' }],
+  },
+  {
+    viz: 'TruthTable', label: 'Soundness / completeness reasoning', module: 'logic',
+    blurb: 'Distinguish ⊨ (semantic) from ⊢ (syntactic) entailment.',
+    intents: ['DEFINE', 'PROVE'],
+    triggers: {
+      strong: ['soundness', 'completeness', 'semantic entailment', 'syntactic derivation'],
+      medium: ['proof theory', 'model theory'],
+      weak: ['sound', 'complete'],
+      anti: ['csp'],
+    },
+    patterns: [],
+  },
+  // SAT
+  {
+    viz: 'CDCL', label: 'VSIDS / branching heuristic for CDCL', module: 'sat',
+    blurb: 'Activity-bumping + decay drives variable choice in modern SAT solvers.',
+    intents: ['DEFINE', 'TRACE'],
+    triggers: {
+      strong: ['vsids', 'phase saving', 'branching heuristic sat'],
+      medium: ['activity', 'decay'],
+      weak: [],
+      anti: ['csp'],
+    },
+    patterns: [{ pattern: /\bVSIDS\b/i, weight: 70, label: 'VSIDS' }],
+  },
+  {
+    viz: 'CDCL', label: 'Two-watched literals (UP data structure)', module: 'sat',
+    blurb: 'O(1) amortised unit propagation by tracking 2 literals per clause.',
+    intents: ['DEFINE'],
+    triggers: {
+      strong: ['watched literals', 'two-watched literals', 'bcp', 'efficient unit propagation'],
+      medium: ['watcher'],
+      weak: [],
+      anti: ['csp'],
+    },
+    patterns: [],
+  },
+  {
+    viz: 'CDCL', label: 'Restart strategy (Luby / geometric)', module: 'sat',
+    blurb: 'Periodically clear decisions to escape bad subtrees; keep learnt clauses.',
+    intents: ['DEFINE'],
+    triggers: {
+      strong: ['restart strategy', 'luby sequence', 'geometric restart', 'heavy-tailed'],
+      medium: ['restart'],
+      weak: [],
+      anti: ['csp'],
+    },
+    patterns: [{ pattern: /\bLuby\b/i, weight: 60, label: 'Luby' }],
+  },
+  {
+    viz: 'DPLL', label: 'SAT preprocessing (BVE / subsumption / vivification)', module: 'sat',
+    blurb: 'Eliminate variables / shorten clauses before SAT solving.',
+    intents: ['ENFORCE', 'DEFINE'],
+    triggers: {
+      strong: ['bve', 'bounded variable elimination', 'subsumption', 'vivification', 'blocked clause', 'self-subsuming resolution', 'sat preprocessing'],
+      medium: ['probing'],
+      weak: [],
+      anti: ['csp', 'minimax'],
+    },
+    patterns: [{ pattern: /\bBVE\b/, weight: 60, label: 'BVE' }],
+  },
+  {
+    viz: 'CNFEncoder', label: 'Cardinality / AtMost-k encodings', module: 'sat',
+    blurb: 'Encode AtMost-k constraints to CNF: pairwise / sequential / totalizer / ladder.',
+    intents: ['MODEL'],
+    triggers: {
+      strong: ['at most k', 'cardinality encoding', 'sequential counter', 'totalizer', 'ladder encoding', 'order encoding'],
+      medium: ['amo', 'amk'],
+      weak: ['cardinality'],
+      anti: ['csp'],
+    },
+    patterns: [{ pattern: /\bat[-\s]most[-\s]?\d+\b/i, weight: 50, label: 'at-most-k' }],
+  },
+  {
+    viz: 'Resolution', label: 'Pigeonhole / proof complexity lower bound', module: 'sat',
+    blurb: 'Resolution requires exponentially many steps to refute PHP_n.',
+    intents: ['ANALYZE', 'PROVE'],
+    triggers: {
+      strong: ['pigeonhole formula', 'php', 'haken', 'proof complexity', 'extended resolution', 'cutting planes'],
+      medium: ['exponential lower bound'],
+      weak: ['pigeonhole'],
+      anti: [],
+    },
+    patterns: [{ pattern: /\bPHP_?\d?\b/, weight: 50, label: 'PHP_n' }],
+  },
+  // Modelling
+  {
+    viz: 'EssencePrime', label: 'Modelling pattern (set/multiset/sequence/function/partition/relation)', module: 'csp',
+    blurb: 'Identify the abstract pattern, then encode as matrices in Essence Prime.',
+    intents: ['MODEL', 'IDENTIFY'],
+    triggers: {
+      strong: ['modelling pattern', 'sequence', 'multiset', 'partition', 'function (modelling)', 'relation (modelling)', 'viewpoint'],
+      medium: ['set of k', 'channel', 'dual model'],
+      weak: ['set', 'function', 'relation'],
+      anti: ['minimax', 'cnf'],
+    },
+    patterns: [{ pattern: /\bmodelling\s+pattern\b/i, weight: 60, label: 'modelling pattern' }],
+  },
+  {
+    viz: 'EssencePrime', label: 'Channelling between viewpoints', module: 'csp',
+    blurb: 'Linked dual models; propagation flows both ways through the channel.',
+    intents: ['MODEL'],
+    triggers: {
+      strong: ['channelling', 'channeling', 'dual model', 'two viewpoints', 'primal-dual'],
+      medium: ['linked csp'],
+      weak: [],
+      anti: ['cnf'],
+    },
+    patterns: [{ pattern: /\bchanne?l(?:l)?ing\b/i, weight: 60, label: 'channelling' }],
+  },
+];
+
+// Combined export
+for (const tp of topicOnly) profiles.push(tp);
+
 // Indexed lookup
 export const profileByViz: Record<VizKey, AlgorithmProfile | undefined> = profiles.reduce(
   (acc, p) => { acc[p.viz] = p; return acc; },

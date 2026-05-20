@@ -2,7 +2,28 @@
   import ExamAnswer from '../components/ExamAnswer.svelte';
   // Régin's GAC for AllDifferent — bipartite matching visualization.
 
-  let spec = $state(`X1 = a, b
+  let { initialSpec = '' } = $props<{ initialSpec?: string }>();
+
+  // AllDifferent's UI only needs variable/domain lines; the implicit
+  // constraint is "all variables distinct". CSPLab specs may include
+  // unary:/binary: blocks — drop those.
+  function extractVarLines(src: string): string {
+    const out: string[] = [];
+    let inSpecialSection = false;
+    for (const raw of src.split('\n')) {
+      const line = raw.replace(/#.*$/, '').trim();
+      if (!line) continue;
+      const lower = line.toLowerCase();
+      if (lower === 'binary:' || lower === 'unary:') { inSpecialSection = true; continue; }
+      if (inSpecialSection) continue;
+      if (/^\w+\s*=\s*.+$/.test(line)) out.push(line);
+    }
+    return out.join('\n');
+  }
+
+  const _initialVarLines = initialSpec ? extractVarLines(initialSpec) : '';
+
+  let spec = $state(_initialVarLines || `X1 = a, b
 X2 = a, b
 X3 = a, b, c`);
 

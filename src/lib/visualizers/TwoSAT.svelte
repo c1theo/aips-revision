@@ -2,7 +2,35 @@
   import ExamAnswer from '../components/ExamAnswer.svelte';
   // 2-SAT solver via implication graph + Tarjan's SCC. Polynomial time.
 
-  let input = $state(`1 2
+  let { initialCNF = '' } = $props<{ initialCNF?: string }>();
+
+  function normalizeCNF(s: string): string {
+    if (!s) return s;
+    if (!/[∨∧¬()]|\bor\b|\band\b|\|\||&&/i.test(s)) return s;
+    const clauseStrs = s
+      .replace(/\band\b/gi, '∧')
+      .replace(/&&/g, '∧')
+      .replace(/\bor\b/gi, '∨')
+      .replace(/\|\|/g, '∨')
+      .replace(/!/g, '¬')
+      .replace(/~/g, '¬')
+      .split('∧');
+    const lines: string[] = [];
+    for (const raw of clauseStrs) {
+      const body = raw.replace(/[()]/g, '').trim();
+      if (!body) continue;
+      const lits = body.split('∨').map((tok) => {
+        const t = tok.trim();
+        const m = t.match(/^(¬?)\s*x_?\{?(\d+)\}?$/i);
+        if (!m) return null;
+        return (m[1] ? '-' : '') + m[2];
+      }).filter(Boolean);
+      if (lits.length) lines.push(lits.join(' '));
+    }
+    return lines.length ? lines.join('\n') : s;
+  }
+
+  let input = $state(normalizeCNF(initialCNF) || `1 2
 -1 3
 -2 -3
 1 -3`);

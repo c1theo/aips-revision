@@ -2,6 +2,8 @@
   import ExamAnswer from '../components/ExamAnswer.svelte';
   // Truth table builder for an arbitrary propositional formula.
 
+  let { initialFormula = '' } = $props<{ initialFormula?: string }>();
+
   // Tokenizer
   type Tok = { type: 'lp'|'rp'|'not'|'and'|'or'|'imp'|'iff'|'var'|'true'|'false'; v?: string };
   function tokenize(src: string): Tok[] {
@@ -102,7 +104,7 @@
     return false;
   }
 
-  let formula = $state('(P -> Q) & (Q -> R) -> (P -> R)');
+  let formula = $state(initialFormula || '(P -> Q) & (Q -> R) -> (P -> R)');
   let error = $state('');
   let table = $state<{ headers: string[]; rows: { vals: boolean[]; result: boolean }[] } | null>(null);
   let summary = $state('');

@@ -2,13 +2,63 @@
   import ExamAnswer from '../components/ExamAnswer.svelte';
   // Forward chaining over a Horn KB. Rules: "p1, p2, ... -> q" or just facts "q".
 
-  let input = $state(`A
+  let { initialHorn = '' } = $props<{ initialHorn?: string }>();
+
+  // Parse the "# Facts / # Rules / # Query" header format into:
+  //   - kb text (facts + rules joined as the existing UI expects)
+  //   - optional query string
+  // Rules in the incoming format use "∧" between body atoms and "→" between
+  // body and head; we normalise to "," and "->" to match the existing parser.
+  function parseHornHeaders(src: string): { kb: string; query: string } {
+    const lines = src.split('\n');
+    let section: 'facts' | 'rules' | 'query' | null = null;
+    const facts: string[] = [];
+    const rules: string[] = [];
+    let queryLine = '';
+    for (const raw of lines) {
+      const line = raw.trim();
+      if (!line) continue;
+      const lower = line.toLowerCase();
+      if (lower.startsWith('# facts') || lower === '#facts') { section = 'facts'; continue; }
+      if (lower.startsWith('# rules') || lower === '#rules') { section = 'rules'; continue; }
+      if (lower.startsWith('# query') || lower === '#query') { section = 'query'; continue; }
+      if (line.startsWith('#')) continue;
+      if (section === 'facts') {
+        facts.push(line);
+      } else if (section === 'rules') {
+        // Normalise "p ∧ q → r" -> "p, q -> r"
+        const normalised = line
+          .replace(/∧|&&|&/g, ',')
+          .replace(/→|=>/g, '->');
+        rules.push(normalised);
+      } else if (section === 'query') {
+        // Accept "goal: x" or just "x"
+        const m = line.match(/^(?:goal\s*:\s*)?(.+)$/i);
+        if (m) queryLine = m[1].trim();
+      } else {
+        // No section header yet — treat ambiguously: rules contain ->, facts don't.
+        if (line.includes('->') || line.includes('→')) {
+          rules.push(line.replace(/∧|&&|&/g, ',').replace(/→|=>/g, '->'));
+        } else {
+          facts.push(line);
+        }
+      }
+    }
+    return {
+      kb: [...facts, ...rules].join('\n'),
+      query: queryLine,
+    };
+  }
+
+  const _parsedInitial = initialHorn ? parseHornHeaders(initialHorn) : null;
+
+  let input = $state(_parsedInitial?.kb || `A
 B
 A, B -> C
 A -> D
 C, D -> E
 E -> F`);
-  let query = $state('F');
+  let query = $state(_parsedInitial?.query || 'F');
   let mode = $state<'forward' | 'backward'>('forward');
 
   interface Rule { body: string[]; head: string; }

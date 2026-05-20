@@ -3,6 +3,8 @@
   // CNF conversion stepper: eliminate ⇔, ⇒, push ¬, distribute ∨ over ∧.
   // Reuses tokenizer/parser of TruthTable.
 
+  let { initialFormula = '' } = $props<{ initialFormula?: string }>();
+
   type AST = { kind: string; v?: string; a?: AST; b?: AST };
 
   function tokenize(src: string) {
@@ -111,7 +113,7 @@
     return a;
   }
 
-  let formula = $state('(P -> Q) -> (Q -> R)');
+  let formula = $state(initialFormula || '(P -> Q) -> (Q -> R)');
   let steps = $state<{ name: string; ast: AST }[]>([]);
   let error = $state('');
 

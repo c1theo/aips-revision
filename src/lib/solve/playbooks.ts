@@ -826,6 +826,573 @@ such that
 \`\`\``,
     triggers: ['essence prime', "essence'", 'savile row', 'minion', 'matrix indexed by'],
   },
+
+  // ───────────────────────────────────────────────────────────────────
+  //  SEARCH — additional playbooks
+  // ───────────────────────────────────────────────────────────────────
+  {
+    id: 'search-heuristic-design',
+    topic: 'Search', module: 'search', subtask: 'Design a heuristic; argue admissibility / consistency / dominance',
+    whenItApplies: ['Question mentions heuristic, admissible, consistent, monotonic, dominate, Manhattan, Euclidean, relaxed problem, pattern database.'],
+    steps: [
+      'Choose / state your heuristic $h(n)$.',
+      '**Admissibility**: prove $h(n) \\le h^*(n)$ — the true distance to goal — for every $n$. Standard trick: relax the problem (drop a constraint) and show $h$ is the cost of an optimal solution to the relaxation.',
+      '**Consistency** (a.k.a. monotonicity): prove $h(n) \\le c(n, n\') + h(n\')$ for every successor $n\'$. Consistency ⇒ admissibility.',
+      '**Dominance**: $h_2$ dominates $h_1$ iff $h_2(n) \\ge h_1(n)$ for every $n$, both admissible. A dominating heuristic expands no more nodes than the dominated one.',
+      '**Max-of-admissibles**: if $h_1, h_2$ admissible, so is $\\max(h_1, h_2)$ — strictly dominates both.',
+      '**Pattern databases** / sub-problem heuristics: solve a relaxed sub-problem exhaustively, store costs in a table. Admissible by construction.',
+    ],
+    pitfalls: [
+      'Admissibility ≠ consistency: an admissible heuristic can be non-consistent (creates trouble for A* graph-search).',
+      'Consistency is the property that guarantees A* with graph-search is optimal without re-opening closed nodes.',
+      'Manhattan distance is consistent for unit-cost grids; if you change costs, re-check.',
+    ],
+    pointers: [
+      { kind: 'topic', key: 'informed-search', label: 'Topic: informed search' },
+      { kind: 'viz', key: 'SearchGrid', label: 'Visualiser: A* with selectable heuristic' },
+    ],
+    answerTemplate:
+`**Heuristic.** $h(n) = $ _<formula or description>_
+
+**Admissibility argument.** $h$ is the cost of an optimal solution to the **relaxed problem** $P\'$ (we dropped constraint _<X>_). Therefore $h(n) \\le h^*(n)$ for every $n$. ✓
+
+**Consistency check.** For every successor $n\'$ via action $a$: $h(n) \\le c(n, n\') + h(n\')$. _<argue / show>_.
+
+**Dominance.** Comparing to $h_1$: $h(n) \\ge h_1(n)$ everywhere → dominates.
+
+**Effective branching factor $b^*$.** $b^* \\approx \\ldots$ (smaller is better).`,
+    triggers: ['heuristic', 'admissible', 'consistent', 'manhattan distance', 'euclidean', 'pattern database', 'dominance', 'relaxed problem', 'monotonic'],
+  },
+  {
+    id: 'search-complexity',
+    topic: 'Search', module: 'search', subtask: 'Complexity / optimality / completeness analysis',
+    whenItApplies: ['What is the time / space complexity?', 'Is BFS / DFS / IDS / A* complete / optimal?'],
+    steps: [
+      'State the search strategy.',
+      'For tree-search, give time and space in $O(b^d)$ where $b$ = branching factor, $d$ = solution depth.',
+      'Completeness: BFS / IDS / UCS (positive costs) / A* (finite branching) — yes. DFS — no on infinite trees.',
+      'Optimality: BFS optimal if uniform costs; UCS / A* (admissible) optimal in general.',
+      'Memory: BFS / UCS / A* $O(b^d)$ space → prohibitive. IDS / DFS $O(bd)$.',
+      'Variants: IDA*, RBFS, SMA* reduce memory at extra time cost.',
+    ],
+    pitfalls: [
+      'A* graph-search needs CONSISTENCY for optimality (not just admissibility).',
+      'Greedy best-first is neither complete nor optimal in general.',
+      'Bidirectional search complexity $O(b^{d/2})$ when both fringes meet — but needs an explicit goal state.',
+    ],
+    pointers: [
+      { kind: 'topic', key: 'informed-search', label: 'Topic: informed search' },
+      { kind: 'topic', key: 'uninformed-search', label: 'Topic: uninformed search' },
+      { kind: 'viz', key: 'ComplexityTable', label: 'Visualiser: complexity reference table' },
+    ],
+    answerTemplate:
+`**Algorithm.** _<>_
+
+**Branching factor $b$.** _<>_. **Depth $d$.** _<>_.
+
+**Time complexity.** $O(\\ldots)$
+**Space complexity.** $O(\\ldots)$
+
+**Completeness.** _<yes / no — argue>_
+**Optimality.** _<yes / no — argue>_
+
+**Trade-off.** _<which dimension is the bottleneck>_`,
+    triggers: ['complexity', 'completeness', 'optimal', 'time complexity', 'space complexity', "what is the worst case", 'ids', 'iterative deepening', 'ida*', 'rbfs', 'sma*', 'bidirectional'],
+  },
+
+  // ───────────────────────────────────────────────────────────────────
+  //  ADVERSARIAL — additional playbooks
+  // ───────────────────────────────────────────────────────────────────
+  {
+    id: 'adv-evaluation',
+    topic: 'Adversarial', module: 'adversarial', subtask: 'Design an evaluation function (cut-off games)',
+    whenItApplies: ['Static evaluator, evaluation function, leaf heuristic, cut-off, depth limit in game tree.'],
+    steps: [
+      'Identify features of a position that correlate with win likelihood (e.g. material, mobility, king safety).',
+      'Weight them: $\\text{eval}(s) = \\sum_i w_i f_i(s)$.',
+      'Calibrate weights from games or by hand.',
+      'Pair with **cut-off depth** $d$ and **quiescence search** to avoid the horizon effect (stop only when the position is quiet).',
+      'For zero-sum games, eval should be 0 at draw, positive for MAX-favoured, negative for MIN-favoured.',
+    ],
+    pitfalls: [
+      'Horizon effect: a quick eval at fixed depth can wildly misjudge mid-tactic positions. Use **quiescence search** to extend only "noisy" moves (captures, checks).',
+      'Don\'t fold cut-off depth into the eval — keep depth control separate from material counting.',
+    ],
+    pointers: [
+      { kind: 'topic', key: 'imperfect-realtime', label: 'Topic: imperfect / real-time decisions' },
+      { kind: 'viz', key: 'MinimaxTree', label: 'Visualiser: minimax + α-β' },
+    ],
+    answerTemplate:
+`**Features.** _<list>_
+
+**Linear evaluator.** $\\text{eval}(s) = \\sum_i w_i f_i(s)$ with weights _<>_.
+
+**Cut-off depth.** _<d>_.
+
+**Quiescence policy.** _<which moves extend the search beyond d>_`,
+    triggers: ['evaluation function', 'eval(', 'static evaluator', 'cut-off depth', 'horizon effect', 'quiescence'],
+  },
+  {
+    id: 'adv-move-ordering',
+    topic: 'Adversarial', module: 'adversarial', subtask: 'Move ordering for α-β pruning',
+    whenItApplies: ['Move ordering, killer heuristic, history heuristic, transposition table, iterative deepening for games.'],
+    steps: [
+      'Order moves so that the **likely-best move** is searched first — α-β prunes much more under good ordering ($O(b^{d/2})$ best vs $O(b^d)$ worst).',
+      '**Killer heuristic**: store moves that caused β-cuts at sibling nodes; try them first.',
+      '**History heuristic**: per-(move) running counter of how often it caused cuts; sort by counter.',
+      '**Iterative deepening**: depth-$(d-1)$\'s best move becomes the FIRST move at depth $d$ — huge speed-up.',
+      '**Transposition table**: same position reached via different orders gets cached. Hash via Zobrist.',
+    ],
+    pitfalls: [
+      'Even perfect move ordering gives $O(b^{d/2})$ — α-β cannot do better than this.',
+      'TT entries can collide; always verify the position hash matches.',
+    ],
+    pointers: [
+      { kind: 'topic', key: 'imperfect-realtime', label: 'Topic: imperfect / real-time decisions' },
+      { kind: 'viz', key: 'MinimaxTree', label: 'Visualiser: alpha-beta with toggleable ordering' },
+    ],
+    answerTemplate:
+`**Move ordering.** _<list policy>_
+
+**Killer / history / IDS impact.** _<>_
+
+**TT entry.** $(value, depth, flag)$ where flag ∈ {EXACT, LOWER, UPPER}.`,
+    triggers: ['move ordering', 'killer heuristic', 'history heuristic', 'transposition table', 'iterative deepening for games', 'zobrist'],
+  },
+
+  // ───────────────────────────────────────────────────────────────────
+  //  CSP — additional playbooks
+  // ───────────────────────────────────────────────────────────────────
+  {
+    id: 'csp-k-consistency',
+    topic: 'CSP', module: 'csp', subtask: 'Path consistency / k-consistency',
+    whenItApplies: ['Path consistency, PC-2, k-consistency, strong k-consistency, Freuder, backtrack-free, width.'],
+    steps: [
+      '**$k$-consistency**: any consistent assignment to $k-1$ variables extends to a $k$-th.',
+      '**Path consistency = 3-consistency.** For every pair $(X_i, X_j)$ consistent under $C_{ij}$, and every third variable $X_k$, there exists $v_k \\in D(X_k)$ consistent with both via $C_{ik}, C_{jk}$.',
+      '**Strong $k$-consistency** = $i$-consistent for all $i \\le k$.',
+      '**Theorem (Freuder 1985).** A CSP with **width $w$** (under some variable ordering) is backtrack-free if it is **strong $(w+1)$-consistent**.',
+      'Tree-CSPs have width 1 → strong 2-consistency (= AC + NC) suffices.',
+      'PC-2 algorithm enforces PC by storing allowed pairs per arc and updating on changes.',
+    ],
+    pitfalls: [
+      'AC = 2-consistency, NOT strong 2-consistency. Strong 2-consistency requires NC + AC.',
+      'PC is much more expensive than AC: $O(n^3 d^5)$ vs $O(c d^3)$.',
+      'Strong $n$-consistency is solving (potentially exponential).',
+    ],
+    pointers: [
+      { kind: 'topic', key: 'beyond-ac3', label: 'Topic: beyond AC-3' },
+    ],
+    answerTemplate:
+`**Definition.** $k$-consistency means _<…>_. Path consistency = 3-consistency.
+
+**Test on this CSP.** _<work through pairs + triples>_
+
+**Width $w$ of this CSP under ordering _<>_:** $w = \\ldots$.
+
+**Verdict.** _<strong-(w+1) holds / fails>_ → _<backtrack-free / not>_.`,
+    triggers: ['path consistency', 'pc-2', 'k-consistency', 'strong k-consistency', 'freuder', 'width', 'backtrack-free'],
+  },
+  {
+    id: 'csp-cbj',
+    topic: 'CSP', module: 'csp', subtask: 'Conflict-directed backjumping (CBJ)',
+    whenItApplies: ['Backjumping, conflict set, chronological vs intelligent backtracking.'],
+    steps: [
+      'Maintain a **conflict set** per variable: the prior variables whose assignment ruled out values you tried.',
+      'On failure at $X_i$ (no value works), **backjump** to the most recent variable in $X_i$\'s conflict set, not to $X_{i-1}$.',
+      'On backjump, merge the conflict set into the receiving variable\'s set.',
+      'Combine with **nogood recording**: store the failure assignment to avoid revisiting it.',
+    ],
+    pitfalls: [
+      'CBJ alone is weaker than CDCL: it doesn\'t LEARN clauses, only jumps levels.',
+      'Implementation needs careful conflict-set propagation through search.',
+    ],
+    pointers: [
+      { kind: 'topic', key: 'backtracking', label: 'Topic: backtracking & heuristics' },
+      { kind: 'viz', key: 'CDCL', label: 'Visualiser: CDCL (SAT analogue with learning)' },
+    ],
+    answerTemplate:
+`**Conflict set tracking.** At each $X_i$: $\\text{CS}(X_i) = \\{X_j : v_j$ ruled out at least one value of $X_i\\}$.
+
+**Failure at $X_k$.** $\\text{CS}(X_k) = \\{X_{j_1}, \\ldots\\}$. Backjump to **most recent** $X_{j_*}$.
+
+**Merge.** $\\text{CS}(X_{j_*}) \\cup= \\text{CS}(X_k) \\setminus \\{X_{j_*}\\}$.`,
+    triggers: ['backjumping', 'cbj', 'conflict-directed', 'conflict set', 'nogood'],
+  },
+  {
+    id: 'csp-global-other',
+    topic: 'CSP', module: 'csp', subtask: 'GAC for sum / element / gcc / table',
+    whenItApplies: ['Sum constraint, gcc (global cardinality), element, table constraint, bounds consistency.'],
+    steps: [
+      '**Sum constraint** $\\sum_i X_i = K$: enforce **bounds consistency** by computing min/max sums and pruning each $X_i$ to $[K - \\text{maxOthers}, K - \\text{minOthers}]$.',
+      '**Element** $Z = X[Y]$: $Z$ is the $Y$-th entry of array $X$. Enforce: $Z \\in \\bigcup_{i \\in D(Y)} D(X_i)$ and similar for $Y$.',
+      '**GCC (global cardinality)**: each value $v$ appears between $\\ell_v$ and $u_v$ times. Reduce to flow / bipartite matching.',
+      '**Table** (extensional): scan the allowed tuples; remove values that don\'t appear in any. STR2 / STR3 are fast algorithms.',
+      'Always note: bounds consistency is cheaper than GAC but weaker.',
+    ],
+    pitfalls: [
+      'Decomposing a global into many binary $\\ne$ loses propagation.',
+      'For very wide tables, table constraints can use too much memory — consider decomposition.',
+    ],
+    pointers: [
+      { kind: 'topic', key: 'beyond-ac3', label: 'Topic: beyond AC-3 / GAC' },
+      { kind: 'viz', key: 'ReginAllDiff', label: "Visualiser: Régin's AllDifferent" },
+    ],
+    answerTemplate:
+`**Global constraint.** _<name>_.
+
+**Propagator strength chosen.** GAC / bounds / range.
+
+**Algorithm sketch.** _<steps for this constraint>_.
+
+**Domains after.** _<>_`,
+    triggers: ['sum constraint', 'gcc', 'global cardinality', 'element constraint', 'table constraint', 'bounds consistency', 'extensional'],
+  },
+  {
+    id: 'csp-sac',
+    topic: 'CSP', module: 'csp', subtask: 'Singleton arc consistency (SAC) as preprocessing',
+    whenItApplies: ['Singleton arc consistency, SAC, preprocessing, dead value, probing.'],
+    steps: [
+      'For every variable $X$ and every value $v \\in D(X)$: tentatively set $X = v$, run AC-3.',
+      'If AC-3 fails (domain wipeout) → $v$ is a **dead value**; remove from $D(X)$.',
+      'Iterate to fixpoint.',
+      'Stronger than AC, weaker than path consistency. Often used as preprocessing before search.',
+    ],
+    pitfalls: [
+      'Cost: $O(n \\cdot d \\cdot \\text{AC-cost}) = O(n \\cdot d \\cdot c \\cdot d^3)$ — only worth it as preprocessing.',
+      'SAC alone doesn\'t enforce path consistency.',
+    ],
+    pointers: [{ kind: 'topic', key: 'beyond-ac3', label: 'Topic: beyond AC-3' }],
+    answerTemplate:
+`**SAC preprocessing.**
+For each variable $X$ and value $v \\in D(X)$: probe $X = v$ + run AC-3. Remove $v$ if wipeout.
+
+**Dead values found.** _<list>_
+
+**Final domains.** _<>_`,
+    triggers: ['singleton arc consistency', 'sac', 'probing', 'dead value'],
+  },
+  {
+    id: 'csp-symmetry',
+    topic: 'CSP', module: 'csp', subtask: 'Symmetry breaking',
+    whenItApplies: ['Symmetry, lex-leader, SBDS, GE-tree, symmetry-breaking constraints, equivalent solutions.'],
+    steps: [
+      'Identify the **symmetry group** of the CSP (rotations / reflections / variable swaps / value renaming).',
+      'Add **lex-leader** constraints: force a canonical order on symmetric variables (e.g. $X_1 \\le X_2$).',
+      'Or use dedicated algorithms: SBDS (dynamic), GE-tree (static), or domain-specific breaking.',
+      'Symmetry breaking shrinks the search space by a factor up to $|G|$ (the symmetry group size).',
+    ],
+    pitfalls: [
+      'Adding lex on non-symmetric variables loses solutions.',
+      'Static lex-leader is simple but not always tight; SBDS gives a perfect symmetry break at solving cost.',
+    ],
+    pointers: [{ kind: 'topic', key: 'cp-modelling', label: 'Topic: CP modelling' }],
+    answerTemplate:
+`**Symmetry group.** _<describe>_, size $|G| = \\ldots$.
+
+**Symmetry-breaking constraint added.** _<lex-leader expression>_
+
+**Search-space reduction (theoretical).** Factor $\\approx |G|$.`,
+    triggers: ['symmetry', 'lex-leader', 'lex leader', 'sbds', 'ge-tree', 'symmetric solutions'],
+  },
+  {
+    id: 'csp-bucket',
+    topic: 'CSP', module: 'csp', subtask: 'Bucket / variable elimination',
+    whenItApplies: ['Bucket elimination, variable elimination, induced width, Dechter.'],
+    steps: [
+      'Pick a variable ordering $X_1, X_2, \\ldots, X_n$.',
+      'For each variable $X_n, X_{n-1}, \\ldots$ in reverse: **join** all constraints containing $X_n$, **project out** $X_n$ → a new constraint over the remaining variables in $X_n$\'s bucket.',
+      'After eliminating all but $X_1$, the remaining bucket gives the satisfying values of $X_1$.',
+      'Forward pass: assign $X_1$, then $X_2$, etc., respecting the eliminated buckets.',
+      'Cost: $O(n \\cdot d^{w^*+1})$ where $w^*$ = **induced width** along the ordering.',
+    ],
+    pitfalls: [
+      'Bad ordering → huge induced width → exponential cost.',
+      'Bucket elimination is *complete*, not incremental — re-do everything if domains change.',
+    ],
+    pointers: [{ kind: 'topic', key: 'csp-structure', label: 'Topic: CSP structure & tree-CSPs' }],
+    answerTemplate:
+`**Ordering.** $X_1, \\ldots, X_n$.
+
+**Bucket trace.** For each $X_n \\downarrow X_1$: join → project.
+
+**Induced width.** $w^* = \\ldots$.
+
+**Solution recovery (forward pass).** $X_1 = \\ldots$, $X_2 = \\ldots$, …`,
+    triggers: ['bucket elimination', 'variable elimination', 'induced width', 'dechter'],
+  },
+
+  // ───────────────────────────────────────────────────────────────────
+  //  LOGIC — additional playbooks
+  // ───────────────────────────────────────────────────────────────────
+  {
+    id: 'logic-tableau',
+    topic: 'Logic', module: 'logic', subtask: 'Tableau / analytic-tableau method',
+    whenItApplies: ['Tableau, analytic tableau, signed formulas, branch-closure.'],
+    steps: [
+      'Start with the conjunction of premises and the negation of the goal.',
+      'Apply tableau **expansion rules**: α-rules (conjunctive split into chain), β-rules (disjunctive split into branches).',
+      'Close a branch when it contains $\\varphi$ and $\\neg \\varphi$.',
+      'All branches closed ⇒ premises ⊨ goal. Open branch with all literals exhausted ⇒ countermodel.',
+    ],
+    pitfalls: [
+      'Strategy matters: prioritise α-rules (no branching) before β-rules.',
+      'Don\'t expand a literal — leave it as is.',
+    ],
+    pointers: [{ kind: 'viz', key: 'TruthTable', label: 'Visualiser: truth-table builder (alternative)' }],
+    answerTemplate:
+`**Tableau initial.** premises + ¬goal.
+
+**Expansion trace.**
+| Step | Rule | Formula expanded | Children |
+|---|---|---|---|
+
+**All branches closed?** _<yes ⇒ valid / no ⇒ countermodel from open branch>_`,
+    triggers: ['tableau', 'analytic tableau', 'branch closure'],
+  },
+  {
+    id: 'logic-semantics',
+    topic: 'Logic', module: 'logic', subtask: 'Semantic vs syntactic entailment; soundness & completeness',
+    whenItApplies: ['Soundness, completeness, semantic entailment, syntactic derivation, ⊨ vs ⊢.'],
+    steps: [
+      '**Semantic** $\\Gamma \\models \\varphi$: every model of $\\Gamma$ is a model of $\\varphi$. Definitional, checks all $2^n$ assignments.',
+      '**Syntactic** $\\Gamma \\vdash \\varphi$: a derivation exists in the proof system (resolution, natural deduction, tableau).',
+      '**Soundness:** $\\Gamma \\vdash \\varphi \\Rightarrow \\Gamma \\models \\varphi$ — what you can derive is true in every model.',
+      '**Completeness:** $\\Gamma \\models \\varphi \\Rightarrow \\Gamma \\vdash \\varphi$ — every truth has a derivation.',
+      'Propositional resolution is both sound and (refutation-)complete.',
+    ],
+    pitfalls: [
+      'Resolution is refutation-complete, NOT deduction-complete; you can\'t directly derive every consequence.',
+      'Don\'t confuse syntactic with semantic: ⊨ and ⊢ are different relations even when they coincide on a sound and complete proof system.',
+    ],
+    pointers: [{ kind: 'topic', key: 'entailment', label: 'Topic: entailment' }],
+    answerTemplate:
+`**Statement.** $\\Gamma \\models \\varphi$ vs $\\Gamma \\vdash \\varphi$.
+
+**Argument.** _<semantic test via truth table / syntactic derivation>_
+
+**Soundness / completeness claim.** _<>_`,
+    triggers: ['soundness', 'completeness', 'semantic entailment', 'syntactic derivation', 'proof theory', 'model theory'],
+  },
+
+  // ───────────────────────────────────────────────────────────────────
+  //  SAT — additional playbooks
+  // ───────────────────────────────────────────────────────────────────
+  {
+    id: 'sat-vsids',
+    topic: 'SAT', module: 'sat', subtask: 'VSIDS / branching heuristics for CDCL',
+    whenItApplies: ['VSIDS, variable state independent decaying sum, branching heuristic, activity, decay.'],
+    steps: [
+      'Maintain a per-variable **activity** counter.',
+      'On each conflict analysis, **bump** the activity of variables appearing in the learnt clause.',
+      'Periodically **decay** all activities by a factor (e.g. 0.95).',
+      'Decision: pick the **unassigned variable with maximum activity** (set to its preferred polarity from phase-saving).',
+    ],
+    pitfalls: [
+      'VSIDS is solver-internal — don\'t expect to compute it by hand on large instances.',
+      'Phase-saving is a *separate* heuristic that picks True/False; complementary to VSIDS.',
+    ],
+    pointers: [{ kind: 'viz', key: 'CDCL', label: 'Visualiser: CDCL' }],
+    answerTemplate:
+`**Activity update.** After conflict $k$: bump $\\text{act}(x_i) \\mathrel{+}= 1$ for every $x_i$ in the learnt clause.
+
+**Decay.** Multiply all activities by $\\rho = 0.95$ every $k$ conflicts.
+
+**Decision.** Pick $\\arg\\max_x \\text{act}(x)$ among unassigned.
+
+**Phase.** Use last-assigned polarity (phase-saving).`,
+    triggers: ['vsids', 'branching heuristic sat', 'activity', 'phase saving', 'decay'],
+  },
+  {
+    id: 'sat-preprocess',
+    topic: 'SAT', module: 'sat', subtask: 'SAT preprocessing (BVE / subsumption / vivification)',
+    whenItApplies: ['Bounded variable elimination, BVE, subsumption, self-subsuming resolution, blocked clause, vivification, probing.'],
+    steps: [
+      '**BVE**: eliminate $v$ by resolving every $C_+ \\ni v$ with every $C_- \\ni \\neg v$. Keep iff total clause count doesn\'t grow.',
+      '**Subsumption**: clause $C \\subseteq D$ ⇒ delete $D$.',
+      '**Self-subsuming resolution**: clauses $C \\cup \\{\\ell\\}$ and $C \\cup \\{\\neg \\ell\\}$ ⇒ shorten to $C$.',
+      '**Blocked-clause elimination (BCE)**: $C$ blocked on $\\ell$ if every resolution on $\\ell$ produces a tautology ⇒ may remove $C$ (needs reconstruction stack for model).',
+      '**Vivification**: probe each literal via UP to detect redundant literals; shorten clause.',
+      '**Failed-literal probing**: if assigning $x = T$ leads to conflict under UP, learn $\\neg x$ as a unit clause.',
+    ],
+    pitfalls: [
+      'BVE may explode if many resolvents; cap with a heuristic (Eén & Biere 2005).',
+      'BCE preserves satisfiability but not equivalence — careful with model reconstruction.',
+    ],
+    pointers: [{ kind: 'topic', key: 'sat-problem', label: 'Topic: SAT' }],
+    answerTemplate:
+`**Preprocessing applied.** _<BVE / subsumption / SS-res / BCE / vivification / probing>_
+
+**Before.** $n$ vars, $m$ clauses.
+**After.** $n\'$ vars, $m\'$ clauses (Δ = _<>_%).
+
+**Soundness note.** _<equiv / equisat>_`,
+    triggers: ['bve', 'bounded variable elimination', 'subsumption', 'vivification', 'blocked clause', 'self-subsuming', 'sat preprocessing', 'probing'],
+  },
+  {
+    id: 'sat-watched-literals',
+    topic: 'SAT', module: 'sat', subtask: 'Two-watched literals (UP data structure)',
+    whenItApplies: ['Watched literals, two-watched literals, efficient UP, BCP.'],
+    steps: [
+      'Each clause maintains TWO **watched literals**.',
+      'When a literal is assigned False, find a new non-False watcher in the clause.',
+      'If only one watcher remains and it\'s unassigned → that\'s a **unit propagation**.',
+      'If both watchers are False → **conflict**.',
+      'O(1) amortised work per propagation step — much faster than scanning every clause.',
+    ],
+    pitfalls: [
+      'No need to update watchers on backtrack — that\'s the key elegance.',
+      'A clause may be visited only when one of its watchers becomes False.',
+    ],
+    pointers: [{ kind: 'viz', key: 'CDCL', label: 'Visualiser: CDCL' }],
+    answerTemplate:
+`**Watcher invariant.** Each clause has 2 watchers; both are non-False (or one is the asserting literal).
+
+**Propagation step.** When $w_1$ becomes False: scan clause for new watcher. If only the other watcher remains and is unassigned → unit-propagate it. Else if conflict → trigger conflict analysis.
+
+**Speed.** O(1) amortised per literal flip.`,
+    triggers: ['watched literals', 'two-watched literals', 'bcp', 'efficient unit propagation'],
+  },
+  {
+    id: 'sat-restarts',
+    topic: 'SAT', module: 'sat', subtask: 'Restart strategies & Luby sequence',
+    whenItApplies: ['Restart, Luby sequence, geometric restart, heavy-tailed runtime.'],
+    steps: [
+      'Maintain a conflict / time budget per "run". Restart when exceeded.',
+      'On restart: clear decisions but KEEP learnt clauses + activity.',
+      'Schedules: **Luby** ($1, 1, 2, 1, 1, 2, 4, 1, 1, 2, 1, 1, 2, 4, 8, \\ldots$) — proven optimal for heavy-tailed runtime.',
+      '**Geometric** (multiply budget by 1.5 each restart) — faster but no theory guarantee.',
+      '**Local restarts** vs **global**: glucose / minisat-style.',
+    ],
+    pitfalls: [
+      'Restart too eagerly → lose progress; too rarely → stuck in bad subtree.',
+      'Phase-saving + restart combine well — explore different decision orders but keep value preferences.',
+    ],
+    pointers: [{ kind: 'topic', key: 'cdcl', label: 'Topic: CDCL' }],
+    answerTemplate:
+`**Restart policy.** _<Luby / geometric / static>_
+
+**Budget unit.** _<conflicts / decisions / time>_
+
+**Preserved across restart.** Learnt clauses, VSIDS activity, phases.`,
+    triggers: ['restart', 'luby', 'geometric restart', 'heavy-tailed'],
+  },
+  {
+    id: 'sat-cardinality',
+    topic: 'SAT', module: 'sat', subtask: 'Cardinality / AtMost-k encodings',
+    whenItApplies: ['AtMost-k, cardinality constraint, encoding cardinality in CNF, sequential counter, totalizer.'],
+    steps: [
+      'For "**at most $k$ of $x_1, \\ldots, x_n$ are true**", pick encoding:',
+      '— **Pairwise (AMO only)**: $\\binom{n}{2}$ clauses, no aux vars. Simple.',
+      '— **Sequential counter**: $O(nk)$ clauses + $O(nk)$ aux. **UP-preserving**.',
+      '— **Totalizer / cardinality network**: $O(n \\log^2 n)$ clauses + $O(n \\log n)$ aux. Strong propagation.',
+      '— **Ladder / order encoding**: $O(n)$ each. **UP-preserving**.',
+      'Choose based on $n, k$, and how often the constraint is queried.',
+    ],
+    pitfalls: [
+      'Pairwise AMO blows up for large $n$ — avoid for $n > 100$.',
+      '"UP-preserving" means unit propagation alone detects all unit consequences — important for solver speed.',
+    ],
+    pointers: [{ kind: 'topic', key: 'sat-problem', label: 'Topic: SAT' }],
+    answerTemplate:
+`**Constraint.** At most $k$ of $\\{x_1, \\ldots, x_n\\}$.
+
+**Encoding chosen.** _<pairwise / sequential / totalizer / ladder>_
+
+**Sizes.** $\\ldots$ clauses, $\\ldots$ aux vars.
+
+**Properties.** UP-preserving _<yes/no>_.`,
+    triggers: ['at most k', 'cardinality', 'sequential counter', 'totalizer', 'ladder encoding', 'order encoding'],
+  },
+  {
+    id: 'sat-pigeonhole',
+    topic: 'SAT', module: 'sat', subtask: 'Pigeonhole / proof-complexity lower bound',
+    whenItApplies: ['Pigeonhole formula, $\\text{PHP}_n$, proof complexity, Haken, exponential UNSAT proof.'],
+    steps: [
+      '$\\text{PHP}_n$ encodes "$n+1$ pigeons in $n$ holes" with one clause per pigeon (at least one hole) and one per hole-pair (no two pigeons in the same hole).',
+      'UNSAT for any $n \\ge 1$.',
+      '**Theorem (Haken 1985):** resolution requires exponentially many steps to refute $\\text{PHP}_n$.',
+      'DPLL / CDCL traces correspond to resolution proofs ⇒ both have exponential lower bound on PHP family.',
+      'Specialised algorithms (cutting planes, extended resolution) escape this.',
+    ],
+    pitfalls: [
+      'Not the same as the AllDifferent pigeonhole (which is detected by Régin\'s GAC at the root).',
+      '"Polynomial-in-$n$" cardinality encoding doesn\'t change the resolution-proof complexity.',
+    ],
+    pointers: [{ kind: 'topic', key: 'sat-problem', label: 'Topic: SAT' }],
+    answerTemplate:
+`**$\\text{PHP}_n$ clauses.** $(p_{i,1} \\lor \\ldots \\lor p_{i,n})$ for each pigeon $i$, and $(\\neg p_{i,k} \\lor \\neg p_{j,k})$ for each pigeon pair.
+
+**Theorem.** Resolution refutation of $\\text{PHP}_n$ requires $\\exp(\\Omega(n))$ steps (Haken 1985).
+
+**Consequence.** DPLL / CDCL also exponential here.`,
+    triggers: ['pigeonhole', 'php_n', 'haken', 'proof complexity', 'extended resolution', 'cutting planes'],
+  },
+
+  // ───────────────────────────────────────────────────────────────────
+  //  Essence Prime / modelling — additional playbooks
+  // ───────────────────────────────────────────────────────────────────
+  {
+    id: 'csp-modelling-patterns',
+    topic: 'CSP', module: 'csp', subtask: 'Modelling pattern (sequence / set / multiset / function / partition / relation)',
+    whenItApplies: ['Identify a modelling pattern, set, multiset, sequence, function, partition, relation.'],
+    steps: [
+      'Pattern check:',
+      '— **Sequence**: order matters, repeats allowed → array.',
+      '— **Multiset**: order doesn\'t matter, repeats allowed → array + lex/sort.',
+      '— **Set**: order doesn\'t matter, no repeats → array + AllDifferent + lex.',
+      '— **Function** $A \\to B$: each input maps to exactly one output → array indexed by $A$, values in $B$.',
+      '— **Partition** of $S$: each element belongs to exactly one block → array `part[i] = block_id`.',
+      '— **Relation** $A \\times B$: subset of pairs → 2-D 0/1 matrix.',
+      'Pick variables and domains to encode the pattern in Essence Prime (matrices only).',
+      'Add symmetry-breaking constraints for sets (lex) and partitions (representative-by-min-element).',
+    ],
+    pitfalls: [
+      'Essence Prime cannot use the `set`, `function`, `multiset`, `partition` types directly — encode by hand.',
+      'For sets, forgetting lex-ordering inflates solution count by $k!$ where $k$ is the set size.',
+    ],
+    pointers: [
+      { kind: 'topic', key: 'cp-modelling', label: 'Topic: CP modelling' },
+      { kind: 'viz', key: 'EssencePrime', label: 'Visualiser: Essence Prime editor' },
+    ],
+    answerTemplate:
+`**Pattern identified.** _<sequence / set / multiset / function / partition / relation>_
+
+**Why.** _<order matters? repeats allowed? bijection?>_
+
+**Essence Prime encoding.**
+\`\`\`
+given _<params>_
+find _<decision matrix>_
+such that
+  _<constraints>_
+\`\`\``,
+    triggers: ['modelling pattern', 'sequence', 'set', 'multiset', 'function', 'partition', 'relation', 'viewpoint'],
+  },
+  {
+    id: 'csp-channelling',
+    topic: 'CSP', module: 'csp', subtask: 'Channelling between two viewpoints',
+    whenItApplies: ['Channelling, dual model, two viewpoints, primal-dual, linked CSPs.'],
+    steps: [
+      'Define **two viewpoints** of the same problem (e.g. for n-queens: row-indexed col vars AND col-indexed row vars).',
+      'Add a **channelling constraint** linking them: $X_i = j \\Leftrightarrow Y_j = i$.',
+      'Propagation flows BOTH ways through the channel — typically much stronger than either viewpoint alone.',
+      'Decide which viewpoint to branch on (usually the smaller or more constrained).',
+    ],
+    pitfalls: [
+      'Channelling adds variables — make sure the model still fits memory.',
+      'Be careful with non-bijective relations: channelling is cleanest for permutations.',
+    ],
+    pointers: [{ kind: 'topic', key: 'cp-modelling', label: 'Topic: CP modelling' }],
+    answerTemplate:
+`**Viewpoint 1.** $X_i \\in D_1$ with constraints _<>_.
+**Viewpoint 2.** $Y_j \\in D_2$ with constraints _<>_.
+
+**Channelling.** $X_i = j \\Leftrightarrow Y_j = i$, for all $i, j$.
+
+**Branch on.** _<chosen viewpoint>_; propagation flows through the channel into the other.`,
+    triggers: ['channelling', 'channeling', 'dual model', 'two viewpoints', 'primal-dual', 'linked csp'],
+  },
 ];
 
 // Find all playbooks relevant to a question text by substring trigger match.
