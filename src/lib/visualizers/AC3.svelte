@@ -10,14 +10,16 @@
   interface BinaryConstraint { a: string; b: string; predicate: (va: Val, vb: Val) => boolean; label: string; src: string }
   interface UnaryConstraint { v: string; predicate: (x: Val) => boolean; label: string; src: string }
 
+  let { initialSpec = '' } = $props<{ initialSpec?: string }>();
+
   type Problem = 'australia' | 'lt-csp' | 'jobs' | 'custom';
-  let problem = $state<Problem>('lt-csp');
+  let problem = $state<Problem>(initialSpec ? 'custom' : 'lt-csp');
 
   // Preset 1: classic Australia map ≠
   // Preset 2: small CSP from York past-paper style: x1<x2, x2<x3, x3>1, x1≠2
   // Preset 3: jobs ≠ + ordering — a common York-style cargo / interval CSP
 
-  let customSpec = $state(`# Variables: name = comma-separated values (numbers or strings)
+  let customSpec = $state(initialSpec || `# Variables: name = comma-separated values (numbers or strings)
 # Optional unary constraints, then 'binary:' header then binary constraints
 # Operators: =  !=  <  >  <=  >=    Also: abs(a-b)>=3
 x1 = 1, 2, 3

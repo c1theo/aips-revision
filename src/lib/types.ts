@@ -6,6 +6,7 @@ export type VizKey =
   | 'MCTSTree'
   | 'AC3'
   | 'AC4'
+  | 'AC2001'
   | 'ForwardCheck'
   | 'NQueens'
   | 'MinConflicts'

@@ -428,6 +428,110 @@ Reduces wasted work when the relevant decision is far up the stack. CDCL in SAT 
           ],
         },
         {
+          id: 'advanced-heuristics',
+          title: 'Advanced heuristics — beyond MRV / LCV / degree',
+          blocks: [
+            { kind: 'md', body: `Modern CSP solvers use a richer family of heuristics. Some appear directly in York exam questions, others as background knowledge.
+
+### Variable-ordering heuristics
+
+**MRV** (Minimum Remaining Values) — covered above. Fail-first by domain size.
+
+**Degree** — covered above. Fail-first by static degree.
+
+**Dom + degree** (a.k.a. **MRV + degree**) — tie-break MRV by degree.
+
+**dom/deg** — minimise the *ratio* $|D(X)| / \\deg(X)$. Picks a variable with few values *relative to* how many constraints it participates in. Bessière & Régin showed this generalises MRV.
+
+**wdeg (weighted degree)** — track per-constraint **wipeout counters**: every time a constraint $C$ causes a domain wipeout (in propagation or search), increment $w(C)$. The weighted degree of variable $X$ is $\\sum_{C \\ni X} w(C)$. Pick the variable with the highest wdeg. Captures *dynamic* hardness — constraints that have been failing get more attention.
+
+**dom/wdeg** — Boussemart, Hemery, Lecoutre, Sais (2004). Minimise $|D(X)| / \\text{wdeg}(X)$. State of the art on benchmarks for decades; a strong default.
+
+**Activity-based search** — Michel & Van Hentenryck (2012). Track per-variable activity: increment on every domain shrink, decay over time. Pick max-activity variable. Borrowed conceptually from VSIDS in SAT.
+
+**Impact-based search** — Refalo (2004). Estimate the **impact** of assigning $X = v$ as the product of (1 - retained-fraction) over neighbours' domains. Pick the variable whose best impact is largest. Probe-then-commit variants run a forward look-ahead.
+
+**Last-conflict** — Lecoutre, Saïs, Tabary, Vidal (2006). After a backtrack, **retry the variable that just caused the failure** as the next decision. Like a 1-step nogood learning: if $X = v$ failed at depth $d$, try $X$ first at depth $d-1$ to confirm/deny it sooner.
+
+### Value-ordering heuristics
+
+**LCV** (Least Constraining Value) — covered above. Try the value that rules out the **fewest** values in neighbours' domains.
+
+**Geelen's promise** — Geelen (1992). The *promise* of value $v$ for variable $X$ is:
+$$\\text{promise}(X, v) = \\prod_{Y \\ne X \\text{ unassigned}} |\\{ w \\in D(Y) : (v, w) \\text{ satisfies } C_{XY} \\}|$$
+Pick the value with the **highest promise** — the value that leaves the largest product (i.e. multiplicative count) of compatible neighbour-value combinations. Equivalent intuition: maximise the size of the remaining search space; equivalent to LCV when neighbours have equal domain sizes, but quantifies "how many solutions could still extend this" more rigorously.
+
+**LCV vs Geelen's promise — when do they differ?** Both pick a value that "leaves more room". LCV counts the **sum** of supports across neighbours; promise takes the **product**. The product punishes any neighbour that loses *all* its support more harshly — a single zero factor wipes out the promise, immediately revealing infeasibility.
+
+**Solution-counting heuristic** — generalises promise: count the number of solutions to a relaxed sub-problem (e.g. local AC-fixpoint), pick the value with the most.
+
+### Tie-breaks and combinations
+
+Real solvers chain several: e.g. **dom/wdeg + Geelen-promise + lex** for variable + value + final tie-break. The win is in the *combination* — no single heuristic dominates on all benchmarks.` },
+            { kind: 'callout', variant: 'nightingale', title: 'York-specific names you may see', body: `York lectures (Nightingale et al.) emphasise **MRV**, **degree**, **LCV**, plus **dom/wdeg** and **Geelen's promise** as worked examples in the "Heuristics II" lecture. Be ready to compute promise by hand on a small CSP.` },
+            { kind: 'callout', variant: 'whatif', title: 'What if I don\'t know which heuristic the question wants?', body: `Default fallback: **MRV + degree tie-break + LCV** + apply MAC at every node. This combination is correct, well-known, and gets credit on virtually every exam question that doesn't *name* a specific heuristic.` },
+          ],
+        },
+        {
+          id: 'promise-worked',
+          title: "Worked example — Geelen's promise vs LCV",
+          blocks: [
+            { kind: 'md', body: `**CSP.** $X, Y, Z \\in \\{1, 2, 3\\}$. Constraints: $X < Y$, $X < Z$.
+
+We have just decided to assign $X$. Which value should we try first?
+
+### LCV computation
+$X = 1$ rules out 0 values from $D(Y)$ (all of $\\{2, 3\\}$ remain) and 0 from $D(Z)$. **Total ruled out: 0**.
+
+$X = 2$ rules out 1 from $D(Y)$ (only $\\{3\\}$ left) and 1 from $D(Z)$. **Total: 2**.
+
+$X = 3$ rules out 2 from $D(Y)$ ($\\emptyset$ left) — wipeout!
+
+LCV order: $X = 1$ → $X = 2$ → $X = 3$.
+
+### Geelen's promise
+$X = 1$: $|D(Y) \\cap \\{w > 1\\}| \\cdot |D(Z) \\cap \\{w > 1\\}| = 2 \\cdot 2 = \\mathbf{4}$.
+
+$X = 2$: $|\\{3\\}| \\cdot |\\{3\\}| = 1 \\cdot 1 = \\mathbf{1}$.
+
+$X = 3$: $|\\emptyset| \\cdot |\\emptyset| = 0 \\cdot 0 = \\mathbf{0}$.
+
+Promise order: $X = 1$ → $X = 2$ → $X = 3$. Same as LCV here.
+
+### Where they differ — asymmetric neighbours
+Now make the CSP: $X \\in \\{1, 2\\}$, $Y \\in \\{1, 2, 3, 4, 5\\}$, $Z \\in \\{1, 2\\}$. Constraint: $X \\ne Y$ and $X \\ne Z$.
+
+**LCV:**
+- $X = 1$: rules out 1 from $D(Y)$ (4 left) and 1 from $D(Z)$ (1 left). Total: 2.
+- $X = 2$: rules out 1 from $D(Y)$ (4 left) and 1 from $D(Z)$ (1 left). Total: 2.
+
+**Tie under LCV.**
+
+**Promise:**
+- $X = 1$: $4 \\cdot 1 = 4$.
+- $X = 2$: $4 \\cdot 1 = 4$.
+
+**Tie under promise too.**
+
+### A case where promise discriminates and LCV doesn't
+$X \\in \\{1, 2\\}$, $Y \\in \\{2, 3\\}$, $Z \\in \\{1\\}$ (singleton). Constraint: $X \\ne Y$, $X \\ne Z$.
+
+**LCV:**
+- $X = 1$: rules out 0 from $D(Y) = \\{2, 3\\}$, rules out 1 from $D(Z) = \\{1\\}$ → wipeout for $Z$! Total: 1.
+- $X = 2$: rules out 1 from $D(Y) = \\{2, 3\\}$, rules out 0 from $D(Z) = \\{1\\}$. Total: 1.
+
+**LCV ties.**
+
+**Promise:**
+- $X = 1$: $2 \\cdot 0 = \\mathbf{0}$ — the zero immediately shows this is a dead value.
+- $X = 2$: $1 \\cdot 1 = 1$.
+
+**Promise picks $X = 2$ — and avoids the wipeout LCV missed because LCV doesn't notice the multiplicative effect of a single zero.**
+
+This is the standard textbook demonstration of why **product (promise) > sum (LCV)** for value ordering.` },
+          ],
+        },
+        {
           id: 'viz',
           title: 'Interactive: backtracking with MRV/LCV/FC toggles',
           blocks: [

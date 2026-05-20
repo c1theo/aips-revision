@@ -7,6 +7,7 @@
   import MCTSTree from '../visualizers/MCTSTree.svelte';
   import AC3 from '../visualizers/AC3.svelte';
   import AC4 from '../visualizers/AC4.svelte';
+  import AC2001 from '../visualizers/AC2001.svelte';
   import ForwardCheck from '../visualizers/ForwardCheck.svelte';
   import NQueens from '../visualizers/NQueens.svelte';
   import MinConflicts from '../visualizers/MinConflicts.svelte';
@@ -35,7 +36,7 @@
   let { viz, title, props = {} } = $props<{ viz: VizKey; title?: string; props?: Record<string, any> }>();
 
   const map: Record<VizKey, any> = {
-    SearchGrid, SearchCompare, SearchTree, MinimaxTree, MCTSTree, AC3, AC4, ForwardCheck, NQueens, MinConflicts, TwoWayBranching,
+    SearchGrid, SearchCompare, SearchTree, MinimaxTree, MCTSTree, AC3, AC4, AC2001, ForwardCheck, NQueens, MinConflicts, TwoWayBranching,
     ConstraintGraph, CSPLab, ReginAllDiff, TreeCSP, TwoSAT, HillClimbSA, Expectimax, PhaseTransition,
     EssencePrime, TruthTable, Resolution, HornChain, DPLL, CDCL, WalkSAT, CNFEncoder, TseitinEncoder, ComplexityTable,
   };

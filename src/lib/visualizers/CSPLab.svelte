@@ -10,7 +10,9 @@
 
   type Val = string | number;
 
-  let spec = $state(`# Small CSP — variables, optional unary, then 'binary:' then binary lines.
+  let { initialSpec = '' } = $props<{ initialSpec?: string }>();
+
+  let spec = $state(initialSpec || `# Small CSP — variables, optional unary, then 'binary:' then binary lines.
 # Ops: = != < > <= >= abs(...) ; shorthand A-B = A!=B
 x1 = 1, 2, 3
 x2 = 1, 2, 3
@@ -23,7 +25,7 @@ x1 < x2
 x2 < x3`);
 
   type Preset = 'lt-csp' | 'australia' | 'sudoku4' | 'cargo' | 'custom';
-  let preset = $state<Preset>('lt-csp');
+  let preset = $state<Preset>(initialSpec ? 'custom' : 'lt-csp');
   $effect(() => {
     if (preset === 'lt-csp') spec = `x1 = 1, 2, 3
 x2 = 1, 2, 3
@@ -139,7 +141,7 @@ c1 < c3`;
   let branching = $state<'d-way' | '2-way'>('d-way');
   let varOrder = $state<'top' | 'mrv' | 'degree' | 'mrv-deg' | 'custom'>('mrv');
   let customVarOrder = $state('');
-  let valOrder = $state<'inc' | 'dec' | 'lcv' | 'custom'>('inc');
+  let valOrder = $state<'inc' | 'dec' | 'lcv' | 'promise' | 'custom'>('inc');
   let customValOrder = $state('');
   let applyNC = $state(true);
   let preAC3 = $state(false);
@@ -231,6 +233,10 @@ c1 < c3`;
           return ia - ib;
         });
       }
+      if (valOrder === 'promise') {
+        // Geelen's promise: descending — higher promise tried first
+        return vals.slice().sort((a, b) => promise(v, b, D, assignment) - promise(v, a, D, assignment));
+      }
       // LCV: pick value that rules out the fewest values in neighbours
       return vals.slice().sort((a, b) => ruledOut(v, a, D, assignment) - ruledOut(v, b, D, assignment));
     }
@@ -242,6 +248,25 @@ c1 < c3`;
         for (const w of D[c.b]) if (!c.pred(val, w)) count++;
       }
       return count;
+    }
+    // Geelen's promise: product over unassigned neighbours of the number of
+    // remaining values that support val. Higher is better (more flexibility).
+    function promise(v: string, val: Val, D: Domain, assignment: Assignment): number {
+      const neighbours = new Set<string>();
+      for (const c of csp.B) if (c.a === v && assignment[c.b] === undefined) neighbours.add(c.b);
+      let p = 1;
+      for (const nb of neighbours) {
+        let supporters = 0;
+        for (const w of D[nb]) {
+          const ok = csp.B.every((c) => {
+            if (c.a !== v || c.b !== nb) return true;
+            return c.pred(val, w);
+          });
+          if (ok) supporters++;
+        }
+        p *= supporters;
+      }
+      return p;
     }
     function consistent(assignment: Assignment): boolean {
       for (const c of csp.B) {
@@ -548,7 +573,8 @@ c1 < c3`;
       <select class="px-2 py-1 rounded border border-ink-300 dark:border-ink-700 bg-white dark:bg-ink-900" bind:value={valOrder}>
         <option value="inc">Increasing</option>
         <option value="dec">Decreasing</option>
-        <option value="lcv">LCV (least-constraining)</option>
+        <option value="lcv">LCV (least-constraining sum)</option>
+        <option value="promise">Geelen's promise (product)</option>
         <option value="custom">Custom</option>
       </select>
       {#if valOrder === 'custom'}<input class="mt-1 w-full font-mono px-2 py-1 rounded border border-ink-300 dark:border-ink-700" placeholder="3, 1, 2" bind:value={customValOrder} />{/if}

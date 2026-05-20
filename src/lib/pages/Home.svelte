@@ -15,7 +15,12 @@
   </p>
 
   <div class="not-prose grid sm:grid-cols-2 gap-4 my-8">
-    <a href={href('/ask')} class="card hover:border-accent-400 no-underline block !border-accent-300 dark:!border-accent-700 !bg-accent-50/40 dark:!bg-accent-900/10">
+    <a href={href('/solve')} class="card hover:border-accent-400 no-underline block !border-accent-300 dark:!border-accent-700 !bg-accent-50/40 dark:!bg-accent-900/10">
+      <div class="text-xs uppercase tracking-wider text-accent-600 font-semibold">🎯 Question router</div>
+      <div class="font-semibold mt-1">Identify the algorithm</div>
+      <div class="text-sm text-ink-500 mt-1">Paste a question — get the algorithm, intent, structured extraction, and a topic playbook. No AI; fully explainable.</div>
+    </a>
+    <a href={href('/ask')} class="card hover:border-accent-400 no-underline block">
       <div class="text-xs uppercase tracking-wider text-accent-600 font-semibold">🔮 Smart search</div>
       <div class="font-semibold mt-1">Ask anything</div>
       <div class="text-sm text-ink-500 mt-1">Synonyms, intent detection, operators, regex. Top answers across all content.</div>

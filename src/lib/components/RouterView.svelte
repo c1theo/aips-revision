@@ -3,6 +3,7 @@
   import Home from '../pages/Home.svelte';
   import TopicPage from '../pages/TopicPage.svelte';
   import Ask from '../pages/Ask.svelte';
+  import Solve from '../pages/Solve.svelte';
   import Pseudocode from '../pages/Pseudocode.svelte';
   import Proofs from '../pages/Proofs.svelte';
   import MockExam from '../pages/MockExam.svelte';
@@ -23,6 +24,8 @@
   <TopicPage slug={$route.path.slice('/topic/'.length)} />
 {:else if $route.path === '/ask'}
   <Ask />
+{:else if $route.path === '/solve'}
+  <Solve />
 {:else if $route.path === '/pseudocode'}
   <Pseudocode />
 {:else if $route.path === '/proofs'}

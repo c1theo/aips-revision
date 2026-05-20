@@ -5,6 +5,7 @@
   let { open = $bindable(false) } = $props();
 
   const tools = [
+    { path: '/solve', label: '🎯 Question router' },
     { path: '/ask', label: '🔮 Ask (intelligent search)' },
     { path: '/mock-exam', label: '📝 Mock exam' },
     { path: '/flashcards', label: 'Flashcards' },

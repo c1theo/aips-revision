@@ -55,6 +55,17 @@ export const vizExplanations: Partial<Record<VizKey, VizExplanation>> = {
     ],
     relatedConcepts: ['UCB1', 'Exploration vs exploitation', 'UCT (Kocsis–Szepesvári)'],
   },
+  AC2001: {
+    whatItShows: 'AC-2001 / AC-3.1 — the **last-support-optimised** arc-consistency algorithm. Maintains $\\text{Last}[(X_i, v), X_j]$ — the last value in $D(X_j)$ that was found to support $v \\in D(X_i)$. On re-revisions, search **resumes from Last** instead of restarting at index 0 — giving the optimal $O(c \\cdot d^2)$ time bound.',
+    howToUse: 'Edit the CSP spec (same format as AC-3). Step through to watch the Last table populate, the queue drain, and support-check count rise. When an arc is re-revised, notice how few extra checks happen — the Last pointer skips supports already found.',
+    whatToLookFor: [
+      'Initialisation: every $\\text{Last}[(X_i, v), X_j]$ starts at `null`. First REVISE finds a support and writes the value.',
+      'When a domain $D(X_j)$ shrinks, incoming arcs are re-enqueued. On re-revision, AC-2001 checks if the cached Last value is still in $D(X_j)$ and still supports $v$. If yes — no work. If no — resume scanning from the next index.',
+      'Total support checks across the whole run is bounded by $c \\cdot d^2$ — substantially less than AC-3 in re-revision-heavy runs.',
+      'Compare with AC-3 (manual mode) on the same CSP: AC-2001 will do fewer support checks because of the pointer.',
+    ],
+    relatedConcepts: ['Arc consistency', 'O(c·d²) complexity', 'Zhang & Yap 2001', 'Bessière & Régin 2001'],
+  },
   AC4: {
     whatItShows: 'AC-4 — the counter-based arc-consistency algorithm. Maintains counter[X_i, v, X_j] = number of supports value v has in D(X_j) for the constraint between X_i and X_j. When a value is removed, decrement counters of its former supporters; if a counter hits 0, that value loses all support and is removed.',
     howToUse: 'Edit variables/domains, constraints (as allowed tuples per binary constraint), and any initial assignment. Step ⏮/⏭ through. Watch the counter table, the deletion queue S, and the live domains.',

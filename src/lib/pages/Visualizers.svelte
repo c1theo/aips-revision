@@ -26,6 +26,7 @@
         { key: 'ConstraintGraph', label: 'Constraint graph', description: 'Draw any CSP\'s constraint graph; detect tree / cyclic / disconnected.' },
         { key: 'AC3', label: 'AC-3 stepper (NC + AC + manual queue)', description: 'Arbitrary predicates (<, >, !=, abs), unary NC phase, manual arc-picking, revision counts per arc.' },
         { key: 'AC4', label: 'AC-4 (counter-based)', description: 'Optimal O(c·d²) arc consistency with the counter data structure.' },
+        { key: 'AC2001', label: 'AC-2001 / AC-3.1 (Last data structure)', description: 'Improved AC-3 with last-support pointers. Track Last[(X_i, v), X_j] live.' },
         { key: 'ReginAllDiff', label: "Régin's GAC for AllDifferent", description: 'Bipartite matching that catches deductions pairwise ≠ misses.' },
         { key: 'TreeCSP', label: 'Tree-CSP solver O(nd²)', description: 'Directional AC + assignment pass on a tree-structured CSP.' },
         { key: 'ForwardCheck', label: 'Generic Forward-Check + backtracking', description: 'Any CSP — custom variables, domains, and constraint predicates.' },
