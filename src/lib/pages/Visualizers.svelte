@@ -22,8 +22,9 @@
     {
       title: 'CSP',
       items: [
+        { key: 'CSPLab', label: '🧪 CSP Lab — full pipeline', description: 'NC → AC-3 → backtracking, with FC/MAC, 2-way/d-way, MRV/degree/LCV, custom orderings — and a live search tree.' },
         { key: 'ConstraintGraph', label: 'Constraint graph', description: 'Draw any CSP\'s constraint graph; detect tree / cyclic / disconnected.' },
-        { key: 'AC3', label: 'AC-3 stepper', description: 'Map colouring or custom CSP; arc queue, step or autoplay.' },
+        { key: 'AC3', label: 'AC-3 stepper (NC + AC + manual queue)', description: 'Arbitrary predicates (<, >, !=, abs), unary NC phase, manual arc-picking, revision counts per arc.' },
         { key: 'AC4', label: 'AC-4 (counter-based)', description: 'Optimal O(c·d²) arc consistency with the counter data structure.' },
         { key: 'ReginAllDiff', label: "Régin's GAC for AllDifferent", description: 'Bipartite matching that catches deductions pairwise ≠ misses.' },
         { key: 'TreeCSP', label: 'Tree-CSP solver O(nd²)', description: 'Directional AC + assignment pass on a tree-structured CSP.' },

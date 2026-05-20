@@ -12,6 +12,7 @@
   import MinConflicts from '../visualizers/MinConflicts.svelte';
   import TwoWayBranching from '../visualizers/TwoWayBranching.svelte';
   import ConstraintGraph from '../visualizers/ConstraintGraph.svelte';
+  import CSPLab from '../visualizers/CSPLab.svelte';
   import ReginAllDiff from '../visualizers/ReginAllDiff.svelte';
   import TreeCSP from '../visualizers/TreeCSP.svelte';
   import TwoSAT from '../visualizers/TwoSAT.svelte';
@@ -35,7 +36,7 @@
 
   const map: Record<VizKey, any> = {
     SearchGrid, SearchCompare, SearchTree, MinimaxTree, MCTSTree, AC3, AC4, ForwardCheck, NQueens, MinConflicts, TwoWayBranching,
-    ConstraintGraph, ReginAllDiff, TreeCSP, TwoSAT, HillClimbSA, Expectimax, PhaseTransition,
+    ConstraintGraph, CSPLab, ReginAllDiff, TreeCSP, TwoSAT, HillClimbSA, Expectimax, PhaseTransition,
     EssencePrime, TruthTable, Resolution, HornChain, DPLL, CDCL, WalkSAT, CNFEncoder, TseitinEncoder, ComplexityTable,
   };
   const Comp = $derived(map[viz]);

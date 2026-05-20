@@ -10,6 +10,7 @@ export type VizKey =
   | 'NQueens'
   | 'MinConflicts'
   | 'TwoWayBranching'
+  | 'CSPLab'
   | 'ConstraintGraph'
   | 'ReginAllDiff'
   | 'TreeCSP'

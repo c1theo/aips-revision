@@ -73,6 +73,16 @@ Graph structure is crucial — *tree-structured* binary CSPs are solvable in $O(
 **Cryptarithmetic** (SEND + MORE = MONEY). Variables = letters, domain = $\\{0..9\\}$, constraints = AllDifferent + the arithmetic equality. The arithmetic constraint involves all 8 letters — naturally a global constraint.` },
           ],
         },
+        {
+          id: 'csplab',
+          title: 'Interactive: complete CSP pipeline (CSPLab)',
+          blocks: [
+            { kind: 'md', body: `**CSPLab** runs the whole pipeline on a CSP you define — node consistency, optional AC-3 preprocessing, then backtracking with selectable propagation (None / FC / MAC), branching style (d-way / 2-way), variable ordering (top / MRV / degree / MRV+deg / custom), and value ordering (increasing / decreasing / LCV / custom). The search tree grows as you step through it.
+
+Use it to test every "what if?" in this module:` },
+            { kind: 'viz', viz: 'CSPLab', title: 'CSPLab — full CSP solver pipeline', props: {} },
+          ],
+        },
       ],
       flashcards: [
         { id: 'cf1', q: 'What is a CSP, formally?', a: 'A triple (X, D, C): variables X_i, each with domain D_i, and constraints C_j each with a scope and a relation listing allowed value tuples.' },
@@ -220,8 +230,10 @@ Trade-off: MAC prunes more but costs more per step. In practice MAC wins on hard
           id: 'viz',
           title: 'Interactive: AC-3 / AC-4 step-by-step',
           blocks: [
-            { kind: 'viz', viz: 'AC3', title: 'AC-3 on map colouring (REVISE-based)', props: {} },
+            { kind: 'md', body: `The AC-3 stepper supports **unary constraints** (Phase 1: NC), **arbitrary binary predicates** (=, ≠, &lt;, &gt;, ≤, ≥, abs()), **manual arc-picking** (you choose the queue order), and **per-arc revision counts** (great for "find an order where an arc is revised &gt;1 time" exam questions).` },
+            { kind: 'viz', viz: 'AC3', title: 'AC-3 stepper — NC + AC, manual queue, revision counts', props: {} },
             { kind: 'viz', viz: 'AC4', title: 'AC-4 with counter data structure', props: {} },
+            { kind: 'viz', viz: 'CSPLab', title: 'CSPLab — see how MAC compares with AC-3 alone', props: {} },
           ],
         },
       ],
@@ -421,6 +433,7 @@ Reduces wasted work when the relevant decision is far up the stack. CDCL in SAT 
           blocks: [
             { kind: 'viz', viz: 'NQueens', title: 'n-Queens / graph colouring backtracking', props: {} },
             { kind: 'viz', viz: 'ForwardCheck', title: 'Generic FC + backtracking — any CSP', props: {} },
+            { kind: 'viz', viz: 'CSPLab', title: 'CSPLab — toggle FC vs MAC, d-way vs 2-way, MRV/degree/LCV', props: {} },
           ],
         },
       ],

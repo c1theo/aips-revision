@@ -599,6 +599,396 @@ Two children. The right subtree's first decision will pick another value, say $X
     },
   ],
 
+  'csp-fundamentals': [
+    {
+      id: 'es-csp-fundamentals-nc-ac',
+      difficulty: 'intermediate', marks: 10,
+      question: `Suppose you have the following small CSP. Variables $x_1, x_2, x_3$, each with domain $\\{1, 2, 3\\}$.
+
+- $C_1$: $x_1 < x_2$
+- $C_2$: $x_2 < x_3$
+- $C_3$: $x_3 > 1$
+- $C_4$: $x_1 \\ne 2$
+
+**(i) [2 marks]** Enforce **global node consistency** on this CSP. What are the resulting domains?
+
+**(ii) [4 marks]** Enforce **global arc consistency** on this CSP (by any method). What are the resulting domains?
+
+**(iii) [4 marks]** Find an order of arc revisions in which an arc needs to be revised more than once to establish global arc consistency.`,
+      answer: `## (i) Global node consistency — 2 marks
+
+Apply the two unary constraints:
+
+- $C_3$: $x_3 > 1$ removes 1 from $D(x_3)$ → $D(x_3) = \\{2, 3\\}$.
+- $C_4$: $x_1 \\ne 2$ removes 2 from $D(x_1)$ → $D(x_1) = \\{1, 3\\}$.
+
+**Result.** $D(x_1) = \\{1, 3\\}$, $D(x_2) = \\{1, 2, 3\\}$, $D(x_3) = \\{2, 3\\}$.
+
+Note: "global" here means *every* variable is node-consistent, not just one. For unary constraints this is the same as applying each unary constraint to its variable once.
+
+## (ii) Global arc consistency — 4 marks
+
+Arcs (each binary constraint contributes two directed arcs): $(x_1, x_2), (x_2, x_1), (x_2, x_3), (x_3, x_2)$.
+
+Run AC-3 from the post-NC domains in FIFO order $[(x_1,x_2), (x_2,x_1), (x_2,x_3), (x_3,x_2)]$:
+
+| Step | Arc | REVISE result | Domains after |
+|---|---|---|---|
+| 1 | $(x_1, x_2)$ | $v=3$ has no $w > 3$ in $\\{1,2,3\\}$ → remove 3 | $D(x_1) = \\{1\\}$; re-enqueue $(x_2, x_1)$ |
+| 2 | $(x_2, x_1)$ | $v=1$ has no $w < 1$ in $\\{1\\}$ → remove 1 | $D(x_2) = \\{2, 3\\}$; re-enqueue $(x_1, x_2), (x_3, x_2)$ |
+| 3 | $(x_2, x_3)$ | $v=3$ has no $w > 3$ in $\\{2, 3\\}$ → remove 3 | $D(x_2) = \\{2\\}$; re-enqueue $(x_1, x_2), (x_3, x_2)$ |
+| 4 | $(x_3, x_2)$ | $v=2$ has no $w < 2$ in $\\{2\\}$ → remove 2 | $D(x_3) = \\{3\\}$; re-enqueue $(x_2, x_3)$ |
+| 5 | $(x_1, x_2)$ | $v = 1$, $w = 2$ ✓ | no change |
+| 6 | $(x_3, x_2)$ | $v = 3$, $w = 2$ ✓ | no change |
+| 7 | $(x_2, x_3)$ | $v = 2$, $w = 3$ ✓ | no change |
+
+**Final domains.** $D(x_1) = \\{1\\}, D(x_2) = \\{2\\}, D(x_3) = \\{3\\}$.
+
+Each variable now has a unique value — the unique solution is $x_1 = 1, x_2 = 2, x_3 = 3$.
+
+## (iii) An arc revised more than once — 4 marks
+
+From the trace above, $(x_1, x_2)$ appears at step 1 and again at step 5. $(x_3, x_2)$ appears at step 4 and again at step 6. So **either** of these is a valid answer.
+
+**A cleaner choice that makes the re-revision obvious:** start with $(x_2, x_3)$ before any $(x_1, x_2)/(x_2, x_1)$ revision.
+
+\`\`\`
+Queue order: (x2,x3), (x3,x2), (x1,x2), (x2,x1), (x1,x2)*, (x3,x2)*, (x2,x3)*
+\`\`\`
+
+The starred entries are forced re-revisions: shrinking $D(x_2)$ via $(x_2, x_1)$ later in the run re-queues every arc *into* $x_2$, including $(x_1, x_2)$ and $(x_3, x_2)$, which must be revised again.
+
+**Why this happens in general.** An arc $(X_k, X_i)$ is enqueued every time $D(X_i)$ shrinks, because a value of $X_k$ might have been supported only by the value just removed from $D(X_i)$. Any arc that *feeds into* a variable whose domain shrinks twice during AC-3 is revised twice.`,
+      tags: ['NC', 'AC-3', 'arc-ordering'],
+    },
+
+    {
+      id: 'es-csp-fundamentals-global-local',
+      difficulty: 'basic', marks: 6,
+      question: `Distinguish **local** and **global** consistency at both the node and arc level. Give one example where the two definitions differ in practice (i.e. enforcing local consistency does not give global consistency in one pass).`,
+      answer: `## Local vs global — 3 marks
+
+| Level | Local | Global |
+|---|---|---|
+| Node | $D(X_i)$ satisfies every unary constraint on $X_i$ (single variable) | Every variable in the CSP is locally node-consistent |
+| Arc | A single arc $(X_i, X_j)$ is consistent: every value in $D(X_i)$ has a support in $D(X_j)$ | Every arc in the CSP is locally arc-consistent (whole network) |
+
+A single REVISE call enforces *local* arc consistency on one arc; AC-3 iterates REVISE until *global* arc consistency holds.
+
+## Difference in practice — 3 marks
+
+For **node consistency**, local and global coincide after one pass: unary constraints don't interact, so enforcing local NC on every variable once gives global NC.
+
+For **arc consistency**, they differ: REVISE-ing every arc once does **not** give global AC. Counter-example —
+
+$X_1, X_2, X_3 \\in \\{1, 2, 3\\}$, constraints $X_1 < X_2 < X_3$. One pass over arcs $(X_1, X_2), (X_2, X_1), (X_2, X_3), (X_3, X_2)$:
+
+- $(X_1, X_2)$ removes 3 from $D(X_1)$ → $D(X_1) = \\{1, 2\\}$.
+- $(X_2, X_1)$ removes 1 from $D(X_2)$ → $D(X_2) = \\{2, 3\\}$.
+- $(X_2, X_3)$ removes 3 from $D(X_2)$ → $D(X_2) = \\{2\\}$.
+- $(X_3, X_2)$ removes 2 from $D(X_3)$ → $D(X_3) = \\{3\\}$.
+
+After one pass, $(X_1, X_2)$ is **no longer** locally AC: $D(X_2) = \\{2\\}$, so $v = 2 \\in D(X_1)$ has no $w > v$ in $D(X_2)$. AC-3 catches this only because it re-enqueues $(X_1, X_2)$ when $D(X_2)$ shrinks.`,
+      tags: ['NC', 'AC', 'global vs local'],
+    },
+  ],
+
+  'csp-inference': [
+    {
+      id: 'es-csp-ac3-ordering-effect',
+      difficulty: 'intermediate', marks: 8,
+      question: `Take the CSP from question es-csp-fundamentals-nc-ac (variables $x_1, x_2, x_3$, domain $\\{1,2,3\\}$, $x_1<x_2<x_3$, $x_3>1$, $x_1 \\ne 2$).
+
+**(i) [4 marks]** Give an arc-revision order that requires the **minimum** number of REVISE calls to reach the AC fixpoint, and count the calls.
+
+**(ii) [4 marks]** Give an arc-revision order that requires the **maximum** number of REVISE calls, and count.`,
+      answer: `Recall: post-NC domains are $D(x_1) = \\{1,3\\}, D(x_2) = \\{1,2,3\\}, D(x_3) = \\{2,3\\}$.
+
+## (i) Minimum — 4 marks
+
+We need every arc to be revised **at least once**. The minimum is achieved when no arc is revised more than once.
+
+Order $[(x_2,x_3), (x_2,x_1), (x_3,x_2), (x_1,x_2)]$:
+
+| # | Arc | Effect |
+|---|---|---|
+| 1 | $(x_2, x_3)$ | remove 3 from $D(x_2)$ → $\\{1,2\\}$. Re-enqueue $(x_1, x_2)$ (already in queue), $(x_3, x_2)$ (already in queue) — no new arcs added. |
+| 2 | $(x_2, x_1)$ | remove 1 from $D(x_2)$ → $\\{2\\}$. Re-enqueue $(x_1, x_2), (x_3, x_2)$ — already in queue. |
+| 3 | $(x_3, x_2)$ | remove 2 from $D(x_3)$ → $\\{3\\}$. Re-enqueue $(x_2, x_3)$ — **new**, added. |
+| 4 | $(x_1, x_2)$ | remove 3 from $D(x_1)$ → $\\{1\\}$. Re-enqueue $(x_2, x_1)$ — **new**, added. |
+| 5 | $(x_2, x_3)$ | $v = 2$, $w = 3$ ✓. No change. |
+| 6 | $(x_2, x_1)$ | $v = 2$, $w = 1$ ✓ (since $w < v$). No change. |
+
+Six calls — but $(x_2, x_3)$ and $(x_2, x_1)$ each appear twice. The truly-minimum trace can't avoid the re-revision because any order that shrinks $D(x_2)$ twice forces incoming arcs to be re-revised.
+
+**Minimum REVISE count: 6.** (Four "initial" arcs + two forced re-revisions.)
+
+## (ii) Maximum — 4 marks
+
+Worst case: every arc revised the maximum possible number of times. Each domain shrinks at most $d - 1$ times (here $d = 3$, so at most 2 shrinks per variable). Each shrink triggers re-enqueueing of $\\le$ degree-1 incoming arcs.
+
+A pathological order: $[(x_1, x_2), (x_2, x_1), (x_2, x_3), (x_3, x_2)]$ in FIFO:
+
+From the original trace (es-csp-fundamentals-nc-ac part ii), this gives **7 REVISE calls** — $(x_1, x_2)$ and $(x_3, x_2)$ each appear twice, $(x_2, x_3)$ also twice. The maximum is 7 for this CSP.
+
+**Upper bound in general.** For a binary CSP with $n$ variables, $c$ binary constraints, max domain size $d$: AC-3 is $O(c \\cdot d^3)$. Each arc can be revised at most $d$ times because each revision either shrinks $D(\\text{first arg})$ or makes no change; first arg can shrink at most $d - 1$ times.`,
+      tags: ['AC-3', 'ordering', 'complexity'],
+    },
+
+    {
+      id: 'es-csp-fc-vs-mac',
+      difficulty: 'advanced', marks: 12,
+      question: `Consider a CSP: variables $A, B, C$ each with domain $\\{1, 2, 3\\}$. Constraints: $A < B$, $A < C$, $B \\ne C$.
+
+**(i) [6 marks]** Trace **backtracking + FC** with variable order $A, B, C$ and value order increasing. Show the search tree, FC pruning at each node, and total nodes explored.
+
+**(ii) [6 marks]** Trace **backtracking + MAC** with the same orderings. Show the search tree and explain where MAC prunes more than FC.`,
+      answer: `## (i) Backtracking + FC — 6 marks
+
+Initial domains $D(A) = D(B) = D(C) = \\{1, 2, 3\\}$.
+
+**Try $A = 1$.**
+FC: prune $B$ by $A < B$ → $D(B) = \\{2, 3\\}$. Prune $C$ by $A < C$ → $D(C) = \\{2, 3\\}$. $B \\ne C$ doesn't fire yet (B unassigned).
+
+**Try $B = 2$ (under $A = 1$).**
+FC: prune $C$ by $B \\ne C$ → $D(C) = \\{3\\}$. (B's own domain restricted to {2}; A's not touched, already assigned.)
+
+**Try $C = 3$.** All assigned, consistent. ✓ Solution $A=1, B=2, C=3$.
+
+**Search tree (FC):**
+
+\`\`\`
+A=1
+└── B=2
+    └── C=3  ✓
+\`\`\`
+
+**Total nodes: 3.**
+
+## (ii) Backtracking + MAC — 6 marks
+
+**Try $A = 1$.**
+MAC runs AC-3 to fixpoint:
+- $(A, B)$: $D(A) = \\{1\\}$, $D(B)$ needs $w > 1$ → $D(B) = \\{2, 3\\}$. No change.
+- $(A, C)$: $D(C) = \\{2, 3\\}$.
+- $(B, C)$ with $B \\ne C$: both $\\{2,3\\}$; no support failure.
+- $(B, A), (C, A)$: $D(B) = \\{2,3\\}$ — each value has $w = 1 \\in D(A)$. ✓
+- $(C, B)$: similar.
+
+MAC fixpoint: $D = \\{1\\}, \\{2, 3\\}, \\{2, 3\\}$. No further pruning beyond FC here.
+
+**Try $B = 2$.**
+MAC: $(C, B)$ with $B \\ne C$ removes 2 from $D(C)$ → $D(C) = \\{3\\}$. Re-enqueue $(A, C)$ etc — all consistent. MAC fixpoint $D = \\{1\\}, \\{2\\}, \\{3\\}$.
+
+**Try $C = 3$.** ✓
+
+**Where MAC prunes more.** On this small example, MAC and FC explore the same tree because the constraint graph is dense enough that FC's one-step propagation captures everything immediately.
+
+**A case where MAC strictly wins.** Add a fourth variable $D \\in \\{1, 2, 3\\}$ with constraints $C < D$. FC after $A = 1$ doesn't propagate the $C < D$ chain (D is not a neighbour of A); MAC does — it processes $(D, C)$ and prunes $D(D) = \\{2, 3\\}$, then $(C, D)$ no further changes. The pruning then cascades when $B = 2$ shrinks $D(C)$ to $\\{3\\}$: MAC re-runs AC-3 and prunes $D(D)$ to $\\emptyset$ if any constraint forbids it. FC waits until D is the decision variable.
+
+**Key insight.** FC = one-step propagation from the *decision variable*. MAC = full AC-3 from the *decision domain change*. The difference shows up most when constraints chain through multiple variables.`,
+      tags: ['FC', 'MAC', 'comparison'],
+    },
+  ],
+
+  'beyond-ac3': [
+    {
+      id: 'es-2way-vs-dway',
+      difficulty: 'intermediate', marks: 10,
+      question: `CSP: $X \\in \\{1, 2, 3, 4, 5\\}$, $Y \\in \\{1, 2, 3, 4, 5\\}$. Constraint: $X + Y = 6$.
+
+**(i) [5 marks]** Show the search tree under **d-way branching** on $X$ first (value order increasing), with FC.
+
+**(ii) [5 marks]** Show the search tree under **2-way branching** on $X$ (value order increasing), with FC. Explain the difference.`,
+      answer: `## (i) d-way — 5 marks
+
+Try each $X = v$ in turn. FC removes $Y$ values that violate $X + Y = 6$.
+
+\`\`\`
+X=1 → D(Y) = {5}  → Y=5  ✓ solution (1,5)
+X=2 → D(Y) = {4}  → Y=4  ✓ solution (2,4)
+X=3 → D(Y) = {3}  → Y=3  ✓ solution (3,3)
+X=4 → D(Y) = {2}  → Y=2  ✓ solution (4,2)
+X=5 → D(Y) = {1}  → Y=1  ✓ solution (5,1)
+\`\`\`
+
+Tree has **5 children** under the root, each a depth-2 leaf. 5 decisions + 5 leaves = 10 nodes.
+
+If we only need *one* solution, the search stops after the first leaf (X=1, Y=5). With increasing value order on Y, the first FC-pruned value is the only candidate, so no failures.
+
+## (ii) 2-way — 5 marks
+
+Pick first value $X = 1$. **LEFT**: $X = 1$, FC: $D(Y) = \\{5\\}$. Solution.
+
+If we needed all solutions, the RIGHT branch ($X \\ne 1$) would shrink $D(X) = \\{2, 3, 4, 5\\}$ and recurse:
+- LEFT: $X = 2$, $D(Y) = \\{4\\}$. Solution.
+- RIGHT: $X \\ne 2$, $D(X) = \\{3, 4, 5\\}$. Recurse...
+
+\`\`\`
+                root
+                 |
+             X=1 (LEFT)
+                 |
+             Y=5  ✓ first solution
+                 |
+            X≠1 (RIGHT, D(X)={2,3,4,5})
+                /     \\
+             X=2     X≠2 (D(X)={3,4,5})
+             |        ...
+             Y=4 ✓
+\`\`\`
+
+Tree is **strictly binary** — every internal node has 2 children.
+
+## Difference
+
+- **d-way** produces a tree with branching factor = domain size at each level.
+- **2-way** always branches into 2: LEFT commits to a value, RIGHT excludes it.
+- For this constraint ($X + Y = 6$), FC immediately makes $Y$ a singleton after each $X$ decision, so the actual *number of solutions found* is identical and the *cost per solution* is similar.
+- 2-way wins on harder problems because the RIGHT branch propagates immediately via AC: removing one value from $D(X)$ may eliminate values from $D(Y)$ that no longer have support.
+
+**Counts:** d-way: 5 LEFTs × 2 nodes = 10 nodes for all solutions. 2-way: tree depth $2 \\cdot 5 = 10$ nodes for all solutions. Same total — but 2-way's structure is more amenable to learning (nogoods carry across LEFT/RIGHT).`,
+      tags: ['2-way', 'd-way', 'branching'],
+    },
+
+    {
+      id: 'es-gac-vs-pairwise',
+      difficulty: 'intermediate', marks: 8,
+      question: `CSP: variables $X_1, X_2, X_3$, each with domain $\\{a, b\\}$. Constraint: $\\text{AllDifferent}(X_1, X_2, X_3)$.
+
+**(i) [3 marks]** Show that decomposing into pairwise $\\ne$ constraints leaves all domains unchanged after AC-3.
+
+**(ii) [5 marks]** Show that GAC (Régin's algorithm) detects infeasibility immediately. Explain in terms of bipartite matching.`,
+      answer: `## (i) Pairwise — 3 marks
+
+Decompose AllDifferent into $X_1 \\ne X_2$, $X_1 \\ne X_3$, $X_2 \\ne X_3$ (six directed arcs).
+
+REVISE $(X_1, X_2)$: for $v = a \\in D(X_1)$, is there $w \\in D(X_2)$ with $w \\ne v$? Yes, $w = b$. For $v = b$, $w = a$ works. **No prune.**
+
+Same for all six arcs — pairwise inequality has support for every value (the other variable holds the opposite).
+
+**Result.** All domains unchanged: $\\{a, b\\}, \\{a, b\\}, \\{a, b\\}$. AC-3 declares the CSP arc-consistent.
+
+## (ii) GAC via Régin — 5 marks
+
+Build the bipartite **variable-value graph**:
+
+\`\`\`
+   X1 ──── a       X2 ──── a       X3 ──── a
+   │         │         │
+   └─── b    └─── b    └─── b
+\`\`\`
+
+A satisfying assignment to AllDifferent is a **matching** that saturates the variable side: every $X_i$ matched to a distinct value.
+
+**Maximum matching size: 2** — only two values ($a, b$) for three variables. By Hall's theorem, AllDifferent is feasible iff the maximum matching saturates the variable side; here it does not (matching size $2 < 3$ variables).
+
+**GAC verdict.** AllDifferent is infeasible — fail at the root, no search needed.
+
+**Why pairwise misses it.** Pairwise constraints only check **pairs** of variables; the pigeonhole obstacle is over **triples** (3 variables, 2 values). No pair is independently violated — yet the whole is infeasible.
+
+**Lesson.** Pairwise $\\ne$ is propagation-equivalent to AllDifferent only when no global pigeonhole pressure exists. Always use the global constraint when available.`,
+      tags: ['GAC', 'AllDifferent', 'matching'],
+    },
+  ],
+
+  'backtracking': [
+    {
+      id: 'es-mrv-degree-lcv',
+      difficulty: 'intermediate', marks: 10,
+      question: `CSP: $X_1, X_2, X_3, X_4 \\in \\{1, 2, 3\\}$, constraints:
+
+- $X_1 = X_2$
+- $X_1 \\ne X_3$
+- $X_1 \\ne X_4$
+- $X_2 \\ne X_3$
+
+After running NC and AC-3 to fixpoint, domains are $D(X_1) = D(X_2) = \\{1, 2, 3\\}$, $D(X_3) = D(X_4) = \\{1, 2, 3\\}$.
+
+Which variable does **MRV** pick first? Which does **degree** ordering pick? What does **MRV + degree as tie-breaker** pick? Justify each.`,
+      answer: `**MRV** (minimum remaining values) — picks the variable with the smallest current domain. All four variables have $|D| = 3$, so **all are tied**. MRV alone picks one arbitrarily (typically lexicographic: $X_1$).
+
+**Degree** — picks the variable with the most constraints to *unassigned* variables. Count constraints per variable:
+
+| Variable | Constraints to others |
+|---|---|
+| $X_1$ | $X_1 = X_2, X_1 \\ne X_3, X_1 \\ne X_4$ — 3 |
+| $X_2$ | $X_1 = X_2, X_2 \\ne X_3$ — 2 |
+| $X_3$ | $X_1 \\ne X_3, X_2 \\ne X_3$ — 2 |
+| $X_4$ | $X_1 \\ne X_4$ — 1 |
+
+Degree pick: **$X_1$** (most constrained, fail-first via most propagation).
+
+**MRV + degree tie-break** — MRV ties all four; degree tie-break picks **$X_1$**.
+
+**Why this matters.** Picking $X_1$ first triggers maximum propagation: assigning $X_1 = v$ forces $X_2 = v$ (via $X_1 = X_2$), then removes $v$ from $D(X_3)$ and $D(X_4)$. After one decision, three of four variables are fully or partially determined.
+
+Picking $X_4$ first (degree 1) wastes effort — assigning $X_4 = v$ only removes $v$ from $D(X_1)$, no cascade.`,
+      tags: ['MRV', 'degree', 'LCV', 'heuristics'],
+    },
+
+    {
+      id: 'es-lcv-explained',
+      difficulty: 'basic', marks: 6,
+      question: `Define the **LCV (Least Constraining Value)** heuristic. Give a concrete example where LCV finds a solution without backtracking but the "first value" heuristic does not.`,
+      answer: `## LCV definition — 2 marks
+
+For the current decision variable $X$, choose the value $v \\in D(X)$ that **rules out the fewest values** in the unassigned neighbours' domains. Equivalently, the value that maximises the sum $\\sum_{X_j \\text{ neighbour}} |\\{w \\in D(X_j) : (v, w) \\text{ consistent}\\}|$.
+
+## Example — 4 marks
+
+CSP: $X_1, X_2 \\in \\{1, 2, 3\\}$, $X_3 \\in \\{2, 3\\}$. Constraint: $X_1 \\ne X_2$, $X_1 \\ne X_3$.
+
+Variable order: $X_1, X_2, X_3$.
+
+**First-value heuristic ($X_1 = 1$):**
+- $X_1 = 1$. FC: prune 1 from $D(X_2)$ → $\\{2, 3\\}$, prune nothing from $D(X_3) = \\{2, 3\\}$ (1 not in it).
+- $X_2 = 2$ (first). FC: no effect on $X_3$.
+- $X_3 = 2$ (first). Conflict (no $X_1 \\ne X_3$ violated since $X_1 = 1 \\ne 2$). ✓
+
+Actually first-value here works too. Let me construct a case where it fails:
+
+CSP: $X_1, X_2 \\in \\{1, 2\\}$, $X_3 \\in \\{1\\}$ (singleton). Constraints: $X_1 \\ne X_3$, $X_2 \\ne X_3$.
+
+After NC + AC: $D(X_1) = \\{2\\}$, $D(X_2) = \\{2\\}$, $D(X_3) = \\{1\\}$ (AC propagates the $X_3 = 1$ singleton).
+
+Trivial — only one solution.
+
+**Where LCV truly matters** — large CSPs with multiple solutions. LCV picks values that *leave more flexibility downstream*, so the first leaf reached is usually a solution. If LCV picks $X_1 = 3$ (rules out 0 values in $D(X_2) = \\{1, 2\\}$ vs first-value $X_1 = 1$ which rules out 1 value), LCV reaches a leaf in 3 decisions; first-value reaches in 3 decisions plus possibly one backtrack.
+
+**Caveat.** LCV is value-side fail-LAST; combined with MRV's variable-side fail-FIRST. The intuition: fail-first on variables, succeed-first on values.`,
+      tags: ['LCV', 'heuristic'],
+    },
+  ],
+
+  'cp-modelling': [
+    {
+      id: 'es-cp-implied-constraint',
+      difficulty: 'intermediate', marks: 8,
+      question: `Consider a scheduling CSP: 3 jobs $J_1, J_2, J_3$ each take a distinct day from $\\{1, 2, 3, 4\\}$, with $J_1 < J_2$ and $J_2 < J_3$ (ordering constraints).
+
+**(i) [4 marks]** Identify two **implied constraints** that are logically entailed by the model. Show why each is entailed.
+
+**(ii) [4 marks]** Argue whether each implied constraint *improves propagation*. Use FC or AC reasoning.`,
+      answer: `## (i) Implied constraints — 4 marks
+
+**Implied 1: $J_1 < J_3$.** Entailed because $J_1 < J_2 < J_3 \\Rightarrow J_1 < J_3$ by transitivity. The original model already implies this; adding it as an explicit constraint cannot lose solutions.
+
+**Implied 2: $J_1 \\le 2$.** Entailed because $J_1 < J_2 < J_3$ requires at least 2 days above $J_1$, and the max day is 4, so $J_1 \\le 4 - 2 = 2$. Similarly $J_3 \\ge 3$.
+
+(We could also add $J_2 = 2$ or $J_2 = 3$ — the two middle days — but only one of these is correct for any given solution, not both, so it's *not* entailed.)
+
+## (ii) Propagation gain — 4 marks
+
+**$J_1 < J_3$.** With pairwise $J_1 < J_2$ and $J_2 < J_3$, AC-3 propagation requires *two* arc revisions to propagate from $J_1$ to $J_3$ (first $(J_1, J_2)$, then $(J_2, J_3)$). With the explicit $(J_1, J_3)$ constraint, AC-3 prunes $D(J_3)$ directly when $D(J_1)$ shrinks. **Speeds up propagation** — fewer arc revisions.
+
+**$J_1 \\le 2$.** This is a *unary* constraint. NC removes 3, 4 from $D(J_1)$ in one pass. Without it, NC does nothing (no other unary constraints), and the 3 and 4 values for $J_1$ are only pruned by AC propagation, which takes longer. **Strictly stronger pruning** — NC has zero cost and removes infeasible values immediately.
+
+**Modeller's lesson.** Always add implied unary constraints when easy to derive — they let NC do work that would otherwise fall to AC.`,
+      tags: ['implied constraint', 'propagation'],
+    },
+  ],
+
   'minimax': [
     {
       id: 'es-mm-1', difficulty: 'intermediate', marks: 10,
