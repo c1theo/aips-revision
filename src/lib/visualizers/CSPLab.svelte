@@ -292,18 +292,27 @@ c1 < c3`;
           let msg = `Try ${v} = ${val}`;
           let kind: Node['kind'] = 'try';
           let failReason: string | undefined;
-          // Propagation
-          if (propagation === 'fc') {
+          // Baseline consistency check against the partial assignment — always.
+          // (This is what "pure backtracking" means: detect conflicts immediately
+          // when both endpoints of a constraint are assigned.)
+          for (const c of csp.B) {
+            if (c.a === v && nextA[c.b] !== undefined && !c.pred(val, nextA[c.b])) {
+              kind = 'fail'; failReason = `conflict ${c.src}`; msg += ` → conflict (${c.src})`;
+              break;
+            }
+          }
+          // Optional extra propagation
+          if (kind !== 'fail' && propagation === 'fc') {
             const r = forwardCheck(nextD, nextA);
             if (!r.ok) { kind = 'fail'; failReason = r.reason; msg += ` → FC: ${r.reason}`; }
-          } else if (propagation === 'mac') {
+          } else if (kind !== 'fail' && propagation === 'mac') {
             const r = runAC3InPlace(csp, nextD);
             if (!r) { kind = 'fail'; failReason = 'MAC domain wipeout'; msg += ` → MAC: domain wipeout`; }
           }
-          // Also baseline consistency with current partial assignment
           const id = makeNode(parentId, `${v}=${val}`, nextD, nextA, msg, kind, depth + 1, failReason);
           if (kind !== 'fail') backtrack(id, depth + 1, nextA, nextD);
         }
+        // After trying every value of v, if no solution found we backtrack up — mark by node colour on parent.
       } else {
         // 2-way: try X=v on the LEFT branch; then X != v on the RIGHT branch (recursive)
         if (vals.length === 0) {
@@ -317,10 +326,16 @@ c1 < c3`;
         const leftD = JSON.parse(JSON.stringify(D));
         leftD[v] = [val];
         let lmsg = `LEFT: ${v} = ${val}`; let lkind: Node['kind'] = 'try'; let lreason: string | undefined;
-        if (propagation === 'fc') {
+        for (const c of csp.B) {
+          if (c.a === v && leftA[c.b] !== undefined && !c.pred(val, leftA[c.b])) {
+            lkind = 'fail'; lreason = `conflict ${c.src}`; lmsg += ` → conflict`;
+            break;
+          }
+        }
+        if (lkind !== 'fail' && propagation === 'fc') {
           const r = forwardCheck(leftD, leftA);
           if (!r.ok) { lkind = 'fail'; lreason = r.reason; lmsg += ` → FC fail`; }
-        } else if (propagation === 'mac') {
+        } else if (lkind !== 'fail' && propagation === 'mac') {
           const r = runAC3InPlace(csp, leftD);
           if (!r) { lkind = 'fail'; lreason = 'MAC wipeout'; lmsg += ` → MAC fail`; }
         }
@@ -354,19 +369,76 @@ c1 < c3`;
   $effect(() => { result; curNodeId = 0; });
   const cur = $derived(result.nodes[curNodeId]);
 
-  // Tree layout (simple: group by depth)
-  const byDepth = $derived.by(() => {
-    const m: Record<number, Node[]> = {};
-    for (const n of result.nodes) (m[n.depth] ??= []).push(n);
-    return m;
-  });
   const maxDepth = $derived(Math.max(0, ...result.nodes.map((n) => n.depth)));
+
+  // SVG tree layout. Bottom-up width computation: each leaf has width 1; each
+  // internal node has width = sum of children widths. Assign x positions so
+  // siblings sit next to each other and parents centre over their children.
+  const layout = $derived.by(() => {
+    const nodes = result.nodes;
+    const children: number[][] = nodes.map(() => []);
+    for (const n of nodes) if (n.parent !== null) children[n.parent].push(n.id);
+    const width = new Array(nodes.length).fill(0);
+    function computeWidth(id: number): number {
+      const c = children[id];
+      if (c.length === 0) return (width[id] = 1);
+      return (width[id] = c.reduce((s, ch) => s + computeWidth(ch), 0));
+    }
+    if (nodes.length) computeWidth(0);
+    const x = new Array(nodes.length).fill(0);
+    function assignX(id: number, startX: number): number {
+      const c = children[id];
+      if (c.length === 0) { x[id] = startX + 0.5; return 1; }
+      let cur = startX;
+      for (const ch of c) cur += assignX(ch, cur);
+      x[id] = (startX + cur) / 2;
+      return cur - startX;
+    }
+    if (nodes.length) assignX(0, 0);
+    return { children, width, x };
+  });
+
+  // Path from root to current node — highlighted in the tree
+  const currentPath = $derived.by(() => {
+    const set = new Set<number>();
+    let id: number | null = curNodeId;
+    while (id !== null && id !== undefined) {
+      set.add(id);
+      const n = result.nodes[id];
+      if (!n) break;
+      id = n.parent;
+    }
+    return set;
+  });
+
+  const STEP_X = 64; // px per leaf
+  const STEP_Y = 56;
+  const NODE_W = 56;
+  const NODE_H = 26;
+
+  const svgW = $derived(Math.max(360, (layout.width[0] ?? 1) * STEP_X + NODE_W));
+  const svgH = $derived((maxDepth + 1) * STEP_Y + NODE_H);
+
+  function nodeCx(id: number) { return layout.x[id] * STEP_X; }
+  function nodeCy(id: number) { return result.nodes[id].depth * STEP_Y + NODE_H / 2 + 8; }
 
   function colourClassFor(n: Node) {
     if (n.kind === 'solution') return 'bg-emerald-100 border-emerald-500 dark:bg-emerald-900/40';
     if (n.kind === 'fail') return 'bg-rose-100 border-rose-400 dark:bg-rose-900/40';
     if (n.kind === 'root') return 'bg-ink-100 border-ink-400 dark:bg-ink-800';
     return 'bg-sky-50 border-sky-400 dark:bg-sky-900/30';
+  }
+  function fillFor(n: Node) {
+    if (n.kind === 'solution') return '#a7f3d0';
+    if (n.kind === 'fail') return '#fecaca';
+    if (n.kind === 'root') return '#e2e8f0';
+    return '#e0f2fe';
+  }
+  function strokeFor(n: Node) {
+    if (n.kind === 'solution') return '#059669';
+    if (n.kind === 'fail') return '#dc2626';
+    if (n.kind === 'root') return '#475569';
+    return '#0284c7';
   }
 </script>
 
@@ -459,27 +531,52 @@ c1 < c3`;
   {/if}
 
   <div class="card !p-3">
-    <h4 class="text-sm font-semibold mb-2">Search tree ({result.nodes.length} nodes, depth ≤ {maxDepth})</h4>
+    <h4 class="text-sm font-semibold mb-2">Search tree ({result.nodes.length} nodes, depth ≤ {maxDepth}) — parent → child edges; the path from root to the selected node is highlighted in amber.</h4>
     <div class="overflow-x-auto">
-      <div class="flex flex-col gap-2 min-w-fit text-[11px] font-mono">
-        {#each Array(maxDepth + 1) as _, d}
-          <div class="flex gap-1 flex-wrap">
-            <div class="text-ink-400 w-12 shrink-0">d={d}</div>
-            {#each byDepth[d] ?? [] as n}
-              <button
-                class="border-2 rounded px-1.5 py-0.5 {colourClassFor(n)} {n.id === curNodeId ? 'ring-2 ring-accent-500' : ''}"
-                onclick={() => (curNodeId = n.id)}
-                title={n.msg}
-              >{n.decision}</button>
-            {/each}
-          </div>
+      <svg width={svgW} height={svgH} class="block">
+        <!-- Edges -->
+        {#each result.nodes as n}
+          {#if n.parent !== null && n.parent !== undefined}
+            {@const px = nodeCx(n.parent)}
+            {@const py = nodeCy(n.parent)}
+            {@const cx = nodeCx(n.id)}
+            {@const cy = nodeCy(n.id)}
+            {@const onPath = currentPath.has(n.id) && currentPath.has(n.parent)}
+            <line x1={px} y1={py + NODE_H / 2} x2={cx} y2={cy - NODE_H / 2}
+                  stroke={onPath ? '#f59e0b' : (n.kind === 'fail' ? '#fda4af' : '#94a3b8')}
+                  stroke-width={onPath ? 2.5 : 1.2}
+                  stroke-dasharray={n.kind === 'fail' ? '4 3' : '0'} />
+          {/if}
         {/each}
-      </div>
+        <!-- Nodes -->
+        {#each result.nodes as n}
+          {@const cx = nodeCx(n.id)}
+          {@const cy = nodeCy(n.id)}
+          {@const sel = n.id === curNodeId}
+          <g style="cursor:pointer" onclick={() => (curNodeId = n.id)}>
+            <rect x={cx - NODE_W / 2} y={cy - NODE_H / 2}
+                  width={NODE_W} height={NODE_H} rx="4"
+                  fill={fillFor(n)} stroke={sel ? '#f59e0b' : strokeFor(n)} stroke-width={sel ? 3 : 1.5} />
+            <text x={cx} y={cy + 4} text-anchor="middle" font-size="11" font-family="ui-monospace, monospace">{n.decision}</text>
+            {#if n.kind === 'fail'}
+              <text x={cx + NODE_W / 2 - 4} y={cy - NODE_H / 2 + 9} text-anchor="end" font-size="9" fill="#dc2626">✗</text>
+            {/if}
+            {#if n.kind === 'solution'}
+              <text x={cx + NODE_W / 2 - 4} y={cy - NODE_H / 2 + 9} text-anchor="end" font-size="9" fill="#059669">✓</text>
+            {/if}
+          </g>
+        {/each}
+        <!-- Depth labels -->
+        {#each Array(maxDepth + 1) as _, d}
+          <text x="2" y={d * STEP_Y + NODE_H / 2 + 12} font-size="10" fill="#94a3b8" font-family="ui-monospace, monospace">d={d}</text>
+        {/each}
+      </svg>
     </div>
     <div class="text-[10px] text-ink-500 mt-2">
       <span class="inline-block w-3 h-3 bg-sky-100 border border-sky-400 align-middle"></span> try ·
-      <span class="inline-block w-3 h-3 bg-rose-100 border border-rose-400 align-middle"></span> fail ·
-      <span class="inline-block w-3 h-3 bg-emerald-100 border border-emerald-500 align-middle"></span> solution
+      <span class="inline-block w-3 h-3 bg-rose-100 border border-rose-400 align-middle"></span> fail (dashed edge = a search subtree the algorithm gave up on and backtracked from) ·
+      <span class="inline-block w-3 h-3 bg-emerald-100 border border-emerald-500 align-middle"></span> solution ·
+      amber outline = current node + path to it
     </div>
   </div>
 
