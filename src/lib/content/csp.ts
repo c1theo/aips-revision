@@ -643,6 +643,156 @@ LCV ties at 1 → pick $A = G$ (lex). After $A = G$: $D(B) = \\{R\\}, D(C) = \\{
       oneLiner: 'Sets, sequences, relations, functions, partitions. Viewpoints, channeling, implied constraints, nesting.',
       sections: [
         {
+          id: 'methodology',
+          title: '🧭 Modelling methodology — a 7-step process',
+          blocks: [
+            { kind: 'md', body: `Modelling is a *skill* with a checkable procedure. Apply these seven steps to **any** word problem you're asked to formulate as a CSP.
+
+### Step 1 — Identify the decisions
+Read the problem and ask: **what does the modeller need to choose?** The answers are your decision variables. Different problems suggest different choices:
+
+| Problem hint | Likely variables |
+|---|---|
+| "Assign $X$ to one of $Y$" | One variable per item of $X$, domain = $Y$ |
+| "Find a sequence / schedule" | One variable per position, domain = items, OR one variable per item, domain = times |
+| "Place $n$ objects on a board" | Position variables (row, col) for each object |
+| "Partition into $k$ groups" | Group-id per element, OR set-of-elements per group |
+| "Choose a subset of size $k$" | $k$ index variables + AllDifferent + lex-order to break symmetry |
+
+### Step 2 — Choose domains
+Smallest possible. Examples:
+
+- A digit → $\\{0, 1, \\ldots, 9\\}$ — never $\\mathbb{Z}$.
+- A weekday → $\\{1, 2, 3, 4, 5\\}$, not $\\{$Mon, Tue, $\\ldots\\}$ (use string names only when the order doesn't matter).
+- Boolean flags → $\\{0, 1\\}$.
+- Time slots within a 4-hour window → $\\{1, 2, 3, 4\\}$ (not unbounded).
+
+Tighter domains = stronger up-front propagation.
+
+### Step 3 — List the constraints, by source
+Walk through the problem text **sentence by sentence**, turning each requirement into a constraint:
+
+1. **Hard rules of the domain** ("two queens can't share a row" → constraint).
+2. **Resource / capacity limits** ("each warehouse supplies ≤ 100 units" → sum-bounded).
+3. **Mutual exclusion** ("at most one task per machine at a time" → AllDifferent or non-overlap).
+4. **Ordering / precedence** ("task B must follow task A" → $s_B \\ge s_A + d_A$).
+5. **Coverage** ("every shop must be supplied by some warehouse" → function totality).
+6. **Quotas / counts** ("each colour used exactly $k$ times" → gcc).
+
+### Step 4 — Pick the arity wisely
+Prefer **global constraints** over decomposed binary ones — they propagate strictly stronger:
+
+| Want | Use | Don't use |
+|---|---|---|
+| All variables take different values | $\\text{AllDifferent}$ | $\\binom{n}{2}$ pairwise $\\ne$ |
+| Sum to $k$ | $\\sum X_i = k$ | hand-decomposed pairwise sums |
+| At most $k$ true | sequential counter / totalizer | naive pairwise $\\lnot$ |
+| Each value occurs in $[\\ell, u]$ | $\\text{gcc}$ | hand-counted |
+| $Z$ is the $Y$-th entry of $X$ | $\\text{element}(X, Y, Z)$ | case-split |
+
+### Step 5 — Add implied constraints
+Implied (= entailed but explicit) constraints make propagation stronger:
+
+- **Arithmetic identities** the solver can't derive: in a magic square, $\\sum_{\\text{all cells}} = N \\cdot \\mu$ is implied by row-sums + col-sums but stating it lets bounds-propagation kick in.
+- **Counting bounds** that follow from the problem: "$n$ tasks, $k$ days → total work ≤ $k \\cdot$ daily capacity".
+- **Domain bounds** from deadline + duration: $s_i \\le \\text{deadline} - d_i + 1$.
+
+**Always check:** does every original solution still satisfy this? (If not, you've LOST solutions — it wasn't implied.)
+
+### Step 6 — Break symmetries
+Identify symmetry **groups** in the problem and add constraints to break them:
+
+- Interchangeable variables → lex-order ($X_1 \\le X_2 \\le \\ldots$).
+- Interchangeable values → value precedence ($\\text{firstOccurrence}(v_i) < \\text{firstOccurrence}(v_{i+1})$).
+- Matrix row + column symmetry → DoubleLex.
+- Geometric symmetries (n-queens reflections) → fix one queen to break a 4-fold reflection.
+
+Symmetry breaking shrinks the search by up to $|G|$ where $G$ is the symmetry group.
+
+### Step 7 — Sanity-check
+Three quick checks:
+
+1. **Does every solution to the original problem satisfy every constraint?** If not, you have an over-constraint — remove or fix.
+2. **Does every assignment satisfying every constraint correspond to a valid solution?** If not, you have an under-constraint — add the missing one.
+3. **Are there obvious propagation gaps?** Small examples by hand — does AC-3 / FC make progress, or do all variables stay full-domain until search?
+
+If all three pass, the model is sound. Now decide on a viewpoint (next section), and proceed to solving.` },
+            { kind: 'callout', variant: 'keyfact', title: 'The hardest part is Step 1', body: `Different variable choices give wildly different models. Always brainstorm 2-3 viewpoints before committing — they often have very different propagation behaviour. See "Viewpoints" below.` },
+            { kind: 'callout', variant: 'pitfall', title: 'Common mistake: variables you don\'t need', body: `If the problem says "task $i$ takes $d_i$ hours", $d_i$ is a **parameter**, not a decision variable. Only model what the *modeller chooses*.` },
+            { kind: 'callout', variant: 'whatif', title: 'What if the question doesn\'t give explicit domains?', body: `Derive them from the problem: a "start time within $H$ hours" → $\\{1..H\\}$. A "colour" with no count → use $\\{1..\\chi\\}$ where $\\chi$ is the chromatic number bound (e.g. $\\le \\Delta + 1$ for graph colouring).` },
+          ],
+        },
+        {
+          id: 'methodology-worked',
+          title: 'Worked methodology example — bin packing',
+          blocks: [
+            { kind: 'md', body: `**Problem.** Given $n$ items with weights $w_1, \\ldots, w_n$, pack them into the minimum number of bins of capacity $C$.
+
+### Step 1 — Decisions
+Two natural choices:
+- **(A) Bin-per-item:** $b_i$ = which bin item $i$ goes into.
+- **(B) Items-per-bin:** $\\text{contents}_j$ = set of items in bin $j$.
+
+(A) gives one integer per item — concise. (B) is set-valued and would need encoding in Essence Prime (matrix of 0/1). Pick (A).
+
+### Step 2 — Domains
+Maximum #bins ≤ $n$ (each item in its own bin). So $b_i \\in \\{1, \\ldots, n\\}$.
+
+Tighter: $b_i \\le \\lceil n \\cdot \\bar w / C \\rceil$ where $\\bar w$ is mean weight (rough lower bound on #bins).
+
+### Step 3 — Constraints
+Walk the problem:
+- "Bins of capacity $C$" → for each bin $j$, $\\sum_{i : b_i = j} w_i \\le C$. Use a **sum** constraint per bin, or **gcc** with item-weights.
+- "Minimise the number of bins" → minimise $\\max_i b_i$ (or introduce $K = \\max_i b_i$ and minimise $K$).
+
+### Step 4 — Arity
+- Per-bin sum is naturally a global constraint (sum over items assigned to bin $j$).
+- Alternative: indicator variables $y_{ij} \\in \\{0,1\\}$ for "item $i$ in bin $j$"; then $\\sum_i y_{ij} w_i \\le C$ for each $j$ — but this introduces $n^2$ variables. Pick the integer encoding (A).
+
+### Step 5 — Implied constraints
+- **Total weight bound:** $\\sum_i w_i \\le C \\cdot K$. Lets the solver immediately reject impossible $K$.
+- **Big items separation:** items with $w_i > C/2$ cannot share a bin — add $b_i \\ne b_j$ for such pairs.
+
+### Step 6 — Symmetry
+- **Bin permutation symmetry:** bins are interchangeable. Break it by **lex-leader on bin assignments** or **value precedence**: the first item goes to bin 1, the next new bin used is bin 2, etc. Equivalently: $b_1 = 1$ and $b_i \\le \\max_{j < i} b_j + 1$.
+
+### Step 7 — Sanity check
+- Solution → all items packed, capacity respected, $K$ counted correctly. ✓
+- Assignment satisfying constraints → valid packing. ✓ (need to check: nothing rules out a feasible packing.)
+- Propagation: with strong bin-sum constraints and the symmetry break, early decisions immediately tighten $K$.
+
+### Final model (Essence Prime sketch)
+
+\`\`\`
+given n : int(1..)
+given C : int(1..)
+given weights : matrix indexed by [int(1..n)] of int(1..C)
+
+find b : matrix indexed by [int(1..n)] of int(1..n)
+find K : int(1..n)
+
+minimising K
+
+such that
+  forAll j : int(1..n) .
+    (sum i : int(1..n) . [weights[i] | b[i] = j]) <= C,
+  forAll i : int(1..n) . b[i] <= K,
+  forAll i : int(1..n-1) . b[i+1] <= max([b[k] | k : int(1..i)]) + 1   $ value-precedence
+\`\`\`
+
+Reading top-to-bottom: every bin within capacity; $K$ tracks the highest used bin id; value-precedence breaks bin symmetry.` },
+            { kind: 'viz', viz: 'CSPLab', title: 'CSPLab — sketch a smaller bin-packing instance to test propagation', props: {} },
+          ],
+        },
+        {
+          id: 'modelling-wizard',
+          title: '🧭 Interactive: CSP Modelling Wizard',
+          blocks: [
+            { kind: 'md', body: `The wizard walks you through the 7-step methodology for **any** word problem. Each step is editable and the model auto-builds into a CSPLab-ready spec plus an exam-paper-style answer.` },
+            { kind: 'viz', viz: 'ModellingWizard', title: 'Build a CSP from scratch, step-by-step', props: {} },
+          ],
+        },
+        {
           id: 'types',
           title: 'Abstract decision-variable types',
           blocks: [
@@ -777,6 +927,15 @@ Essence Prime has **no nesting** — every variable is a matrix of int or bool.`
         { id: 'm6', q: 'Variable vs value symmetry?', a: 'Variable symmetry: a permutation of variables maps solutions to solutions (e.g. interchangeable rows). Value symmetry: a permutation of values does (e.g. interchangeable colour names).' },
         { id: 'm7', q: 'Lex-leader constraint, in words?', a: 'For each symmetry σ in the group, require X ≤_lex σ(X). Forces the search to find only the lex-least representative in each symmetry orbit.' },
         { id: 'm8', q: 'Downside of static symmetry breaking?', a: 'It can conflict with the branching heuristic — both try to impose orderings on the search.' },
+        { id: 'm9', q: 'Seven-step modelling methodology?', a: '1. Identify decisions → variables. 2. Choose smallest domains. 3. List constraints by source (rules, capacity, mutex, precedence, coverage, quotas). 4. Pick arity (global > binary). 5. Add implied constraints. 6. Break symmetries. 7. Sanity-check both directions.' },
+        { id: 'm10', q: 'How do you encode a "subset of size k from D" in a CSP?', a: 'k variables with domain D + AllDifferent + lex-ordering (strict <) to break the k! permutation symmetry. Alternative: boolean indicator vector indexed by D with sum = k.' },
+        { id: 'm11', q: 'When is a parameter not a variable?', a: 'When its value is given as input (problem data, e.g. durations, capacities, weights). Only model what the modeller CHOOSES — decisions, not inputs.' },
+        { id: 'm12', q: 'Why is global AllDifferent strictly stronger than pairwise ≠?', a: "Pairwise only sees one pair at a time and misses pigeonhole infeasibility (n vars in <n values). Régin's GAC for AllDifferent detects it via Hall's theorem on the variable-value bipartite graph." },
+        { id: 'm13', q: 'Bin packing — how to break the bin permutation symmetry?', a: 'Value precedence: b₁ = 1 and bᵢ ≤ max(b₁,…,bᵢ₋₁) + 1. Forces bins to be "used" in order: the first item to use a new bin must use the lowest unused id.' },
+        { id: 'm14', q: 'Job-shop scheduling — what is the makespan-bound implied constraint?', a: 'Total job duration must fit within deadline: sⱼ,₁ + Σ dⱼ,ₖ ≤ T for each job j. Lets the solver tighten the first-op start time from above immediately.' },
+        { id: 'm15', q: 'For a permutation problem, what does channelling do?', a: 'Links primal (x_i = value at position i) and dual (d_j = position of value j) variables via x_i = j ⇔ d_j = i. Propagation flows both ways — together strictly stronger than either alone.' },
+        { id: 'm16', q: 'What does "Step 7: sanity check" verify?', a: 'Two directions: (a) every original solution satisfies every posted constraint (no over-constraint), and (b) every assignment satisfying all constraints is a valid solution (no under-constraint).' },
+        { id: 'm17', q: 'When should you NOT decompose a global constraint?', a: "Always, when a specialised propagator exists (AllDifferent → Régin's GAC, Sum → bounds consistency, gcc, element, cumulative). Decomposition loses propagation strength irreversibly." },
       ],
       examples: [
         {
@@ -888,6 +1047,235 @@ By including both, you can post each constraint in its most natural form *and* p
 **Stronger pruning example.** Consider a permutation problem where you've propagated $x_1 \\in \\{2, 5\\}$ and $x_2 \\in \\{2, 5\\}$. AllDifferent doesn't prune anything yet. But in the dual, channeling forces $d_2 \\in \\{1, 2\\}$ and $d_5 \\in \\{1, 2\\}$. AllDifferent on the duals (it's a permutation, so duals also satisfy AllDifferent) propagates: $d_3 \\ne 1, 2$ and $d_4 \\ne 1, 2$, etc. — back to primal: $x_3, x_4 \\ne 2, 5$.
 
 **Cost.** Doubled variable count + the channeling constraints. Worth it for hard instances where pruning gains beat the per-step overhead.`,
+        },
+        {
+          id: 'mex5-jobshop', difficulty: 'advanced', marks: 12,
+          question: `**Job-shop scheduling.** $n$ jobs, each consisting of an ordered sequence of $m$ operations. Each operation needs a specific machine and takes a fixed duration. A machine can only process one operation at a time. All jobs must finish by makespan $T$.
+
+(i) [6 marks] Formulate as a CSP: variables, domains, constraints.
+(ii) [3 marks] Identify and add **two implied constraints** that strengthen propagation.
+(iii) [3 marks] Identify a symmetry and explain how to break it.`,
+          answer: `## (i) CSP formulation — 6 marks
+
+**Variables.** $s_{j,k}$ = start time of operation $k$ of job $j$, for each $j \\in \\{1..n\\}$, $k \\in \\{1..m\\}$.
+
+**Domains.** $s_{j,k} \\in \\{0..T - d_{j,k}\\}$ where $d_{j,k}$ is the (parametric) duration.
+
+**Constraints.**
+1. **Job precedence** (within each job, operations are ordered):
+   $$s_{j,k+1} \\ge s_{j,k} + d_{j,k} \\quad \\forall j, k = 1..m-1$$
+2. **Machine non-overlap** (operations on the same machine cannot overlap). Using the standard formulation:
+   $$\\forall (j_1, k_1), (j_2, k_2) \\text{ on same machine}: \\quad s_{j_1,k_1} + d_{j_1,k_1} \\le s_{j_2,k_2} \\;\\lor\\; s_{j_2,k_2} + d_{j_2,k_2} \\le s_{j_1,k_1}$$
+   In Essence Prime, prefer the global \`cumulative\` constraint per machine for stronger propagation.
+3. **Makespan**: $s_{j,m} + d_{j,m} \\le T$ for each job $j$.
+
+## (ii) Implied constraints — 3 marks
+
+**Implied 1: Job makespan lower bound.** $s_{j,1} + \\sum_{k=1}^{m} d_{j,k} \\le T$. Total job duration must fit within $T - s_{j,1}$. Immediately tightens $s_{j,1}$ from above.
+
+**Implied 2: Machine load bound.** For each machine, $\\sum_{(j,k) \\text{ on machine}} d_{j,k} \\le T$. If total operations on machine $\\mu$ exceed $T$, infeasibility is detected without search. (And gives a sharper lower bound on $T$.)
+
+## (iii) Symmetry — 3 marks
+
+If two jobs $j_1, j_2$ have **identical operation sequences** (same machines, same durations in same order), they are interchangeable. Any solution with start times $(s_{j_1, \\cdot}, s_{j_2, \\cdot})$ has a partner with start times swapped.
+
+**Break the symmetry** by adding a lex-ordering constraint between the two job's start-time vectors:
+$$[s_{j_1,1}, s_{j_1,2}, \\ldots, s_{j_1,m}] \\le_{\\text{lex}} [s_{j_2,1}, s_{j_2,2}, \\ldots, s_{j_2,m}]$$
+
+Reduces search by factor 2 for each identical-job pair. In Essence Prime: \`row_j1 <=lex row_j2\`.`,
+          tags: ['scheduling', 'cumulative', 'precedence', 'symmetry'],
+        },
+        {
+          id: 'mex6-knapsack', difficulty: 'intermediate', marks: 8,
+          question: `**Knapsack.** $n$ items with weights $w_1..w_n$ and values $v_1..v_n$. Choose a subset with total weight $\\le W$ maximising total value. Formulate as a CSP/COP. Discuss two viewpoints and how they differ in propagation.`,
+          answer: `## CSP/COP formulation
+
+**Viewpoint A — Boolean inclusion vector.**
+- **Variables.** $x_i \\in \\{0, 1\\}$ for each item.
+- **Constraint.** $\\sum_i w_i x_i \\le W$.
+- **Objective.** $\\text{maximise } \\sum_i v_i x_i$.
+
+**Viewpoint B — Subset-as-array.**
+- **Variables.** $y_1, \\ldots, y_k \\in \\{1..n\\}$ for some unknown $k$, plus $k$ itself.
+- **Symmetry-breaking.** $y_i < y_{i+1}$ (strict order; also implies AllDifferent).
+- **Constraint.** $\\sum_i w_{y_i} \\le W$.
+- **Objective.** $\\text{maximise } \\sum_i v_{y_i}$.
+
+## Comparison
+
+| Aspect | Viewpoint A (Boolean) | Viewpoint B (Subset array) |
+|---|---|---|
+| Variable count | $n$ | $\\le n + 1$ ($y$'s + length) |
+| Sum constraint | Direct, simple | Indirect via \`element\` |
+| Propagation | Strong via sum bounds — knapsack-style propagator can prune $x_i$ once $\\sum w$ is tight | Weaker — value of $y_i$ doesn't directly bound weight |
+| Branching | One binary decision per item | Pick item, then next item, etc |
+
+**A is the standard choice** — directly maps to ILP, gets strong sum-propagation, and Boolean variables work well with SAT-based encodings.
+
+## Implied constraint
+**Upper bound on number of items:** $|\\{i : x_i = 1\\}| \\le \\lfloor W / \\min_j w_j \\rfloor$. Tightens $\\sum x_i$ from above.
+
+## Symmetry
+None inherent — items have distinct $(w_i, v_i)$. If two items are identical (same $w$ and $v$), pick them as a pair (lex-order them).`,
+          tags: ['knapsack', 'COP', 'viewpoints', 'sum constraint'],
+        },
+        {
+          id: 'mex7-latin', difficulty: 'intermediate', marks: 9,
+          question: `**Latin square.** An $n \\times n$ grid filled with values from $\\{1, \\ldots, n\\}$ such that each row and each column contains every value exactly once.
+
+(i) [3 marks] Give a CSP formulation with one variable per cell.
+(ii) [3 marks] Identify the natural global constraint and explain why it propagates more strongly than the binary decomposition.
+(iii) [3 marks] Latin squares have many symmetries — list three and indicate which are easiest to break.`,
+          answer: `## (i) CSP — 3 marks
+
+**Variables.** $X_{i,j} \\in \\{1..n\\}$ for each cell $(i, j) \\in [n] \\times [n]$.
+
+**Constraints.**
+- Each row: $\\text{AllDifferent}(X_{i,1}, X_{i,2}, \\ldots, X_{i,n})$ for each $i$.
+- Each column: $\\text{AllDifferent}(X_{1,j}, X_{2,j}, \\ldots, X_{n,j})$ for each $j$.
+
+## (ii) Global constraint — 3 marks
+
+**AllDifferent** with Régin's GAC algorithm enforces the **Hall condition**: every subset $S$ of variables must have $|D(S)| \\ge |S|$.
+
+Decomposing into $\\binom{n}{2}$ pairwise $\\ne$ constraints only catches local violations — a value-pair conflict. It **cannot detect** that, say, 3 variables have only 2 values between them (a pigeonhole violation that GAC catches instantly).
+
+Empirically: for $n = 30$ Latin squares, GAC prunes ~50× more search nodes than pairwise.
+
+## (iii) Symmetries — 3 marks
+
+1. **Row permutations** ($n!$): swapping any two rows gives a Latin square.
+2. **Column permutations** ($n!$): swapping any two columns gives a Latin square.
+3. **Value permutations** ($n!$): relabelling values gives a Latin square.
+4. **Transpose** (group of order 2): the transpose of a Latin square is a Latin square.
+
+Total symmetry group size: $(n!)^3 \\cdot 2$ (the "isotopy-with-transpose" group).
+
+**Easiest to break:**
+- **Value precedence** on the first row: $X_{1,1} < X_{1,2} < \\ldots < X_{1,n}$ — instantly fixes the first row to the identity $(1, 2, \\ldots, n)$. Breaks all $n!$ value symmetries AND a row symmetry by anchoring "row 1".
+- **Lex-order rows**: $X_{1,\\cdot} \\le_{\\text{lex}} X_{2,\\cdot} \\le_{\\text{lex}} \\cdots$ — breaks row permutations.
+- **Lex-order columns** similarly.
+
+Combined (value precedence on row 1 + lex on rows + lex on columns) is the standard DoubleLex+ValuePrecedence pattern, very effective on Latin squares.`,
+          tags: ['latin square', 'AllDifferent', 'symmetry'],
+        },
+        {
+          id: 'mex8-graph-coloring', difficulty: 'basic', marks: 6,
+          question: `Formulate the **graph $k$-colouring** problem as a CSP. Given a graph $G = (V, E)$, assign one of $k$ colours to each vertex such that adjacent vertices have different colours.
+
+(i) [3 marks] State variables, domains and constraints.
+(ii) [3 marks] If $k = $ chromatic number, what symmetry exists and how do you break it?`,
+          answer: `## (i) CSP — 3 marks
+
+**Variables.** $C_v \\in \\{1, \\ldots, k\\}$ for each $v \\in V$.
+
+**Constraints.** $C_u \\ne C_v$ for each edge $\\{u, v\\} \\in E$.
+
+(That's it — no AllDifferent here unless the graph is the complete graph $K_n$, in which case $\\text{AllDifferent}(C_1, \\ldots, C_n)$ replaces all pairwise constraints and gives stronger propagation.)
+
+## (ii) Symmetry — 3 marks
+
+**Colour-permutation symmetry:** the $k$ colour labels are interchangeable. Every solution has $k!$ equivalent siblings obtained by permuting the colour labels.
+
+**Break it** with **value precedence**: the first vertex (in some fixed order, e.g. by index) takes colour 1; if any vertex takes colour 2, some earlier vertex must already use colour 1; etc.
+
+In Essence Prime: \`precedence(C, [1, 2, 3, ..., k])\`.
+
+Effect: search space shrinks by $k!$ at no cost to solution count — among the $k!$ equivalent colourings, exactly one (the canonical one) is returned.`,
+          tags: ['graph colouring', 'value precedence', 'symmetry'],
+        },
+        {
+          id: 'mex9-warehouse', difficulty: 'advanced', marks: 14,
+          question: `**Warehouse-shop allocation.** $w$ warehouses each with capacity $\\text{cap}_j$. $s$ shops, each with demand $d_i$, must each be supplied by exactly one warehouse (no splitting).
+
+(i) [3 marks] Identify the modelling pattern.
+(ii) [4 marks] Give two distinct viewpoints with their variables/domains.
+(iii) [4 marks] State the constraints for both viewpoints, including capacity.
+(iv) [3 marks] Channel between them; explain why the channel improves propagation.`,
+          answer: `## (i) Pattern — 3 marks
+
+The shop → warehouse mapping is a **total function** $f : \\text{Shops} \\to \\text{Warehouses}$:
+- Total because every shop must be supplied.
+- Functional because each shop has exactly one supplier.
+- Not injective in general — multiple shops can share a warehouse (and $w$ might be < $s$).
+
+## (ii) Viewpoints — 4 marks
+
+**Viewpoint A — Shop-indexed (function-as-array).**
+- $\\text{supplier}_i \\in \\{1..w\\}$ for each shop $i$.
+
+**Viewpoint B — Warehouse-indexed (assignment matrix).**
+- $A_{i,j} \\in \\{0, 1\\}$, with $A_{i,j} = 1$ iff shop $i$ is supplied by warehouse $j$.
+
+## (iii) Constraints — 4 marks
+
+**Viewpoint A constraints.**
+- Capacity per warehouse: $\\sum_{i : \\text{supplier}_i = j} d_i \\le \\text{cap}_j$ for each $j$.
+- Implicit "exactly one supplier" — built into the variable.
+
+**Viewpoint B constraints.**
+- Exactly one supplier per shop: $\\sum_j A_{i,j} = 1$ for each $i$.
+- Capacity: $\\sum_i A_{i,j} \\cdot d_i \\le \\text{cap}_j$ for each $j$.
+
+Viewpoint A is more compact. Viewpoint B exposes Boolean indicator variables that may help downstream propagators (e.g. linking with binary inclusion in larger models).
+
+## (iv) Channelling — 3 marks
+
+$$\\text{supplier}_i = j \\;\\;\\Longleftrightarrow\\;\\; A_{i,j} = 1$$
+
+(Equivalently: for each $j$, $A_{i,j} = 1$ if $\\text{supplier}_i = j$, else $A_{i,j} = 0$.)
+
+**Why it helps:**
+1. The capacity constraint is more naturally expressed in B (linear sum); the variable model is more compact in A. Channeling lets us post each in its preferred form.
+2. Propagation flows both ways: pruning $A_{i,j} = 0$ removes $j$ from $D(\\text{supplier}_i)$; pruning $\\text{supplier}_i \\ne j$ forces $A_{i,j} = 0$.
+3. The capacity sum constraint in B propagates bounds-consistency on the warehouse counts, which can then prune the function domain in A.`,
+          tags: ['allocation', 'function', 'channelling', 'capacity'],
+        },
+        {
+          id: 'mex10-stable-marriage', difficulty: 'advanced', marks: 10,
+          question: `**Stable marriage.** $n$ men and $n$ women each rank the other group in a strict preference list. Find a matching such that no unmatched man-woman pair both prefer each other to their current partner.
+
+Formulate as a CSP: variables, domains, the stability constraint. Discuss why this is naturally a *constraint* problem rather than purely a *search* problem.`,
+          answer: `## CSP formulation
+
+**Variables.** $\\text{wife}_m \\in \\{1..n\\}$ for each man $m \\in \\{1..n\\}$ — the index of the woman matched to man $m$.
+
+**Domains.** $\\text{wife}_m \\in \\{1..n\\}$.
+
+**Constraints.**
+1. **Matching is a permutation:** $\\text{AllDifferent}(\\text{wife}_1, \\ldots, \\text{wife}_n)$.
+2. **Stability** (no blocking pair): for every man $m$ and every woman $w$, IF $m$ prefers $w$ over his current wife (i.e. $\\text{rank}_m(w) < \\text{rank}_m(\\text{wife}_m)$) THEN $w$ prefers her current husband over $m$ (where husband = $\\text{wife}^{-1}(w)$).
+
+   In propositional form: $\\text{rank}_m(w) < \\text{rank}_m(\\text{wife}_m) \\Rightarrow \\text{rank}_w(\\text{husband}(w)) < \\text{rank}_w(m)$ for every $(m, w)$ pair.
+
+## Why constraint, not search
+
+1. **Globally-defined feasibility.** Stability is a property of the *entire* matching — you can't check it incrementally without considering all pairs.
+2. **Many feasible solutions in general** — Gale-Shapley gives the man-optimal (or woman-optimal) one in polynomial time, but ALL stable matchings form a lattice and can be enumerated via constraint propagation.
+3. **Soft / weighted variants** become COPs naturally — minimise total dissatisfaction, etc. The CSP frame extends to these.
+4. **Side constraints.** Real problems often have additional constraints (couples want to be near each other; some matches are forbidden) that destroy Gale-Shapley's algorithmic structure but fit naturally in a CSP solver.
+
+The CSP view scales to richer variants where Gale-Shapley breaks down.`,
+          tags: ['matching', 'AllDifferent', 'stability'],
+        },
+        {
+          id: 'mex11-sudoku', difficulty: 'basic', marks: 5,
+          question: `Formulate Sudoku as a CSP. Variables, domains, constraints, and one implied constraint that helps propagation.`,
+          answer: `## CSP
+
+**Variables.** $X_{i,j} \\in \\{1, \\ldots, 9\\}$ for each cell $(i, j) \\in [9] \\times [9]$. Pre-filled cells have singleton domains.
+
+**Constraints.**
+- Row: $\\text{AllDifferent}(X_{i,1}, X_{i,2}, \\ldots, X_{i,9})$ for each $i$.
+- Column: $\\text{AllDifferent}(X_{1,j}, X_{2,j}, \\ldots, X_{9,j})$ for each $j$.
+- Box: $\\text{AllDifferent}(\\{X_{i,j} : (i-1) \\div 3 = b_r, (j-1) \\div 3 = b_c\\})$ for each of the 9 boxes.
+
+## Implied constraint
+
+**Pair / triple "hidden singles":** if value $v$ can only fit in one cell of a row (or column / box), assign it. Stated as a global constraint: \`gcc(X_row, [1..9], [1,1,1,1,1,1,1,1,1])\`.
+
+This is implied (already follows from AllDifferent on rows/cols/boxes + domain restrictions) but the gcc propagator is stronger than AllDifferent at detecting hidden singles — particularly when domains have already been pruned by pre-filled clues.`,
+          tags: ['sudoku', 'AllDifferent', 'gcc'],
         },
       ],
     },

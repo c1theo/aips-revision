@@ -33,6 +33,7 @@
         { key: 'NQueens', label: 'N-Queens / Graph colouring backtracking', description: 'MRV / LCV / FC toggles; see the search tree.' },
         { key: 'MinConflicts', label: 'Min-conflicts', description: 'Local-search n-queens / graph colouring animation with live trace.' },
         { key: 'TwoWayBranching', label: '2-way vs d-way branching', description: 'See how branching style reshapes the search tree.' },
+        { key: 'ModellingWizard', label: '🧭 CSP Modelling Wizard', description: 'Step-by-step CSP builder: 7 stages from problem text to a verified model + exam answer.' },
         { key: 'EssencePrime', label: 'Essence Prime editor', description: 'Browse, edit, and save custom models.' },
       ],
     },

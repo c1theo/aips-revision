@@ -189,6 +189,20 @@ export const vizExplanations: Partial<Record<VizKey, VizExplanation>> = {
     ],
     relatedConcepts: ['Local search', 'Min-conflicts', 'Million-queens result'],
   },
+  ModellingWizard: {
+    whatItShows: 'A 7-step interactive walkthrough for formulating any word problem as a CSP: decisions → domains → constraints → arity → implied → symmetry-breaking → sanity check. Each step lets you edit a working model and produces an exam-paper-style writeup.',
+    howToUse: 'Click through the 7 steps in order (or jump between them). At each step add/edit variables or constraints; the model auto-builds in CSPLab spec format. The "Exam-ready answer" panel updates live.',
+    whatToLookFor: [
+      'Step 1 (decisions): every variable should be a *choice* you make, not a parameter the problem gives you.',
+      'Step 2 (domains): tighter is better — derive bounds from constraints in the prose.',
+      'Step 3 (constraints): tag each by source ("hard rule" / "capacity" / "mutex" / "precedence" / "coverage" / "quota").',
+      'Step 4 (arity): the "Upgrade?" column flags places where a global constraint will propagate strictly stronger than your binary decomposition.',
+      'Step 5 (implied): each should be logically entailed by your existing model.',
+      'Step 6 (symmetry): identify the symmetry group, then break it.',
+      'Step 7 (sanity): three checks — over-constrained, under-constrained, propagation makes progress.',
+    ],
+    relatedConcepts: ['CP modelling', '7-step methodology', 'Implied constraints', 'Symmetry breaking', 'Viewpoints'],
+  },
   EssencePrime: {
     whatItShows: 'A library of curated Essence Prime models — n-queens, sudoku, map colouring, all-interval series, set partition, SEND+MORE, graph k-colouring. Each shows source code with syntax highlighting plus notes about modelling decisions.',
     howToUse: 'Pick a model from the buttons. Edit the source in the left pane; the right pane re-highlights as you type. Read the notes (rose box) for likely exam-target points.',

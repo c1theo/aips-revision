@@ -270,44 +270,75 @@ export const playbooks: Playbook[] = [
   // ───────────────────────────────────────────────────────────────────
   {
     id: 'csp-model',
-    topic: 'CSP', module: 'csp', subtask: 'Model a problem as a CSP',
+    topic: 'CSP', module: 'csp', subtask: 'Model a problem as a CSP (7-step methodology)',
     whenItApplies: [
-      'Words like "write a CSP", "model as a CSP", "formulate as a constraint problem".',
-      'Real-world scenario (scheduling, allocation, colouring) without an explicit constraint listing.',
+      'Words like "write a CSP", "model as a CSP", "formulate as a constraint problem", "design a CSP".',
+      'Real-world scenario (scheduling, allocation, colouring, packing, assignment) without an explicit constraint listing.',
+      'Question asks "identify variables / domains / constraints".',
     ],
     steps: [
-      'List the **decisions** — what does the modeller need to choose? These become variables.',
-      'Give each variable a **domain** (finite, discrete in this module).',
-      'Translate each requirement into a **constraint**. Decide arity: unary (one var) / binary (two vars) / global (≥3 vars).',
-      'Prefer **global constraints** (AllDifferent, sum, gcc) where applicable — better propagation than decomposing into binary.',
-      'Add **symmetry-breaking** constraints if the problem has obvious symmetries (lex-ordering, value precedence).',
-      'Add **implied constraints** that are logically entailed but speed up propagation.',
-      'Sanity-check: does some non-solution satisfy every constraint? Add the missing one.',
+      '**Step 1 — Identify the decisions.** What does the modeller *choose*? Those are your variables. Inputs (durations, capacities, weights) are PARAMETERS, not variables. Brainstorm 2-3 viewpoints before committing.',
+      '**Step 2 — Pick smallest domains.** Tighter = stronger upfront propagation. Use $\\{1..N\\}$ rather than $\\mathbb{Z}$. Derive bounds from deadlines, capacities, problem structure.',
+      '**Step 3 — List constraints by source.** Walk the prose sentence-by-sentence. Common sources: hard rules, capacity, mutual exclusion, precedence, coverage, quotas. Tag each constraint with its source for debuggability.',
+      '**Step 4 — Pick arity wisely.** Always prefer **global** constraints over decomposed binary: AllDifferent over pairwise ≠ (Régin GAC strictly stronger); sum over hand-decomposed; gcc over hand-counted; element over case-split; cumulative for scheduling.',
+      '**Step 5 — Add implied constraints.** Logically entailed but explicit. Examples: total-sum identities, capacity floor/ceiling, deadline-derived domain bounds. Always verify entailment.',
+      '**Step 6 — Break symmetries.** Identify the symmetry group (variable interchange / value renaming / matrix row+col / geometric). Add canonical-form constraints: lex-leader, value precedence, DoubleLex.',
+      '**Step 7 — Sanity-check both directions.** (a) Every original solution satisfies every posted constraint? (b) Every assignment satisfying all constraints is a real solution? (c) Propagation makes actual progress on small instances?',
     ],
     pitfalls: [
-      'Adding a constraint that is *not* entailed when claiming it is implied → loses solutions.',
-      'Decomposing AllDifferent into pairwise ≠ — propagation is weaker; misses pigeonhole infeasibility.',
-      'Forgetting to enforce that the chosen modelling pattern fits (function vs relation vs partition).',
+      'Adding a constraint that is NOT entailed while claiming it is implied → silently loses solutions. Always verify on a known solution before posting.',
+      'Decomposing AllDifferent into pairwise ≠ — propagation is strictly weaker; pigeonhole infeasibility is missed.',
+      'Domains too wide (e.g. $\\mathbb{Z}$ when a 4-element range suffices) — wastes search effort.',
+      'Modelling parameters as variables — durations and capacities are given by the problem, not chosen.',
+      'Symmetry-breaking that conflicts with the branching heuristic — both fight to impose orderings.',
+      'Forgetting Step 7 entirely — under-constrained models look correct on paper but give wrong solutions.',
+      'In Essence Prime: trying to use `set`, `function`, `multiset`, or `partition` types — those are Essence-only; you must encode by hand as matrices.',
     ],
     pointers: [
-      { kind: 'topic', key: 'cp-modelling', label: 'Topic: CP modelling' },
+      { kind: 'viz', key: 'ModellingWizard', label: '🧭 Visualiser: CSP Modelling Wizard (7-step interactive)' },
+      { kind: 'topic', key: 'cp-modelling', label: 'Topic: CP modelling (full reading + 10 worked examples)' },
       { kind: 'viz', key: 'EssencePrime', label: 'Visualiser: Essence Prime editor' },
       { kind: 'viz', key: 'CSPLab', label: 'Visualiser: CSPLab — test your model' },
     ],
     answerTemplate:
-`**Variables.** $X_1, X_2, \\ldots$ with meaning: _<one line each>_
+`**Step 1 — Decisions / Variables.**
+$X_1, \\ldots, X_n$ — meaning: _<one line each>_.
 
-**Domains.** $D(X_i) = \\{\\ldots\\}$
+**Step 2 — Domains.**
+$D(X_i) = \\{\\ldots\\}$ — derived from _<deadline / capacity / structure>_.
 
-**Constraints.**
-1. $C_1$: _<formal statement>_ — _<why>_
-2. $C_2$: _<…>_ — _<…>_
-3. AllDifferent($\\ldots$) — _<why this captures the requirement>_
+**Step 3 — Constraints by source.**
 
-**Implied / symmetry-breaking.** _<list if any>_
+| # | Source (from prose) | Constraint | Arity |
+|---|---|---|---|
+| 1 | _<hard rule>_ | $C_1$ | binary / global |
+| 2 | _<capacity>_ | $\\sum \\ldots \\le K$ | global (sum) |
+| 3 | _<mutual exclusion>_ | AllDifferent($\\ldots$) | global |
+| … | … | … | … |
 
-**Sanity check.** _<argue no non-solution satisfies all constraints; no real solution is excluded>_`,
-    triggers: ['model as csp', 'write a csp', 'write out the csp', 'formulate the csp', 'cp model', 'modelling pattern'],
+**Step 4 — Global constraint check.**
+_<any pairwise ≠ upgraded to AllDifferent? any sums via global sum? any element pattern?>_
+
+**Step 5 — Implied constraints.**
+_<state each, with the entailment argument>_
+
+**Step 6 — Symmetry-breaking.**
+The symmetry group is _<describe>_. Break it with _<lex / value precedence / DoubleLex>_.
+
+**Step 7 — Sanity check.**
+- Known-valid solution _<…>_ satisfies every constraint ✓
+- An assignment satisfying every constraint must be a valid solution ✓ (argue why)
+- On a small instance, AC-3 / FC prunes _<X>_ ✓
+
+**Final model summary.**
+
+\`\`\`
+variables: …
+constraints: …
+\`\`\`
+
+This formulation is _<reasoning about which viewpoint chosen and why>_.`,
+    triggers: ['model as csp', 'write a csp', 'write out the csp', 'formulate the csp', 'cp model', 'modelling pattern', 'identify variables', 'identify the variables', 'design a csp', 'csp formulation', 'state the variables', 'state the constraints'],
   },
   {
     id: 'csp-nc-ac',

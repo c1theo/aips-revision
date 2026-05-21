@@ -20,6 +20,7 @@ export type VizKey =
   | 'Expectimax'
   | 'PhaseTransition'
   | 'EssencePrime'
+  | 'ModellingWizard'
   | 'TruthTable'
   | 'Resolution'
   | 'HornChain'

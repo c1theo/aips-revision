@@ -21,6 +21,7 @@
   import Expectimax from '../visualizers/Expectimax.svelte';
   import PhaseTransition from '../visualizers/PhaseTransition.svelte';
   import EssencePrime from '../visualizers/EssencePrime.svelte';
+  import ModellingWizard from '../visualizers/ModellingWizard.svelte';
   import TruthTable from '../visualizers/TruthTable.svelte';
   import Resolution from '../visualizers/Resolution.svelte';
   import HornChain from '../visualizers/HornChain.svelte';
@@ -38,7 +39,7 @@
   const map: Record<VizKey, any> = {
     SearchGrid, SearchCompare, SearchTree, MinimaxTree, MCTSTree, AC3, AC4, AC2001, ForwardCheck, NQueens, MinConflicts, TwoWayBranching,
     ConstraintGraph, CSPLab, ReginAllDiff, TreeCSP, TwoSAT, HillClimbSA, Expectimax, PhaseTransition,
-    EssencePrime, TruthTable, Resolution, HornChain, DPLL, CDCL, WalkSAT, CNFEncoder, TseitinEncoder, ComplexityTable,
+    EssencePrime, ModellingWizard, TruthTable, Resolution, HornChain, DPLL, CDCL, WalkSAT, CNFEncoder, TseitinEncoder, ComplexityTable,
   };
   const Comp = $derived(map[viz]);
   const explanation = $derived(vizExplanations[viz as VizKey]);

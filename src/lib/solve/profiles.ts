@@ -375,6 +375,23 @@ export const profiles: AlgorithmProfile[] = [
       { pattern: /\bmatrix\s+indexed\s+by\b/i, weight: 50, label: 'matrix indexed by' },
     ],
   },
+  {
+    viz: 'ModellingWizard', label: '🧭 CSP Modelling Wizard — formulate from scratch', module: 'csp',
+    blurb: 'Step-by-step wizard to formulate any word problem as a CSP.',
+    intents: ['MODEL', 'IDENTIFY'],
+    triggers: {
+      strong: ['model as a csp', 'formulate as a csp', 'write a csp', 'write out the csp', 'write the csp', 'formulate the csp', 'design a csp', 'give a csp model', 'csp formulation', 'model the problem', 'modelling pattern'],
+      medium: ['variables and domains', 'state the constraints', 'identify variables', 'choose domains', 'what variables', 'what constraints', 'identify a modelling pattern'],
+      weak: ['model', 'formulate', 'csp model'],
+      anti: ['minimax', 'cnf', 'horn', 'tseitin'],
+    },
+    patterns: [
+      { pattern: /\b(?:model|formulate|write|design|give|state)\s+(?:as\s+a|the|out\s+the|a\s+binary)?\s*csp\b/i, weight: 80, label: 'model / formulate / write the CSP' },
+      { pattern: /\bstate\s+(?:the\s+)?(?:variables|domains|constraints)/i, weight: 50, label: 'state the X' },
+      { pattern: /\bidentify\s+(?:the\s+)?(?:modelling|modeling)\s+pattern/i, weight: 70, label: 'identify modelling pattern' },
+    ],
+    companions: ['EssencePrime', 'CSPLab'],
+  },
 
   // ──────────────────────────────────────────────────────────────────────
   //  Logic

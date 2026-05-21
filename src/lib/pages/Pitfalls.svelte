@@ -28,6 +28,20 @@
     { topic: 'Search', slug: 'local-search', p: 'GA ≠ SA with a population. GAs have *crossover* (recombination); SA has *temperature-controlled probabilistic acceptance*. Distinct families.' },
     { topic: 'SAT', slug: 'sat-problem', p: '2-SAT polytime — argue via implication graph + SCC, NOT via DPLL. DPLL works but doesn\'t prove polynomial time.' },
     { topic: 'CSP', slug: 'beyond-ac3', p: 'When counting clauses in a CDCL learnt clause, COUNT LITERALS FROM ALL DECISION LEVELS TOUCHED, not just the conflict.' },
+    // CSP modelling pitfalls
+    { topic: 'CSP', slug: 'cp-modelling', p: 'Parameters are NOT variables. If the problem says "task i takes 3 hours", `3` is a parameter (input data), not a decision variable. Only model what the modeller *chooses*.' },
+    { topic: 'CSP', slug: 'cp-modelling', p: 'Domains should be the smallest possible. If a "weekday" → {1..5}, not Z. Wide domains waste search and weaken propagation.' },
+    { topic: 'CSP', slug: 'cp-modelling', p: 'Always upgrade pairwise ≠ to AllDifferent when you have ≥3 variables. AllDifferent is strictly stronger (Régin GAC catches pigeonhole; pairwise doesn\'t).' },
+    { topic: 'CSP', slug: 'cp-modelling', p: 'Always sanity-check models in BOTH directions: (a) every original solution satisfies every constraint (no over-constraint), AND (b) every assignment satisfying every constraint is a real solution (no under-constraint). Most modelling errors are under-constraint.' },
+    { topic: 'CSP', slug: 'cp-modelling', p: 'Symmetry-breaking constraints can CONFLICT with the branching heuristic — both impose orderings on the search. Test combinations before committing.' },
+    { topic: 'CSP', slug: 'cp-modelling', p: 'For scheduling problems with durations: non-overlap is NOT simply |sᵢ - sⱼ| ≥ k unless both tasks have the same duration k. The correct form is (sᵢ + dᵢ ≤ sⱼ) ∨ (sⱼ + dⱼ ≤ sᵢ). The symmetric form is only an over-approximation.' },
+    { topic: 'CSP', slug: 'cp-modelling', p: 'Tightening domains via deadlines: max start = T − d + 1, not T − d. The "+ 1" accounts for the task starting AT the boundary slot.' },
+    { topic: 'CSP', slug: 'cp-modelling', p: 'Two viewpoints CHANNELLED together (e.g. row-indexed + col-indexed for n-queens) often propagate strictly stronger than either alone. The cost is more variables; the benefit is bidirectional pruning through the channel.' },
+    { topic: 'CSP', slug: 'cp-modelling', p: 'Value precedence breaks colour/value symmetry by forcing the FIRST occurrence of value i to come before the first occurrence of value i+1. It interacts well with branching heuristics that try lowest values first.' },
+    { topic: 'CSP', slug: 'cp-modelling', p: 'Lex-leader symmetry breaking takes O(|G|) constraints in general (one per symmetry σ in the group G). For matrix row+col symmetry, DoubleLex with O(rows + cols) constraints is the standard tractable approximation.' },
+    { topic: 'CSP', slug: 'cp-modelling', p: '"Implied constraint" means logically entailed. Test on a known valid solution: does it satisfy the candidate constraint? If yes — implied, post it. If no — it removes solutions, do NOT post.' },
+    { topic: 'CSP', slug: 'essence-prime', p: 'Encoding sets in Essence Prime: matrix of k ints with strict-increasing ordering. This handles BOTH the no-duplicate constraint (AllDifferent implied by strict order) AND the symmetry-breaking (the lex order picks one representative per orbit of permutations).' },
+    { topic: 'CSP', slug: 'cp-modelling', p: 'Selecting variables: the same problem usually has 2-3 distinct viewpoints with different variable sets. Brainstorm them all before committing — they typically have very different propagation behaviour.' },
   ];
   const all = [...pitfalls, ...crossCutting];
 </script>
