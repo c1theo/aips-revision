@@ -33,10 +33,28 @@ G-E 5
 start: A
 goal: H`);
 
-  type Preset = 'cycling' | 'romania' | 'small' | 'custom';
+  type Preset = 'cycling' | 'cycling-coords' | 'romania' | 'small' | 'custom';
   let preset = $state<Preset>('cycling');
   $effect(() => {
-    if (preset === 'cycling') spec = `nodes: A(7) B(5) C(4) D(2) E(2) F(7) G(4) H(0)
+    if (preset === 'cycling') spec = `# Cycling hubs — explicit straight-line heuristic per node
+nodes: A(7) B(5) C(4) D(2) E(2) F(7) G(4) H(0)
+edges:
+A-B 12
+A-F 9
+B-C 10
+B-D 14
+B-E 25
+C-D 8
+D-H 13
+E-F 13
+E-H 11
+F-G 7
+G-E 5
+start: A
+goal: H`;
+    else if (preset === 'cycling-coords') spec = `# Same map but with (east, north) coordinates — heuristic is auto-computed.
+# Switch the heuristic mode to Euclidean or Manhattan to see h change.
+nodes: A(0, 0) B(2, 1) C(5, 0) D(7, 2) E(4, 3) F(-1, 2) G(2, 4) H(6, 4)
 edges:
 A-B 12
 A-F 9
@@ -91,8 +109,18 @@ start: S
 goal: G`;
   });
 
+  // ── Heuristic family ──
+  type HeuristicMode = 'custom' | 'euclidean' | 'manhattan' | 'chebyshev' | 'zero';
+  let hMode = $state<HeuristicMode>('custom');
+
   // ── Parse the spec ──
-  interface Graph { nodes: Record<string, { h: number }>; edges: { a: string; b: string; cost: number }[]; start: string; goal: string }
+  // Two node-spec forms:
+  //   A(7)     → custom heuristic h(A) = 7
+  //   A(x, y)  → coordinates; heuristic computed from these + the heuristic mode
+  // Both can be mixed in the same graph if needed.
+  interface NodeData { h?: number; x?: number; y?: number }
+  interface Graph { nodes: Record<string, NodeData>; edges: { a: string; b: string; cost: number }[]; start: string; goal: string }
+
   function parseSpec(s: string): Graph {
     const g: Graph = { nodes: {}, edges: [], start: '', goal: '' };
     let mode: 'nodes' | 'edges' | null = null;
@@ -117,11 +145,37 @@ goal: G`;
     return g;
   }
   function parseNodes(line: string, g: Graph) {
-    const re = /(\w+)\s*\(\s*(-?\d+(?:\.\d+)?)\s*\)/g;
+    // Match NAME(values) where values is comma-separated numbers (1 or 2 numbers)
+    const re = /(\w+)\s*\(\s*(-?\d+(?:\.\d+)?)(?:\s*,\s*(-?\d+(?:\.\d+)?))?\s*\)/g;
     let m: RegExpExecArray | null;
     while ((m = re.exec(line)) !== null) {
-      g.nodes[m[1]] = { h: parseFloat(m[2]) };
+      const name = m[1];
+      const a = parseFloat(m[2]);
+      if (m[3] !== undefined) {
+        g.nodes[name] = { x: a, y: parseFloat(m[3]) };
+      } else {
+        g.nodes[name] = { h: a };
+      }
     }
+  }
+
+  function heuristicValue(g: Graph, name: string): number {
+    const n = g.nodes[name];
+    if (!n) return 0;
+    // If node has coordinates and the user picked a coordinate-mode, use it
+    if (hMode !== 'custom' && n.x !== undefined && n.y !== undefined) {
+      const goalNode = g.nodes[g.goal];
+      if (!goalNode || goalNode.x === undefined || goalNode.y === undefined) return n.h ?? 0;
+      const dx = Math.abs(n.x - goalNode.x);
+      const dy = Math.abs(n.y - goalNode.y);
+      if (hMode === 'euclidean') return Math.sqrt(dx * dx + dy * dy);
+      if (hMode === 'manhattan') return dx + dy;
+      if (hMode === 'chebyshev') return Math.max(dx, dy);
+      if (hMode === 'zero') return 0;
+    }
+    // Custom mode (default): use the spec'd h if present, else 0
+    if (hMode === 'zero') return 0;
+    return n.h ?? 0;
   }
 
   const graph = $derived.by(() => parseSpec(spec));
@@ -159,10 +213,11 @@ goal: G`;
   }
 
   function compareFor(a: FrontierItem, b: FrontierItem): number {
+    hMode;  // explicit dep
     if (algo === 'BFS') return a.path.length - b.path.length;       // FIFO by depth
     if (algo === 'DFS') return -(a.path.length - b.path.length);    // LIFO by depth
     if (algo === 'UCS') return a.g - b.g;
-    if (algo === 'Greedy') return graph.nodes[a.node].h - graph.nodes[b.node].h;
+    if (algo === 'Greedy') return heuristicValue(graph, a.node) - heuristicValue(graph, b.node);
     if (algo === 'A*') return a.f - b.f;
     if (algo === 'Weighted A*') return a.f - b.f;  // already weighted in f
     return a.f - b.f;
@@ -172,9 +227,10 @@ goal: G`;
     if (algo === 'BFS') return item.g;
     if (algo === 'DFS') return item.g;
     if (algo === 'UCS') return item.g;
-    if (algo === 'Greedy') return g.nodes[item.node].h;
-    if (algo === 'A*') return item.g + g.nodes[item.node].h;
-    if (algo === 'Weighted A*') return item.g + weight * g.nodes[item.node].h;
+    const h = heuristicValue(g, item.node);
+    if (algo === 'Greedy') return h;
+    if (algo === 'A*') return item.g + h;
+    if (algo === 'Weighted A*') return item.g + weight * h;
     return item.g;
   }
 
@@ -303,15 +359,34 @@ goal: G`;
   const cur = $derived(result[stepIdx]);
 
   // ── SVG layout ──
-  // Simple circle layout: place nodes evenly on a circle
+  // If every node has coordinates, use them (scaled to fit). Otherwise
+  // fall back to even circle layout.
   const layout = $derived.by(() => {
     const names = Object.keys(graph.nodes);
     const positions: Record<string, { x: number; y: number }> = {};
-    const cx = 250, cy = 200, r = 170;
-    names.forEach((name, i) => {
-      const angle = (2 * Math.PI * i) / names.length - Math.PI / 2;
-      positions[name] = { x: cx + r * Math.cos(angle), y: cy + r * Math.sin(angle) };
-    });
+    const haveAllCoords = names.length > 0 && names.every((n) => graph.nodes[n].x !== undefined && graph.nodes[n].y !== undefined);
+    if (haveAllCoords) {
+      // Normalise coords to [40, 460] × [40, 360]
+      const xs = names.map((n) => graph.nodes[n].x!);
+      const ys = names.map((n) => graph.nodes[n].y!);
+      const xMin = Math.min(...xs), xMax = Math.max(...xs);
+      const yMin = Math.min(...ys), yMax = Math.max(...ys);
+      const xRange = xMax - xMin || 1, yRange = yMax - yMin || 1;
+      // Flip Y so positive y goes UP (more natural for geometric coords)
+      names.forEach((name) => {
+        const n = graph.nodes[name];
+        positions[name] = {
+          x: 40 + ((n.x! - xMin) / xRange) * 420,
+          y: 360 - ((n.y! - yMin) / yRange) * 320,
+        };
+      });
+    } else {
+      const cx = 250, cy = 200, r = 170;
+      names.forEach((name, i) => {
+        const angle = (2 * Math.PI * i) / names.length - Math.PI / 2;
+        positions[name] = { x: cx + r * Math.cos(angle), y: cy + r * Math.sin(angle) };
+      });
+    }
     return positions;
   });
 
@@ -366,7 +441,7 @@ goal: G`;
 <div class="space-y-3">
   <div class="flex flex-wrap gap-2 items-center text-xs">
     <span>Preset:</span>
-    {#each ['cycling','romania','small','custom'] as p}
+    {#each ['cycling','cycling-coords','romania','small','custom'] as p}
       <button class="px-2 py-1 rounded border {preset === p ? 'bg-accent-100 dark:bg-accent-900/40 border-accent-400' : 'border-ink-300 dark:border-ink-700'}" onclick={() => (preset = p as Preset)}>{p}</button>
     {/each}
     <span class="ml-3">Algorithm:</span>
@@ -391,10 +466,18 @@ goal: G`;
         <button class="px-2 py-1 {searchMode === 'tree' ? 'bg-accent-100 dark:bg-accent-900/40' : ''}" onclick={() => (searchMode = 'tree')}>Tree</button>
       </div>
     {/if}
+    <span class="ml-2">Heuristic:</span>
+    <select class="px-2 py-1 rounded border border-ink-300 dark:border-ink-700 bg-white dark:bg-ink-900" bind:value={hMode}>
+      <option value="custom">Custom h (from spec)</option>
+      <option value="euclidean">Euclidean (from coords)</option>
+      <option value="manhattan">Manhattan (from coords)</option>
+      <option value="chebyshev">Chebyshev (from coords)</option>
+      <option value="zero">Zero (h=0 → UCS-equivalent)</option>
+    </select>
   </div>
 
   <label class="block">
-    <span class="text-xs text-ink-500 block mb-1">Graph spec — nodes with heuristic, edges with costs, start, goal.</span>
+    <span class="text-xs text-ink-500 block mb-1">Graph spec — node names with EITHER a single heuristic value <code>A(7)</code> OR coordinates <code>A(2, 3)</code>. Edges with costs. Start + goal. Mix and match; the heuristic mode above decides which to use.</span>
     <textarea class="w-full font-mono text-xs p-2 rounded border border-ink-300 dark:border-ink-700 bg-white dark:bg-ink-900" rows="10" bind:value={spec}></textarea>
   </label>
 
@@ -429,7 +512,7 @@ goal: G`;
           {#if p}
             <circle cx={p.x} cy={p.y} r="20" fill={nodeFill(name)} stroke={nodeStroke(name)} stroke-width="2" />
             <text x={p.x} y={p.y + 4} text-anchor="middle" font-size="11" font-weight="bold">{name}</text>
-            <text x={p.x} y={p.y + 36} text-anchor="middle" font-size="9" fill="#64748b">h={graph.nodes[name].h}</text>
+            <text x={p.x} y={p.y + 36} text-anchor="middle" font-size="9" fill="#64748b">h={Math.round(heuristicValue(graph, name) * 100) / 100}{graph.nodes[name].x !== undefined ? ` (${graph.nodes[name].x},${graph.nodes[name].y})` : ''}</text>
           {/if}
         {/each}
       </svg>

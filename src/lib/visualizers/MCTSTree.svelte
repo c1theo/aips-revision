@@ -19,6 +19,8 @@
   let maxDepth = $state(4);
   let leafText = $state('1, 0, 1, 1, 0, 0, 1, 0, 1, 0, 0, 1, 1, 1, 0, 0');
   let useCustomLeaves = $state(false);
+  type RolloutPolicy = 'random' | 'always-true' | 'always-false' | 'leftmost' | 'rightmost';
+  let rolloutPolicy = $state<RolloutPolicy>('random');
 
   function makeLeaves(depth: number, leafVals: number[], i: { v: number }): MNode {
     if (depth === maxDepth) {
@@ -85,13 +87,20 @@
       log.push(`expand child ${expand.move}`);
       node = expand;
     }
-    // 3. Simulation: random rollout to a leaf
+    // 3. Simulation: rollout to a leaf using the selected policy
     let sim = node;
     while (!isLeaf(sim)) {
-      sim = sim.children[Math.floor(Math.random() * sim.children.length)];
+      let pickIdx: number;
+      if (rolloutPolicy === 'leftmost') pickIdx = 0;
+      else if (rolloutPolicy === 'rightmost') pickIdx = sim.children.length - 1;
+      else pickIdx = Math.floor(Math.random() * sim.children.length);
+      sim = sim.children[pickIdx];
     }
-    const reward = sim.leafValue ?? 0;
-    log.push(`simulate → leaf #${sim.id} value ${reward}`);
+    let reward: number;
+    if (rolloutPolicy === 'always-true') reward = 1;
+    else if (rolloutPolicy === 'always-false') reward = 0;
+    else reward = sim.leafValue ?? 0;
+    log.push(`simulate (${rolloutPolicy}) → leaf #${sim.id} value=${sim.leafValue ?? 0}, reward=${reward}`);
 
     // 4. Backpropagation
     let cur: MNode | undefined = node;
@@ -156,6 +165,8 @@
     lines.push(`**Setup.**`);
     lines.push(`- Game tree: branching factor $b = ${branching}$, depth $d = ${maxDepth}$ ⇒ $${Math.pow(branching, maxDepth)}$ leaves.`);
     lines.push(`- Exploration constant $C = ${C.toFixed(3)}$ (UCB1: $\\bar{X}_i + C\\sqrt{\\ln N / N_i}$).`);
+    lines.push(`- Rollout policy: **${rolloutPolicy}**${rolloutPolicy === 'random' ? ' (uniform random descent to a leaf; reward = leaf value).' : rolloutPolicy === 'always-true' ? ' (every rollout returns reward = 1 regardless of leaf).' : rolloutPolicy === 'always-false' ? ' (every rollout returns reward = 0 regardless of leaf).' : rolloutPolicy === 'leftmost' ? ' (descend leftmost child; reward = leaf value).' : ' (descend rightmost child; reward = leaf value).'}`);
+    lines.push(`- Leaf values: ${useCustomLeaves ? '**custom** (' + leafText + ')' : '**random** (re-seeded on reset)'}.`);
     lines.push(`- Iterations run so far: **${iter}**.`);
     lines.push('');
 
@@ -200,26 +211,55 @@
     <label class="text-xs ml-3 flex items-center gap-1">C =
       <input type="number" min="0" step="0.1" bind:value={C} class="w-16 px-1 py-0.5 rounded border border-ink-300 dark:border-ink-700 bg-white dark:bg-ink-900" />
     </label>
-    <label class="text-xs flex items-center gap-1">branching =
-      <input type="number" min="2" max="5" bind:value={branching} onchange={resetAll} class="w-12 px-1 py-0.5 rounded border border-ink-300 dark:border-ink-700 bg-white dark:bg-ink-900" />
+    <label class="text-xs flex items-center gap-1">branching b =
+      <select bind:value={branching} onchange={resetAll} class="px-1 py-0.5 rounded border border-ink-300 dark:border-ink-700 bg-white dark:bg-ink-900">
+        <option value={2}>2</option>
+        <option value={3}>3</option>
+        <option value={4}>4</option>
+      </select>
     </label>
-    <label class="text-xs flex items-center gap-1">depth =
-      <input type="number" min="2" max="5" bind:value={maxDepth} onchange={resetAll} class="w-12 px-1 py-0.5 rounded border border-ink-300 dark:border-ink-700 bg-white dark:bg-ink-900" />
+    <label class="text-xs flex items-center gap-1">depth d =
+      <select bind:value={maxDepth} onchange={resetAll} class="px-1 py-0.5 rounded border border-ink-300 dark:border-ink-700 bg-white dark:bg-ink-900">
+        <option value={3}>3</option>
+        <option value={4}>4</option>
+        <option value={5}>5</option>
+      </select>
     </label>
+    <span class="text-xs text-ink-500">→ {Math.pow(branching, maxDepth)} leaves</span>
+    {#if Math.pow(branching, maxDepth) > 128}
+      <span class="text-xs text-amber-700 dark:text-amber-400">(large tree — visualisation will be crowded)</span>
+    {/if}
   </div>
 
   <div class="flex flex-wrap gap-2 items-center text-xs">
-    <label class="flex items-center gap-1"><input type="checkbox" bind:checked={useCustomLeaves} onchange={resetAll}>Custom leaf values</label>
+    <label class="flex items-center gap-1">Rollout policy:
+      <select bind:value={rolloutPolicy} class="px-2 py-1 rounded border border-ink-300 dark:border-ink-700 bg-white dark:bg-ink-900">
+        <option value="random">Random (default)</option>
+        <option value="always-true">Always-true (reward = 1)</option>
+        <option value="always-false">Always-false (reward = 0)</option>
+        <option value="leftmost">Leftmost-descent</option>
+        <option value="rightmost">Rightmost-descent</option>
+      </select>
+    </label>
+    <span class="text-ink-500 italic">Bias the simulation step to see how rollout policy affects convergence.</span>
+  </div>
+
+  <div class="flex flex-wrap gap-2 items-center text-xs">
+    <label class="flex items-center gap-1"><input type="checkbox" bind:checked={useCustomLeaves} onchange={resetAll}>Custom leaf values (override hidden 0/1 wins)</label>
     {#if useCustomLeaves}
-      <input class="flex-1 px-2 py-1 rounded border border-ink-300 dark:border-ink-700 bg-white dark:bg-ink-900 font-mono" bind:value={leafText} placeholder="0/1 values, e.g. 1, 0, 1, 0, ..." />
+      <input class="flex-1 px-2 py-1 rounded border border-ink-300 dark:border-ink-700 bg-white dark:bg-ink-900 font-mono" bind:value={leafText} placeholder="0/1 values, left-to-right, e.g. 1, 0, 1, 0, ..." />
       <button class="btn btn-sm" onclick={resetAll}>Apply</button>
+    {/if}
+    {#if useCustomLeaves}
+      <span class="basis-full text-ink-500 italic">Padded by repetition if too few; extras ignored. Useful for "given these leaves, what does MCTS converge to?" exam questions.</span>
     {/if}
   </div>
 
   <div class="flex gap-2 items-center text-xs text-ink-500">
     <span>Height:</span>
-    <input type="range" min="240" max="700" step="20" bind:value={H} class="w-40" />
+    <input type="range" min="240" max="900" step="20" bind:value={H} class="w-40" />
     <span class="font-mono">{H}px</span>
+    <span class="ml-2">Drag for deeper/wider trees.</span>
   </div>
 
   <svg viewBox="0 0 {W} {H}" preserveAspectRatio="xMidYMid meet" class="w-full border border-ink-200 dark:border-ink-700 rounded bg-ink-50 dark:bg-ink-900" style="height: {H}px">
@@ -259,5 +299,5 @@
     </details>
   {/if}
 
-  <ExamAnswer answer={examAnswer} summary={`${iter} iterations · C = ${C.toFixed(2)}`} />
+  <ExamAnswer answer={examAnswer} summary={`${iter} iterations · b=${branching}, d=${maxDepth} · ${rolloutPolicy} rollout · C=${C.toFixed(2)}`} />
 </div>

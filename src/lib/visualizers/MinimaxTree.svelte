@@ -21,6 +21,12 @@
   let leafText = $state(initialLeaves || '3, 12, 8, 2, 4, 6, 14, 5, 2');
   let shapeText = $state('3, 3');   // branching per level (root → leaves); 'auto' = fit to leaf count
 
+  type TreeMode = 'uniform' | 'shape' | 'custom';
+  let treeMode = $state<TreeMode>('shape');
+  let uniformB = $state(3);   // branching factor for uniform mode
+  let uniformD = $state(2);   // depth for uniform mode
+  let customSpec = $state('[ [3, -5]; [7]; [1, 4, 9] ]');
+
   function parseShape(s: string): number[] | 'auto' {
     const trimmed = s.trim().toLowerCase();
     if (trimmed === '' || trimmed === 'auto') return 'auto';
@@ -43,6 +49,121 @@
       return { id, depth: d, isMax, children };
     }
     return make(0, true);
+  }
+
+  // ── Custom per-node spec ──
+  // Grammar (whitespace-tolerant):
+  //   tree    := group | number
+  //   group   := '[' element (';' element)* ']'
+  //   element := leafList | tree
+  //   leafList:= number (',' number)+      // implicit one-level subtree
+  // Semantics:
+  //   ';'  separates SIBLINGS at the current level (children of this group)
+  //   ','  within a single element creates an IMPLICIT subtree one level
+  //         deeper holding the comma-listed leaves
+  // Examples:
+  //   [3, -5; 7; 1, 4, 9]
+  //       root has 3 children (the 3 ';'-separated elements). Element 1
+  //       is [3, -5] → an implicit subtree with 2 leaves. Element 2 is
+  //       just 7 → a leaf directly. Element 3 is [1, 4, 9] → implicit
+  //       subtree with 3 leaves.
+  //   [[3, -5]; [7]; [1, 4, 9]]   — fully-explicit equivalent.
+  //   [[3, -5; 8, 1]; [7; 2]; [1, 4, 9]]   — deeper subtrees on the left.
+  let customParseError: string | null = null;
+  function parseCustomSpec(s: string): Node | null {
+    customParseError = null;
+    let nextId = 0;
+    const tokens: string[] = [];
+    let i = 0;
+    while (i < s.length) {
+      const ch = s[i];
+      if (/\s/.test(ch)) { i++; continue; }
+      if (ch === '[' || ch === ']' || ch === ',' || ch === ';') { tokens.push(ch); i++; continue; }
+      const m = s.slice(i).match(/^-?\d+(\.\d+)?/);
+      if (!m) { customParseError = `Unexpected character "${ch}" at position ${i}.`; return null; }
+      tokens.push(m[0]);
+      i += m[0].length;
+    }
+    if (tokens.length === 0) { customParseError = 'Empty spec.'; return null; }
+
+    let p = 0;
+    function peek() { return tokens[p]; }
+    function consume(t: string) {
+      if (tokens[p] !== t) throw new Error(`Expected "${t}", got "${tokens[p] ?? 'EOF'}" at token ${p}`);
+      p++;
+    }
+
+    // Parse one numeric leaf
+    function parseLeaf(): { value: number } {
+      const tok = tokens[p++];
+      const v = Number(tok);
+      if (Number.isNaN(v)) throw new Error(`Expected number, got "${tok}"`);
+      return { value: v };
+    }
+
+    // Parse a single "element" — either a bracketed subtree or a comma-separated
+    // leaf list. Returns a Node (with isMax/depth filled in later by relabel()).
+    function parseElement(): Node {
+      if (peek() === '[') return parseGroup();
+      // Else: a number, possibly followed by commas (more numbers) → implicit subtree.
+      const first = parseLeaf();
+      const leafNumbers: number[] = [first.value];
+      while (peek() === ',') {
+        p++;
+        if (peek() === '[') {
+          // Mixed leaf+subtree at the same comma-run is ambiguous; reject
+          throw new Error('Cannot mix leaves and bracketed subtrees in a comma list — use ";" between them.');
+        }
+        leafNumbers.push(parseLeaf().value);
+      }
+      if (leafNumbers.length === 1) {
+        return { id: nextId++, depth: 0, isMax: true, children: [], leafValue: leafNumbers[0] };
+      }
+      // Implicit one-level subtree with these leaves
+      return {
+        id: nextId++, depth: 0, isMax: true, children: leafNumbers.map((v) => ({ id: nextId++, depth: 0, isMax: true, children: [], leafValue: v })),
+      };
+    }
+
+    function parseGroup(): Node {
+      consume('[');
+      const elements: Node[] = [];
+      elements.push(parseElement());
+      while (peek() === ';') {
+        p++;
+        elements.push(parseElement());
+      }
+      consume(']');
+      // Collapse single-element groups: `[X]` is equivalent to `X`.
+      // This makes `[[3,-5]; [7]; [1,4,9]]` equivalent to `[3,-5; 7; 1,4,9]`.
+      if (elements.length === 1) return elements[0];
+      return { id: nextId++, depth: 0, isMax: true, children: elements };
+    }
+
+    try {
+      let root: Node;
+      if (peek() === '[') root = parseGroup();
+      else {
+        // Bare element at top-level: wrap as root
+        const el = parseElement();
+        if (el.children.length > 0) root = el;
+        else root = { id: nextId++, depth: 0, isMax: true, children: [el] };
+      }
+      if (p < tokens.length) {
+        customParseError = `Unexpected extra tokens after position ${p}: "${tokens.slice(p).join(' ')}".`;
+        return null;
+      }
+      // Relabel depth + isMax top-down (root = MAX, alternates)
+      function relabel(n: Node, d: number, isMax: boolean) {
+        n.depth = d; n.isMax = isMax;
+        for (const c of n.children) relabel(c, d + 1, !isMax);
+      }
+      relabel(root, 0, true);
+      return root;
+    } catch (e) {
+      customParseError = e instanceof Error ? e.message : String(e);
+      return null;
+    }
   }
 
   function fitShape(numLeaves: number): number[] {
@@ -107,13 +228,55 @@
   const computed = $derived.by(() => {
     const vals = leafText.split(/[,\s]+/).filter(Boolean).map(Number).filter((v) => !Number.isNaN(v));
     const safeVals = vals.length >= 2 ? vals : [3, 12, 8, 2, 4, 6, 14, 5, 2];
-    const parsedShape = parseShape(shapeText);
-    const shape = parsedShape === 'auto' ? fitShape(safeVals.length) : parsedShape;
-    const root = buildShapedTree(safeVals, shape);
+    let root: Node;
+    let shape: number[];
+    let needed: number;
+    let parseError: string | null = null;
+
+    if (treeMode === 'custom') {
+      const parsed = parseCustomSpec(customSpec);
+      if (parsed) {
+        root = parsed;
+        // For display, derive a per-level branching summary (max width)
+        const byLvl: number[] = [];
+        function walk(n: Node, d: number) {
+          if (n.children.length === 0) return;
+          byLvl[d] = Math.max(byLvl[d] ?? 0, n.children.length);
+          for (const c of n.children) walk(c, d + 1);
+        }
+        walk(root, 0);
+        shape = byLvl;
+        needed = countLeavesIn(root);
+      } else {
+        parseError = customParseError ?? 'Could not parse custom tree spec — falling back to default.';
+        const fallbackShape = [3, 3];
+        root = buildShapedTree(safeVals, fallbackShape);
+        shape = fallbackShape;
+        needed = 9;
+      }
+    } else if (treeMode === 'uniform') {
+      // Uniform: branching b, depth d
+      const b = Math.max(2, Math.min(4, uniformB | 0));
+      const d = Math.max(1, Math.min(5, uniformD | 0));
+      shape = Array(d).fill(b);
+      root = buildShapedTree(safeVals, shape);
+      needed = shape.reduce((a, b) => a * b, 1);
+    } else {
+      // 'shape' (per-level shape spec, original behaviour)
+      const parsedShape = parseShape(shapeText);
+      shape = parsedShape === 'auto' ? fitShape(safeVals.length) : parsedShape;
+      root = buildShapedTree(safeVals, shape);
+      needed = shape.reduce((a, b) => a * b, 1);
+    }
+
     const log = runMinimax(root, pruning);
-    const needed = shape.reduce((a, b) => a * b, 1);
-    return { root, log, shape, needed, supplied: vals.length };
+    return { root, log, shape, needed, supplied: vals.length, parseError };
   });
+
+  function countLeavesIn(n: Node): number {
+    if (n.children.length === 0) return 1;
+    return n.children.reduce((s, c) => s + countLeavesIn(c), 0);
+  }
 
   interface Pos { x: number; y: number; node: Node }
   function layout(n: Node, c: { x: number }, d: number, ps: Pos[]): number {
@@ -149,7 +312,27 @@
   });
 
   function randomise() {
-    // Pick a random shape with 9-16 leaves
+    if (treeMode === 'custom') {
+      // Generate a random custom spec with 2-3 root branches, each a leaf list of 2-3 numbers
+      const nBranches = 2 + Math.floor(Math.random() * 2);
+      const groups: string[] = [];
+      for (let i = 0; i < nBranches; i++) {
+        const k = 2 + Math.floor(Math.random() * 2);
+        const leaves = Array.from({ length: k }, () => Math.floor(Math.random() * 20) - 5);
+        groups.push(leaves.join(', '));
+      }
+      customSpec = `[${groups.join('; ')}]`;
+      return;
+    }
+    if (treeMode === 'uniform') {
+      // randomise uniform b/d within allowed range and pick leaves
+      uniformB = [2, 3, 4][Math.floor(Math.random() * 3)];
+      uniformD = [2, 3][Math.floor(Math.random() * 2)];
+      const n = Math.pow(uniformB, uniformD);
+      leafText = Array.from({ length: n }, () => Math.floor(Math.random() * 20)).join(', ');
+      return;
+    }
+    // 'shape' mode (original behaviour)
     const shapes = [[3, 3], [2, 2, 2], [4, 2], [3, 2, 2], [2, 2, 3], [4, 4]];
     const shape = shapes[Math.floor(Math.random() * shapes.length)];
     const n = shape.reduce((a, b) => a * b, 1);
@@ -248,39 +431,93 @@
 <div class="space-y-3">
   <div class="flex flex-wrap gap-2 items-center">
     <button class="btn btn-sm {pruning ? 'btn-primary' : ''}" onclick={() => (pruning = !pruning)}>{pruning ? 'α-β ON' : 'α-β OFF (plain minimax)'}</button>
-    <button class="btn btn-sm" onclick={() => { leafText = '3, 12, 8, 2, 4, 6, 14, 5, 2'; shapeText = '3, 3'; }}>Reset</button>
+    <button class="btn btn-sm" onclick={() => { leafText = '3, 12, 8, 2, 4, 6, 14, 5, 2'; shapeText = '3, 3'; treeMode = 'shape'; }}>Reset</button>
     <button class="btn btn-sm" onclick={randomise}>Randomise</button>
   </div>
 
-  <div class="grid sm:grid-cols-2 gap-2 items-start">
-    <label class="block">
-      <span class="text-xs text-ink-500 block mb-1">Leaf values (comma-separated)</span>
-      <input class="w-full px-2 py-1 rounded border border-ink-300 dark:border-ink-700 bg-white dark:bg-ink-900 text-sm font-mono" bind:value={leafText} placeholder="9, 4, 2, 5, 9, 8, 2, 1, 4, 8, 5, 1" />
-    </label>
-    <label class="block">
-      <span class="text-xs text-ink-500 block mb-1">Tree shape — branching factor at each level (root → leaves). Eg. <code class="text-xs">3, 2, 2</code> = root has 3 children, each has 2, each has 2 leaves.</span>
-      <div class="flex gap-1 items-stretch">
-        <input class="flex-1 px-2 py-1 rounded border border-ink-300 dark:border-ink-700 bg-white dark:bg-ink-900 text-sm font-mono" bind:value={shapeText} placeholder="3, 2, 2 — or 'auto'" />
-        <select class="px-2 py-1 rounded border border-ink-300 dark:border-ink-700 bg-white dark:bg-ink-900 text-xs" onchange={(e) => (shapeText = (e.currentTarget as HTMLSelectElement).value)}>
-          <option value="">Preset…</option>
-          {#each presetShapes as p}
-            <option value={p.value}>{p.label}</option>
-          {/each}
-        </select>
+  <div class="flex flex-wrap gap-2 items-center text-xs">
+    <span>Tree mode:</span>
+    <div class="flex rounded border border-ink-300 dark:border-ink-700 overflow-hidden">
+      <button class="px-2 py-1 {treeMode === 'uniform' ? 'bg-accent-100 dark:bg-accent-900/40' : ''}" onclick={() => (treeMode = 'uniform')}>Uniform (b, d)</button>
+      <button class="px-2 py-1 {treeMode === 'shape' ? 'bg-accent-100 dark:bg-accent-900/40' : ''}" onclick={() => (treeMode = 'shape')}>Per-level shape</button>
+      <button class="px-2 py-1 {treeMode === 'custom' ? 'bg-accent-100 dark:bg-accent-900/40' : ''}" onclick={() => (treeMode = 'custom')}>Custom (per-node)</button>
+    </div>
+  </div>
+
+  {#if treeMode === 'uniform'}
+    <div class="grid sm:grid-cols-2 gap-2 items-start">
+      <label class="block">
+        <span class="text-xs text-ink-500 block mb-1">Leaf values (comma-separated) — left-to-right across the {Math.pow(uniformB, uniformD)} leaves; padded by repetition if too few.</span>
+        <input class="w-full px-2 py-1 rounded border border-ink-300 dark:border-ink-700 bg-white dark:bg-ink-900 text-sm font-mono" bind:value={leafText} placeholder="3, 12, 8, 2, 4, 6, 14, 5, 2" />
+      </label>
+      <div class="flex gap-3 items-end">
+        <label class="block">
+          <span class="text-xs text-ink-500 block mb-1">Branching b</span>
+          <select class="px-2 py-1 rounded border border-ink-300 dark:border-ink-700 bg-white dark:bg-ink-900 text-sm" bind:value={uniformB}>
+            <option value={2}>2 (binary)</option>
+            <option value={3}>3 (ternary)</option>
+            <option value={4}>4 (quaternary)</option>
+          </select>
+        </label>
+        <label class="block">
+          <span class="text-xs text-ink-500 block mb-1">Depth d</span>
+          <select class="px-2 py-1 rounded border border-ink-300 dark:border-ink-700 bg-white dark:bg-ink-900 text-sm" bind:value={uniformD}>
+            <option value={1}>1</option>
+            <option value={2}>2</option>
+            <option value={3}>3</option>
+            <option value={4}>4</option>
+            <option value={5}>5</option>
+          </select>
+        </label>
+        <span class="text-xs text-ink-500 pb-1">⇒ {Math.pow(uniformB, uniformD)} leaves, b<sup>d</sup>={uniformB}<sup>{uniformD}</sup></span>
       </div>
+    </div>
+  {:else if treeMode === 'shape'}
+    <div class="grid sm:grid-cols-2 gap-2 items-start">
+      <label class="block">
+        <span class="text-xs text-ink-500 block mb-1">Leaf values (comma-separated)</span>
+        <input class="w-full px-2 py-1 rounded border border-ink-300 dark:border-ink-700 bg-white dark:bg-ink-900 text-sm font-mono" bind:value={leafText} placeholder="9, 4, 2, 5, 9, 8, 2, 1, 4, 8, 5, 1" />
+      </label>
+      <label class="block">
+        <span class="text-xs text-ink-500 block mb-1">Tree shape — branching factor at each level (root → leaves). Eg. <code class="text-xs">3, 2, 2</code> = root has 3 children, each has 2, each has 2 leaves.</span>
+        <div class="flex gap-1 items-stretch">
+          <input class="flex-1 px-2 py-1 rounded border border-ink-300 dark:border-ink-700 bg-white dark:bg-ink-900 text-sm font-mono" bind:value={shapeText} placeholder="3, 2, 2 — or 'auto'" />
+          <select class="px-2 py-1 rounded border border-ink-300 dark:border-ink-700 bg-white dark:bg-ink-900 text-xs" onchange={(e) => (shapeText = (e.currentTarget as HTMLSelectElement).value)}>
+            <option value="">Preset…</option>
+            {#each presetShapes as p}
+              <option value={p.value}>{p.label}</option>
+            {/each}
+          </select>
+        </div>
+      </label>
+    </div>
+    <div class="text-xs text-ink-500">
+      Shape <span class="font-mono">[{computed.shape.join('-')}]</span> needs <b>{computed.needed}</b> leaves; you provided <b>{computed.supplied}</b>.
+      {#if computed.supplied < computed.needed}<span class="text-amber-700 dark:text-amber-400"> Padded by repeating.</span>{/if}
+      {#if computed.supplied > computed.needed}<span class="text-amber-700 dark:text-amber-400"> Extras ignored.</span>{/if}
+    </div>
+  {:else}
+    <label class="block">
+      <span class="text-xs text-ink-500 block mb-1">
+        Custom tree spec — bracketed, semicolon-separated subtrees. Leaves are numbers; nest <code>[...]</code> for deeper subtrees.<br>
+        Examples:
+        <code class="text-xs">[3, -5; 7; 1, 4, 9]</code> = root with 3 MIN children (2/1/3 leaves);
+        <code class="text-xs">[[3, -5]; [7]; [1, 4, 9]]</code> = same with explicit brackets;
+        <code class="text-xs">[[3, -5; 8, 1]; [7; 2]; [1, 4, 9]]</code> = 3 levels deep on some branches.
+      </span>
+      <textarea class="w-full font-mono text-xs p-2 rounded border border-ink-300 dark:border-ink-700 bg-white dark:bg-ink-900" rows="3" bind:value={customSpec}></textarea>
     </label>
-  </div>
-  <div class="text-xs text-ink-500">
-    Shape <span class="font-mono">[{computed.shape.join('-')}]</span> needs <b>{computed.needed}</b> leaves; you provided <b>{computed.supplied}</b>.
-    {#if computed.supplied < computed.needed}<span class="text-amber-700 dark:text-amber-400"> Padded by repeating.</span>{/if}
-    {#if computed.supplied > computed.needed}<span class="text-amber-700 dark:text-amber-400"> Extras ignored.</span>{/if}
-  </div>
+    {#if computed.parseError}
+      <div class="text-xs text-amber-700 dark:text-amber-400">⚠ {computed.parseError}</div>
+    {/if}
+    <div class="text-xs text-ink-500">Custom tree has <b>{computed.needed}</b> leaves; level widths <span class="font-mono">[{computed.shape.join('-')}]</span>. Leaf values come from the spec itself (the "Leaf values" field above is ignored in custom mode).</div>
+  {/if}
 
   <div class="flex gap-2 items-center text-xs text-ink-500">
     <span>Height:</span>
-    <input type="range" min="240" max="700" step="20" bind:value={H} class="w-40" />
+    <input type="range" min="240" max="900" step="20" bind:value={H} class="w-40" />
     <span class="font-mono">{H}px</span>
-    <span class="ml-2">Drag to resize the tree view.</span>
+    <span class="ml-2">Drag to resize the tree view (helpful for deeper / wider trees).</span>
   </div>
 
   <svg viewBox="0 0 {W} {H}" preserveAspectRatio="xMidYMid meet" class="w-full border border-ink-200 dark:border-ink-700 rounded bg-ink-50 dark:bg-ink-900" style="height: {H}px">
