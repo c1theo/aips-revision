@@ -36,6 +36,27 @@ If $h_1, \\ldots, h_k$ are admissible, $h = \\max_i h_i$ is admissible (proven i
 If A* expands $N$ nodes finding a solution at depth $d$, define $b^*$ such that a uniform tree of depth $d$ with branching $b^*$ has $N + 1$ nodes:
 $$N + 1 = 1 + b^* + (b^*)^2 + \\cdots + (b^*)^d$$
 Smaller $b^*$ = better heuristic. For 8-puzzle: Manhattan distance gives $b^* \\approx 1.4$; misplaced tiles $b^* \\approx 1.7$.` },
+
+    { kind: 'md', body: `## 📖 Phrasebook — informed search (A* etc.)
+
+| If the question says... | Do... | Notes |
+|---|---|---|
+| "Trace A*" | Maintain frontier ordered by $f(n) = g(n) + h(n)$; expand lowest-f | Show f at every popped node |
+| "Use Manhattan distance" | $h = \\sum_i |x_i - x_i^*|$ for grid problems | Admissible + consistent if unit costs |
+| "Is this heuristic admissible?" | Prove $h(n) \\le h^*(n)$ via relaxation (drop a constraint, solve relaxed) | Standard relaxation argument |
+| "Is this heuristic consistent?" | Prove $h(n) \\le c(n, n') + h(n')$ for every successor | Stronger than admissibility |
+| "A* with tree search vs graph search" | Tree: admissibility suffices for optimality. Graph: need consistency (or re-open closed) | Common pitfall |
+| "Greedy best-first vs A*" | Greedy expands by $h(n)$ alone — not optimal | A* combines with $g(n)$ |
+| "Heuristic dominance" | $h_2$ dominates $h_1$ iff $h_2 \\ge h_1$ pointwise (both admissible) → expands fewer nodes | Use $\\max(h_1, h_2)$ for a stronger admissible |
+| "Effective branching factor" | $b^*$ such that uniform tree of depth $d$ with branching $b^*$ has $N+1$ nodes | Smaller = better |
+| "Pattern database / sub-problem heuristic" | Solve a relaxed sub-problem exhaustively, hash costs | Admissible by construction |
+
+## How this connects
+
+- A* is the **goal-directed** version of uniform-cost search: UCS = A* with $h = 0$.
+- The admissibility / consistency distinction mirrors **AC vs strong-AC** in CSPs: a stronger property gives stronger guarantees.
+- **Sub-problem heuristics** = pre-computed propagation for the relaxed problem (analogous to AC at the root of CSP search).
+- **IDA*** swaps A*'s exponential memory for time — similar to BFS↔IDS trade.` },
   ],
 
   // Add to imperfect-realtime topic
@@ -65,6 +86,20 @@ At each node:
 - **Iterative deepening**: use depth $d{-}1$'s best move as the FIRST move at depth $d$ — alpha-beta is dramatically faster with good first moves.
 
 These three combined with transposition tables give modern chess engines their move-ordering power.` },
+
+    { kind: 'md', body: `## 📖 Phrasebook — imperfect / real-time games
+
+| If the question says... | Do... | Notes |
+|---|---|---|
+| "Horizon effect" | The static evaluator at fixed depth misjudges mid-tactic positions | Solution: quiescence search |
+| "Quiescence search" | Don't return static eval at cutoff if position is "noisy"; extend on captures / checks | Bounded by capture-sequence length |
+| "Transposition table" | Cache positions: $(value, depth, flag)$ where flag ∈ {EXACT, LOWER, UPPER} | Hash via Zobrist |
+| "Why flag types?" | α-β returns bounds (not exact values) when it cuts; the cached value's role depends on which cut | Critical for correct re-use |
+| "Iterative deepening for games" | Search at depth 1, 2, ..., $d$; use earlier best moves to seed move ordering at depth $d$ | Massive α-β speedup |
+| "Killer heuristic" | Per-depth list of "moves that caused cuts at sibling nodes" — try first | O(1) per node |
+| "History heuristic" | Per-move cumulative count of cuts caused; sort moves by this | Smoother than killer |
+| "Static evaluation function" | $\\text{eval}(s) = \\sum_i w_i f_i(s)$ with weighted features | Tune by hand or self-play |
+| "Branching factor in chess" | $b \\approx 35$. Depth ~6 plies needed for grandmaster strength | α-β: ~$b^{d/2} = 35^3 \\approx 40k$ leaves/turn |` },
   ],
 
   // Add to csp-fundamentals: global vs local consistency, plus heavy what-if pack
@@ -132,6 +167,97 @@ Doesn't change the set of solutions. But it can *increase propagation* — exact
 
 ### What if I add a "redundant" constraint that's NOT entailed?
 You lose solutions. Always test: if your "implied constraint" rejects a solution to the original, it isn't implied.` },
+
+    { kind: 'md', body: `## 🔗 Cross-module synthesis — how CSP, SAT, Search, Logic, Adversarial all connect
+
+This module's algorithms are not isolated. The same ideas reappear across the syllabus — recognising the connections lets you transfer intuition AND answer questions that span topics.
+
+### Propagation ≈ unit propagation ≈ constant folding
+
+| Module | Equivalent |
+|---|---|
+| **CSP** | Arc consistency (AC-3) — propagate domain reductions to fixpoint |
+| **SAT** | Unit propagation in DPLL — propagate forced literals to fixpoint |
+| **Logic** | Forward chaining for Horn KB — derive facts to closure |
+| **Compilers** | Constant folding + dead-code elimination |
+
+All four "propagate cheap conclusions to fixpoint before doing anything expensive". Same engineering trick.
+
+### Backtracking ≈ DPLL ≈ depth-first game search
+
+| Module | Algorithm | Decide → propagate → recurse → fail-undo |
+|---|---|---|
+| **CSP** | BT + FC / BT + MAC | Decide $X = v$ → FC/MAC → recurse → on wipeout undo |
+| **SAT** | DPLL | Decide $\\ell$ → UP → recurse → on conflict undo |
+| **Adversarial** | Minimax depth-first | Decide move → recurse to opponent → on cut-off undo |
+
+The "decide-propagate-recurse-undo" skeleton is the SAME. Differences: what propagation does, what "fail" means, what backtrack does.
+
+### Learning ≈ memoisation ≈ implied constraints
+
+| Module | Mechanism |
+|---|---|
+| **CSP** | Nogood recording (CBJ); implied constraints (modelling) |
+| **SAT** | Learnt clause (CDCL) |
+| **Adversarial** | Transposition table |
+| **Search** | Pattern databases for A* heuristics |
+
+All four are "remember work you did so you don't redo it". CDCL formalises this: every learnt clause is a proven implication.
+
+### Local search ≈ stochastic SAT ≈ MCTS rollouts
+
+| Module | Algorithm |
+|---|---|
+| **CSP** | Min-conflicts |
+| **SAT** | WALKSAT (+ noise) |
+| **Optimisation** | Simulated annealing |
+| **Adversarial** | MCTS rollouts (random play to terminal) |
+
+All four sample the search space rather than enumerate it. None can prove infeasibility.
+
+### Decomposition vs global propagator
+
+| Module | Decompose | Global |
+|---|---|---|
+| **CSP** | Pairwise ≠ | AllDifferent (Régin GAC) |
+| **SAT** | $n^2$ at-most-one clauses | Cardinality encoding (totalizer) |
+| **Logic** | Resolve each pair | Cutting-plane reasoning |
+
+Globals propagate strictly stronger (Hall, totalizer, etc.); decomposition is simpler but weaker. Same trade-off everywhere.
+
+### Heuristics on variables vs on values
+
+| Module | Variable heuristic | Value heuristic |
+|---|---|---|
+| **CSP** | MRV / dom-wdeg / activity / last-conflict | LCV / Geelen's promise / solution-counting |
+| **SAT** | VSIDS / activity / phase-saving | Phase-saving (which polarity to try) |
+| **Adversarial** | Killer / history (move ordering) | (move = both variable + value at once) |
+
+Variable choice: "where to decide" (fail-first). Value choice: "what to try first" (succeed-first).
+
+### Phase transition
+
+| Module | Threshold |
+|---|---|
+| **SAT** (random 3-SAT) | $m/n \\approx 4.27$ — hardest, P(SAT) crossover |
+| **CSP** (random binary) | Similar empirical phenomenon |
+| **Graph colouring** | $k/n$ crossover where $k$ = colours, $n$ = vertices |
+
+Universality: large random combinatorial problems are usually easy except in a narrow critical region.
+
+### Complexity classes
+
+- **Polynomial islands**: tree-CSPs (DAC), 2-SAT (SCC), Horn-SAT (chaining), bipartite matching (Hopcroft-Karp).
+- **NP-hard general cases**: general CSP, SAT, k-colouring, scheduling.
+- **Resolution lower bounds (Haken)**: pigeonhole takes exponential time to refute — pushes both DPLL and CDCL.
+
+Same algorithm complexity story across modules: identify the polynomial fragment, fall back to NP-hard methods only when needed.
+
+### Take-aways
+
+1. Recognise which "shape" your question fits — CSP / SAT / logic / search / adversarial — then apply the *module-specific algorithm* and its connections.
+2. Many ideas (propagation, decision-propagate-recurse, nogood learning, decomposition vs global, fail-first heuristics) repeat. Transfer intuition.
+3. If you're stuck on a hard problem, look at the "polynomial-island" fragments first (tree-CSP, 2-SAT, Horn) — many real instances live in them.` },
   ],
 
   // CSP inference (AC-3 page) — what-if and global/local
@@ -212,6 +338,33 @@ A *cleaner* ordering that forces a re-revision: start with $(x_2, x_3)$ first.
 The starred entries are the re-revisions. Try this order in the **AC-3 stepper** with **Manual queue mode**.` },
 
     { kind: 'callout', variant: 'keyfact', title: 'Why arcs get re-revised', body: `An arc $(X_k, X_i)$ is re-enqueued **whenever $D(X_i)$ shrinks**, because some value of $X_k$ might have been supported only by the value just removed from $D(X_i)$. Any ordering that shrinks one variable's domain in *two* separate REVISE calls forces all its incoming arcs to be processed twice.` },
+
+    { kind: 'md', body: `## 📖 Phrasebook — CSP inference / arc consistency
+
+| If the question says... | Do... | Notes |
+|---|---|---|
+| "Enforce global node consistency" | Apply every unary constraint to its variable's domain | Phase 1 of CSPLab |
+| "Enforce node consistency at $X_i$" | Local NC: prune $D(X_i)$ only | Less common phrasing |
+| "Enforce arc consistency" / "establish AC" | Run AC-3 to fixpoint | Standard default |
+| "Apply AC-3 / AC-4 / AC-2001" | Use the named algorithm | AC-2001 → show Last data structure |
+| "REVISE($X_i, X_j$)" | One arc revision: drop values in $D(X_i)$ with no support in $D(X_j)$ | Local AC on one arc |
+| "Re-enqueue after a shrink" | Add all $(X_k, X_i)$ for $k \\ne j$ — incoming arcs only | Never re-enqueue the just-processed direction |
+| "An arc revised more than once" | Show an arc ordering where domain shrinks cascade | Standard exam question |
+| "AC-3 complexity" | $O(c \\cdot d^3)$ (Mackworth & Freuder) | $c$ = #binary constraints, $d$ = max domain |
+| "AC-4 / AC-2001 complexity" | $O(c \\cdot d^2)$ — optimal | AC-4: counter-based; AC-2001: Last pointers |
+| "Does AC-3 solve the CSP?" | NO — it enforces AC. Backtracking still needed (except tree-CSP with DAC) | Big pitfall |
+| "Path consistency (PC)" | Strengthen AC: every variable pair extendable through a third | PC-2 algorithm, $O(n^3 d^5)$ |
+| "Singleton AC (SAC)" | Per-value: probe assign + AC; remove if wipeout | Preprocessing, stronger than AC |
+| "GAC for AllDifferent" | Use Régin's bipartite-matching algorithm | Strictly stronger than pairwise ≠ |
+| "Compare AC-3 with FC" | AC: full propagation. FC: just neighbours of current decision | FC is weaker but cheaper |
+| "Compare AC-3 with AC-4" | AC-3: $O(c d^3)$, simple. AC-4: $O(c d^2)$, more memory | Use AC-4 only at scale |
+
+## How this connects
+
+- **MAC** during backtracking = "run AC-3 at every decision". Standard for modern CSP solvers.
+- **DPLL's unit propagation** is the SAT analogue — both propagate single-variable conclusions to fixpoint.
+- The **Régin pigeonhole detection** for AllDifferent is the CSP analogue of cardinality-encoding propagation in SAT.
+- Tree-CSPs admit **directional AC** (one pass leaves-to-root) — analogous to topological-sort algorithms for DAGs.` },
   ],
 
   // Backtracking page — what-if FC vs MAC, heuristics
@@ -266,6 +419,34 @@ Standard in modern solvers: cap the backtrack budget; if exceeded, restart from 
 | MAC + restart + wdeg | + neglible | + learning across restarts | Industrial-strength CSP solving |` },
 
     { kind: 'callout', variant: 'whatif', title: 'What if MAC and FC give different first solutions?', body: `They can! Both find *some* solution, but the order in which decisions hit infeasibility differs, so the search tree shape differs. The set of solutions is identical (FC and MAC are both *sound*); only the order of exploration changes.` },
+
+    { kind: 'md', body: `## 📖 Phrasebook — backtracking & search heuristics
+
+| If the question says... | Do... | Notes |
+|---|---|---|
+| "Backtracking" | DFS over variable assignments; on conflict, undo last decision and try next value | Check consistency after EVERY decision, not just leaves |
+| "With forward checking" | After each decision, prune neighbour domains of just-fixed variable | One-step propagation |
+| "With MAC / maintaining arc consistency" | After each decision, run AC-3 to fixpoint | Strictly stronger than FC |
+| "MRV (minimum remaining values)" | Pick variable with smallest current domain | Fail-first heuristic |
+| "Degree heuristic" | Pick variable with most constraints to unassigned others | Tie-break for MRV; static |
+| "LCV (least-constraining value)" | Pick value ruling out fewest neighbour values | Succeed-first; sum-based |
+| "Geelen's promise" | Pick value maximising the **product** of remaining neighbour supports | Stronger than LCV when zero factor appears |
+| "dom/wdeg" | Pick variable minimising $|D|$ / wdeg (weighted by constraint failures) | State of the art |
+| "Last-conflict heuristic" | After a backtrack, retry the variable that just caused failure first | Cheap memoisation |
+| "d-way branching" | One child per value of chosen variable | Variable branching factor |
+| "2-way branching" | LEFT: $X = v$. RIGHT: $X \\ne v$ (recurse) | Binary tree; right propagates immediately |
+| "Compare BT, BT+FC, BT+MAC" | None < FC < MAC in pruning strength; cost per node rises | Test in CSPLab |
+| "Backjumping (CBJ)" | On failure, jump to most recent variable in conflict set (not chronological) | Like CDCL but no clause learning |
+| "Symmetry-breaking constraints" | Lex-leader / value precedence; can conflict with heuristic | Discussed in cp-modelling |
+| "How many nodes in the search tree?" | Count tries + failures. Display via CSPLab's tree viz | Compare across propagation settings |
+
+## How this connects
+
+- **MAC ≈ DPLL**: both decide-then-propagate-to-fixpoint-then-recurse.
+- **FC ≈ DPLL's unit propagation** restricted to constraint-neighbours of the decision variable.
+- **CBJ ≈ CDCL's backjump** (without clause learning).
+- **MRV ≈ VSIDS** in spirit: fail-first / decision-importance-based.
+- **2-way branching ≈ DPLL decision**: LEFT/RIGHT mirror the polarity choice; RIGHT propagates via AC just as DPLL's RIGHT propagates via UP.` },
   ],
 
   // Add to beyond-ac3 topic
@@ -401,6 +582,30 @@ Three options:
 3. **Encode as table** (extensional list of allowed tuples) — universal but blows up for large arities.` },
 
     { kind: 'callout', variant: 'whatif', title: 'What if my model has 10× the solutions of the original?', body: `Often it's a **symmetry** — the model is admitting equivalent assignments as distinct. Adding lex-leader ordering on symmetric variables collapses each equivalence class to one canonical representative.` },
+
+    { kind: 'md', body: `## 📖 Phrasebook — CP modelling
+
+| If the question says... | Do... | Notes |
+|---|---|---|
+| "Model as a CSP" | 7-step methodology: decisions / domains / constraints / arity / implied / symmetry / sanity-check | Use ModellingWizard |
+| "State variables" | Decision variables only — NOT parameters (inputs) | Common confusion |
+| "State domains" | Smallest possible, derived from constraints | Tight domains = strong propagation |
+| "Identify a modelling pattern" | sequence / multiset / set / function / partition / relation | Examiner expects you to NAME the pattern |
+| "Use AllDifferent" | One global constraint, not pairwise ≠ | Régin GAC catches pigeonhole |
+| "Channel between viewpoints" | Add $x_i = j \\Leftrightarrow y_j = i$ for permutation problems | Propagation flows both ways |
+| "Implied constraint" | Logically entailed; doesn't change solutions; improves propagation | Verify entailment on known-valid solution |
+| "Symmetry-breaking constraint" | Lex-leader / value precedence / DoubleLex | Can conflict with branching heuristic |
+| "What's the symmetry group?" | Variable permutations × value permutations × geometric | Identify before breaking |
+| "Use Essence Prime" | Matrix-only — encode sets / functions / partitions by hand | No nesting |
+| "Compare viewpoints" | Variable count vs natural constraint expression vs propagation strength | n-queens classic example |
+| "Why use a global over decomposition?" | Strictly stronger propagation (Régin Hall etc.) | Standard answer |
+
+## How this connects
+
+- Modelling sits BEFORE inference and search — a bad model breaks every downstream algorithm.
+- The same problem can have multiple valid models with **vastly different** solver performance.
+- Channelling combines two viewpoints' propagation strengths — analogous to combining heuristics via $\\max(h_1, h_2)$.
+- Implied constraints play the same role as **learnt clauses** in CDCL — explicit memos of derivable facts to strengthen propagation.` },
   ],
 
   // Tree/structure exploits — what-if
@@ -514,5 +719,388 @@ $\\text{PHP}_n$ encodes "$n+1$ pigeons into $n$ holes, each pigeon in some hole,
 **Theorem (Haken 1985).** Resolution requires exponentially many steps to refute $\\text{PHP}_n$. Since DPLL/CDCL traces correspond to resolution proofs, both have an exponential lower bound on this family.
 
 This is why specialised algorithms (e.g. cutting-planes, extended resolution) are needed for problems with strong combinatorial structure that resolution can't compactly capture.` },
+
+    { kind: 'md', body: `## 📖 Phrasebook — SAT (general)
+
+| If the question says... | Do... | Notes |
+|---|---|---|
+| "Is φ satisfiable?" | Try to find a model; if none after exhaustive search → UNSAT | Use DPLL or CDCL |
+| "Encode in CNF" | 4-step (equiv) or Tseitin (equisat) | Equiv can blow up |
+| "DIMACS format" | One clause per line; integers as literals; negative = ¬; 0 terminator | Standard SAT format |
+| "k-SAT" | Every clause has exactly $k$ literals | 2-SAT polytime, 3-SAT NP-complete |
+| "2-SAT in polytime" | Build implication graph, find SCCs, check no var in same SCC as its negation | Use SCC algorithm — not DPLL |
+| "Phase transition" | Empirical SAT probability vs $m/n$ ratio; hardest near $\\approx 4.27$ for 3-SAT | Easy-hard-easy curve |
+| "Pure literal elimination" | Variable in only one polarity → satisfy it | Optional, always safe |
+| "Unit propagation" | Unit clause $(\\ell)$ forces $\\ell$; cascade | Common to DPLL, CDCL |
+| "Compare WALKSAT and DPLL" | WALKSAT: incomplete, fast on random SAT. DPLL: complete, slower on hard, can prove UNSAT | Choose by use case |
+| "Two-watched literals" | Each clause tracks 2 non-False watchers; O(1) amortised UP | Critical for modern solvers |
+| "VSIDS" | Activity-based branching: bump in learnt clauses, decay periodically | Default in MiniSat/Glucose |
+| "Restart strategy" | Luby sequence preserved across restarts | Escape bad subtrees |
+| "Preprocessing" | BVE, subsumption, vivification, blocked-clause elim, failed-literal probing | Standard pre-search |
+| "Cardinality encoding" | Pairwise / sequential / totalizer / ladder | Choose by $n$, $k$, query frequency |
+| "Pigeonhole formula" | $\\text{PHP}_n$: exponential lower bound for resolution & CDCL | Need cutting-planes |
+
+## How this connects
+
+- **SAT** is the propositional fragment of **logic**; SAT-solving is the algorithmic engine of automated theorem proving.
+- **DPLL/CDCL on CNF** mirrors **BT/MAC on CSP**: same decide-propagate-recurse skeleton.
+- **WALKSAT** is the SAT analogue of **min-conflicts** for CSPs.
+- **2-SAT polytime** parallels **tree-CSP polytime** — both are structural polynomial fragments of NP-hard problems.
+- **CDCL's learnt clauses** are the SAT analogue of **implied constraints** in CP modelling — explicit memos of derivable facts.
+- **Phase transition** appears in CSPs too (random binary CSPs show the same easy-hard-easy curve).` },
   ],
+
+  // ════════════════════════════════════════════════════════════════════
+  //   DECISION RULES — "if the question says X, do Y"
+  //   One phrasebook per topic. Covers exam-language → action mapping
+  //   plus a "How this connects" section that builds knowledge across
+  //   algorithms.
+  // ════════════════════════════════════════════════════════════════════
+
+  'search-formulation': [
+    { kind: 'md', body: `## 📖 Phrasebook — "if the question says..., do..."
+
+| If the question says... | Do... | Why |
+|---|---|---|
+| "Formulate as a search problem" | List: state representation · initial state · goal test · actions · transition model · step cost | Standard 6-tuple |
+| "What is a state?" | A single configuration — enough to determine future possibilities | Markov-style description |
+| "What's the branching factor?" | $b$ = max # successors any state has | Affects time complexity $O(b^d)$ |
+| "What's the state-space size?" | Estimate by combinatorial count (often huge) | Sanity-check tractability |
+| "Goal test as predicate" | Write as $\\text{GOAL}(s) = (\\text{some condition})$ | Not just enumerated goals |
+| "Step cost / path cost" | Per-action vs sum-along-path | Don't confuse |
+| "Is this state-space finite/infinite?" | Argue from action space and reachable states | Sokoban finite; chess infinite (repetition) |
+
+## How this connects
+
+- **Search formulation** is the prerequisite for **all** of [Uninformed search](#topic/uninformed-search), [Informed search](#topic/informed-search), and [Local search](#topic/local-search).
+- A poorly-formulated state representation (e.g. forgetting to include the player's facing direction) makes downstream search incorrect — no algorithm fixes a wrong model.
+- The "step cost" choice determines whether you can use BFS (uniform cost) or need UCS / A* (varying).
+- **CSP** is a *factored* state representation: rather than monolithic states, you have variables + domains + constraints. Same formulation skeleton, just structured.` },
+  ],
+
+  'uninformed-search': [
+    { kind: 'md', body: `## 📖 Phrasebook — uninformed search
+
+| If the question says... | Use... | Notes |
+|---|---|---|
+| "Shortest path" (uniform cost) | **BFS** | First goal found = shortest |
+| "Shortest path with varying costs" | **UCS** | Pop lowest g(n); same as BFS when all costs = 1 |
+| "Depth-first / exhaustive exploration" | **DFS** | $O(bd)$ space; not optimal; can loop on infinite |
+| "Memory-constrained but complete" | **IDS** (iterative deepening) | $O(bd)$ space, complete, optimal in uniform-cost |
+| "Two-sided search from start and goal" | **Bidirectional** | $O(b^{d/2})$ when both fringes meet |
+| "Trace BFS on this graph" | FIFO queue, expand in level order | Show frontier + explored each step |
+| "What's the worst-case complexity of DFS?" | Time $O(b^m)$ where $m$ = max depth; space $O(bm)$ | $m$ may be infinite |
+| "Compare BFS vs DFS" | BFS: complete, optimal-uniform, $O(b^d)$ space. DFS: incomplete on infinite, not optimal, $O(bd)$ space | Memory is the big difference |
+
+## How this connects
+
+- **BFS** is the special case of **UCS** with unit costs and the special case of **A*** with $h = 0$.
+- **IDS** combines DFS's low memory with BFS's completeness — typically the right uninformed choice when memory matters.
+- **DFS** is the engine inside **backtracking** for CSP — the LIFO order matches "try a value, recurse, backtrack on fail".
+- The **frontier vs explored** distinction (graph search) avoids re-exploring states; missing it = potential infinite loop on cyclic state spaces.` },
+  ],
+
+  'local-search': [
+    { kind: 'md', body: `## 📖 Phrasebook — local search
+
+| If the question says... | Use... | Notes |
+|---|---|---|
+| "Hill climbing" | Move to best neighbour; stop at local max | Gets stuck on plateaus / ridges |
+| "Hill climbing with sideways moves" | Allow N consecutive equal moves before giving up | Escapes plateaus |
+| "Random-restart hill climbing" | When stuck, restart from random state | Effectively complete given enough time |
+| "Simulated annealing" | Random neighbour; accept always if better, else with $e^{-\\Delta E / T}$; cool $T$ | Boltzmann-style acceptance |
+| "Genetic algorithm / GA" | Population + crossover + mutation + selection | Distinct from SA |
+| "Local beam search" | Track $k$ best states each step | Diversity vs greediness |
+
+## How this connects
+
+- **Min-conflicts** (covered in [local-csp](#topic/local-csp)) is HC for CSPs.
+- **WALKSAT** is SA-style for SAT: random walk + greedy flip mix.
+- Local search shares philosophy with **MCTS rollouts** — both sample the search space rather than systematically enumerate.
+- Always note: local search **cannot prove UNSAT** — only finds solutions. Use systematic (DPLL/MAC) for unsatisfiability proofs.` },
+  ],
+
+  // Append to existing 'imperfect-realtime' entry
+  'minimax': [
+    { kind: 'md', body: `## 📖 Phrasebook — minimax
+
+| If the question says... | Do... | Notes |
+|---|---|---|
+| "Trace minimax on this tree" | Bottom-up: MIN takes min of children, MAX takes max | Label every node by its level type |
+| "Apply alpha-beta pruning" | Maintain $\\alpha$ (best MAX), $\\beta$ (best MIN); cut when $\\alpha \\ge \\beta$ | Same root value as plain minimax |
+| "Find the optimal move at root" | Root value comes from the child that achieves it; that child is the move | Don't forget which child |
+| "Best-case α-β complexity" | $O(b^{d/2})$ — perfect move ordering | Sqrt-factor over plain |
+| "Worst-case α-β complexity" | $O(b^d)$ — same as plain minimax | Bad ordering = no cuts |
+| "Compute backed-up values level-by-level" | Write $\\min(a_1, a_2), \\max(\\ldots)$ explicitly per level | Examiner wants the arithmetic shown |
+| "Will α-β return the same value as minimax?" | YES — always | Common confusion |
+| "List all cuts" | A β-cut at MAX when $\\alpha \\ge \\beta$; α-cut at MIN; identify pivot literal | Mark on the tree |
+
+## How this connects
+
+- **MCTS** replaces exhaustive enumeration with sampled rollouts — useful when minimax tree is too big to enumerate (Go, modern chess endgames).
+- **Expectimax** generalises minimax to stochastic games via $\\text{CHANCE}$ nodes computing expected values.
+- **Move ordering** for α-β (killer / history / iterative-deepening) is the game-tree analogue of CSP **variable ordering** (MRV / dom-wdeg).
+- **Cut-off depth + evaluation function** generalises minimax to real-time / large games (chess). [imperfect-realtime](#topic/imperfect-realtime) covers this.` },
+  ],
+
+  'alpha-beta': [
+    { kind: 'md', body: `## 📖 Phrasebook — alpha-beta specifically
+
+| If the question says... | Do... | Pitfall |
+|---|---|---|
+| "Show α and β at every node" | Track $[\\alpha, \\beta]$ window passed down; update on return | Don't confuse with the backed-up value |
+| "Show the cuts" | Highlight: β-cut at MAX (child ≥ β), α-cut at MIN (child ≤ α) | Cuts happen at the *internal* node, not the cut child |
+| "Does pruning depend on move order?" | YES. Best order → $b^{d/2}$. Random → $b^{3d/4}$. Worst → $b^d$ | This is the *whole* point of move ordering heuristics |
+| "Does α-β change correctness?" | NO — α-β returns minimax's root value exactly | Cuts only remove provably-irrelevant subtrees |
+| "What if leaves repeat?" | Use a **transposition table** with $(value, depth, flag)$ where flag ∈ {EXACT, LOWER, UPPER} | Hash via Zobrist |
+| "Tighten the eval function" | Cut-off + quiescence search + linear eval $\\sum w_i f_i(s)$ | Quiescence avoids horizon effect |
+
+## How this connects
+
+- α-β is the **pruning** of minimax; minimax is the **value-iteration** of game trees.
+- The α-β bound window is conceptually similar to **AC-3's** support-checking — both prune what can't help.
+- **Killer move heuristic** mirrors CSP's **last-conflict heuristic**: re-use what just failed/worked.` },
+  ],
+
+  'mcts': [
+    { kind: 'md', body: `## 📖 Phrasebook — MCTS / UCT
+
+| If the question says... | Do... | Notes |
+|---|---|---|
+| "Trace MCTS for $N$ iterations" | Loop $N$ times: Selection → Expansion → Simulation → Backprop | Show counts per node |
+| "Use UCB1 / UCT" | $\\bar{X}_i + C\\sqrt{\\ln N_p / N_i}$ at each non-terminal child | $C = \\sqrt 2$ optimal for rewards in [0,1] |
+| "Recommend a move at root" | The **most-visited** child of root (robust child) | NOT the highest-mean — visits are more stable |
+| "Why explore vs exploit?" | UCB1's second term adds a "bonus" for under-visited nodes — guarantees occasional sampling | Mean alone = pure exploit, gets stuck |
+| "What does $C$ control?" | $C$ small → exploitation. $C$ large → exploration | Re-tune for reward scales outside [0,1] |
+| "Cost per iteration" | One root-to-leaf path, one rollout (random play), one backprop pass | $O(d)$ per iter — much cheaper than full subtree |
+
+## How this connects
+
+- **MCTS** is the answer when **minimax** is intractable (too-big tree). It approximates minimax via sampling.
+- The **exploration term** is conceptually similar to **simulated annealing's** temperature — both promote diversity over pure greediness.
+- **AlphaGo** = MCTS + neural-network policy/value → out of scope here (would be generative AI).` },
+  ],
+
+  'game-formulation': [
+    { kind: 'md', body: `## 📖 Phrasebook — game formulation
+
+| If the question says... | Do... | Notes |
+|---|---|---|
+| "Formulate as a game" | Players · initial state · ACTIONS(s) · RESULT(s,a) · TERMINAL-TEST · UTILITY | Zero-sum vs general |
+| "Zero-sum game" | $U_{\\text{MAX}}(s) = -U_{\\text{MIN}}(s)$ | Minimax applies directly |
+| "Perfect information" | All players see full state | Chess yes, poker no |
+| "Stochastic / chance" | Add CHANCE nodes with probabilities | Use expectimax |
+| "Imperfect information" | Beyond this module | Belief states, POMDPs |
+| "Utility / payoff function" | Numeric value at terminal states | Often $\\{+1, 0, -1\\}$ for win/draw/loss |
+
+## How this connects
+
+- Game formulation extends **search formulation**: now you have an adversary modelled at MIN nodes.
+- The same algorithmic skeleton (backed-up values, exploration strategy) applies — just with MIN-MAX alternation instead of cost minimisation.` },
+  ],
+
+  // ─────────────────────────────────────────────────────────────────────
+  //   PROPOSITIONAL LOGIC
+  // ─────────────────────────────────────────────────────────────────────
+
+  'propositional-syntax': [
+    { kind: 'md', body: `## 📖 Phrasebook — propositional syntax & semantics
+
+| If the question says... | Do... | Notes |
+|---|---|---|
+| "Define entailment" | $\\Gamma \\models \\varphi$ iff every model of $\\Gamma$ is a model of $\\varphi$ | Semantic definition |
+| "Define validity" | $\\models \\varphi$ iff $\\varphi$ is true in every interpretation | Tautology |
+| "Define satisfiability" | $\\varphi$ is SAT iff some interpretation makes it true | UNSAT = contradiction |
+| "Classify this formula" | Tautology / contradiction / contingent | Use truth table |
+| "Apply De Morgan" | $\\neg (a \\land b) = \\neg a \\lor \\neg b$ and dual | Standard |
+| "Distribute ∨ over ∧" | $a \\lor (b \\land c) = (a \\lor b) \\land (a \\lor c)$ | Core CNF conversion step |
+| "Eliminate →" | $a \\to b \\equiv \\neg a \\lor b$ | Step 1 of CNF |
+| "Eliminate ↔" | $a \\leftrightarrow b \\equiv (a \\to b) \\land (b \\to a)$ | Pre-step before → elim |
+| "Soundness vs completeness" | Sound: $\\vdash \\Rightarrow \\models$. Complete: $\\models \\Rightarrow \\vdash$ | Distinct properties |
+
+## How this connects
+
+- Truth tables are exhaustive but $2^n$ — fine for $n \\le 5$, useless beyond.
+- Resolution is the algorithmic complement to truth tables: instead of enumerating models, derive ⊥.
+- The CNF→DPLL pipeline is the practical path when truth tables become intractable.` },
+  ],
+
+  'kb-agents': [
+    { kind: 'md', body: `## 📖 Phrasebook — KB agents
+
+| If the question says... | Do... | Notes |
+|---|---|---|
+| "Knowledge base / KB" | A set of sentences (axioms + observations) | Often conjunction of clauses |
+| "KB-agent loop" | TELL observations + ASK query each step | Standard "wumpus-world" pattern |
+| "Inference" | Derive new sentences from KB | Two ways: model-checking vs proof |
+| "Model checking" | Enumerate models satisfying KB; check if α holds in all | $O(2^n)$ |
+| "Theorem proving" | Apply inference rules to derive α from KB | Polynomial for some fragments, undecidable in general for FOL |
+
+## How this connects
+
+- The KB is the agent's **knowledge representation**; queries against the KB drive its decisions.
+- For **Horn** KBs, forward / backward chaining is polynomial.
+- For **general propositional** KBs, resolution is refutation-complete.
+- For **first-order** KBs (out of module), unification + resolution still works but is undecidable.` },
+  ],
+
+  'entailment': [
+    { kind: 'md', body: `## 📖 Phrasebook — entailment
+
+| If the question says... | Do... | Notes |
+|---|---|---|
+| "Prove KB ⊨ α" | Show KB ∪ {¬α} is UNSAT (refutation) | Negate the query — standard trick |
+| "KB entails α" | Same as ⊨ — semantic relation | Differs from ⊢ (syntactic) |
+| "Show ⊨ α (validity)" | Show ¬α is UNSAT, or every interpretation satisfies α | Tautology check |
+| "By resolution" | CNF-ify KB ∪ {¬α}, resolve, derive ⊥ | Refutation completeness |
+| "By model checking" | Enumerate $2^n$ models; α holds in every KB-model | Exact but $2^n$ |
+| "By forward chaining" | Only if KB is Horn; iterate to fixpoint | Polynomial for Horn |
+| "Find a model satisfying KB" | Existential — use DPLL / WalkSAT | "Is the KB consistent?" |
+| "Soundness of resolution" | Every derivable clause is entailed | Trust the proof |
+| "Completeness of resolution" | Refutation-complete: if KB ⊨ α then resolution derives ⊥ from KB∧¬α | NOT deduction-complete |
+
+## How this connects
+
+- $\\models$ is semantic; $\\vdash$ is syntactic. Sound + complete = they coincide.
+- The refutation pattern (negate query, derive ⊥) is the bridge between resolution (refutes) and entailment (asserts).
+- **DPLL** decides SAT; entailment reduces to (un)SAT via $\\Gamma \\models \\varphi \\iff \\Gamma \\land \\neg \\varphi$ is UNSAT.
+- **Horn KBs** admit polynomial entailment via chaining.` },
+  ],
+
+  'inference-rules': [
+    { kind: 'md', body: `## 📖 Phrasebook — propositional inference rules
+
+| If the question says... | Use... | Pitfall |
+|---|---|---|
+| "Modus ponens" | From $p$ and $p \\to q$, derive $q$ | Easy to overlook in CNF |
+| "Resolution" | From $(\\ldots \\lor \\ell)$ and $(\\ldots \\lor \\neg \\ell)$, derive the disjunction without $\\ell$ | Only resolves on ONE literal |
+| "Refutation by resolution" | Add $\\neg \\alpha$ to KB; if you derive $\\Box$ (empty clause), KB ⊨ α | Sign matters — negate first |
+| "And-elimination" | From $p \\land q$ derive $p$, derive $q$ | Trivial but needed in tableaux |
+| "Or-introduction" | From $p$ derive $p \\lor q$ for any $q$ | Useful in constructive proofs |
+| "Compare resolution and DPLL" | Both are sound + (refutation-)complete on CNF. DPLL is a SEARCH-based algorithm; resolution is a calculus | DPLL traces correspond to resolution proofs |
+| "Resolution is refutation-complete but not deduction-complete" | Always pose as "is KB ∪ {¬α} UNSAT?" rather than "derive α directly" | Standard pitfall |
+
+## How this connects
+
+- **Resolution** is the propositional version of a more general FOL resolution.
+- **DPLL** can be seen as resolution with a search strategy: each decision + UP corresponds to a chain of resolution steps.
+- **CDCL's learnt clauses** are explicit resolution derivations.
+- For **Horn KBs**, forward/backward chaining is a *restriction* of resolution that's polynomial.` },
+  ],
+
+  'horn-chaining': [
+    { kind: 'md', body: `## 📖 Phrasebook — Horn chaining
+
+| If the question says... | Do... | Notes |
+|---|---|---|
+| "Horn clause" | Clause with $\\le 1$ positive literal (i.e. $\\neg a_1 \\lor \\ldots \\lor \\neg a_k \\lor b$ or $\\neg a_1 \\lor \\ldots$ or just $b$) | Definite Horn = exactly one positive |
+| "Forward chaining" | Start from facts; fire any rule whose body is satisfied; add head; repeat to fixpoint | Goal-agnostic; data-driven |
+| "Backward chaining" | Start from goal; find rule with goal as head; recurse on body | Goal-driven |
+| "Which is more efficient?" | Forward if many queries / few facts. Backward if focused query / many facts | Depends on use case |
+| "Prove KB ⊨ p where p is a fact" | Run forward chaining to fixpoint; check if $p$ in closure | Polynomial |
+| "Why is Horn polytime?" | Each fact derived at most once; bounded by $|$KB$|^2$ in size | Vs propositional in general, NP-hard |
+
+## How this connects
+
+- Horn fragment is a polynomial-time **island** in the otherwise NP-hard propositional logic landscape.
+- **Datalog** (databases) is essentially Horn forward chaining with relational predicates.
+- **Prolog** uses backward chaining (SLD resolution) on Horn clauses.
+- **Unit propagation in DPLL** is forward chaining on the binary fragment.` },
+  ],
+
+  // ─────────────────────────────────────────────────────────────────────
+  //   SAT
+  // ─────────────────────────────────────────────────────────────────────
+
+  'dpll': [
+    { kind: 'md', body: `## 📖 Phrasebook — DPLL
+
+| If the question says... | Do... | Notes |
+|---|---|---|
+| "Trace DPLL on this CNF" | UP to fixpoint → pure literal → decide → recurse | Show stack levels |
+| "Unit propagation" | A clause with one unassigned literal forces that literal's value | Cascades — propagate to fixpoint |
+| "Pure literal" | Variable appearing in one polarity only → assign to satisfy | Optional, always safe |
+| "Decide" | Pick any unassigned variable, set to a value, increment depth | Strategy = heuristic |
+| "Backtrack on conflict" | Chronological: pop one decision, flip its value, continue | Backjumping = CDCL |
+| "Find a model" | If all clauses satisfied → return the assignment | Order: UP → pure → decide |
+| "Verify UNSAT" | If at depth 0 and conflict → UNSAT | All decisions exhausted |
+| "Why is DPLL complete?" | Search exhausts all $2^n$ assignments in worst case | Tree search of decisions |
+
+## How this connects
+
+- **CDCL** = DPLL + **clause learning** + **backjumping** — vastly faster on industrial problems.
+- **Unit propagation** is the SAT analogue of **arc consistency** in CSP.
+- **DPLL on a 2-CNF** is polynomial only because the implication graph has special structure (use [TwoSAT viz](#topic/sat-problem)).
+- **MAC** for CSP = DPLL for SAT in spirit: decide a variable, propagate to fixpoint, recurse on conflict.` },
+  ],
+
+  'cdcl': [
+    { kind: 'md', body: `## 📖 Phrasebook — CDCL
+
+| If the question says... | Do... | Notes |
+|---|---|---|
+| "Trace CDCL" | UP / decide as DPLL, but on conflict: build implication graph, find 1-UIP, learn clause, backjump | Major upgrade from DPLL |
+| "Implication graph" | Nodes = assigned literals at the conflict; edges = "this literal was implied by this clause + these antecedents" | Built bottom-up from conflict |
+| "1-UIP" | The unique implication point CLOSEST to the conflict | Not closest to decision |
+| "Learnt clause" | The set of literals on the "reason side" of the 1-UIP cut, negated | An asserting clause |
+| "Backjump level" | The SECOND-largest decision level in the learnt clause | NOT the largest |
+| "VSIDS" | Activity-based branching: bump variables in learnt clauses, decay periodically | $\\rho \\approx 0.95$ |
+| "Two-watched literals" | Each clause watches 2 non-False literals; only re-check on flip | $O(1)$ amortised UP |
+| "Restart strategy" | Luby or geometric schedule; keep learnt clauses | Escapes bad subtrees |
+
+## How this connects
+
+- CDCL is the SAT analogue of **conflict-directed backjumping** (CBJ) in CSP — but CDCL **learns** the conflict as a clause, CBJ doesn't.
+- The **learnt clause** is a resolvent of the conflicting clauses with their antecedents — explicit proof step.
+- **PHP$_n$** (pigeonhole) has exponential CDCL lower bound — same family-level barrier as resolution.` },
+  ],
+
+  // ─────────────────────────────────────────────────────────────────────
+  //   WalkSAT, etc.
+  // ─────────────────────────────────────────────────────────────────────
+
+  'walksat': [
+    { kind: 'md', body: `## 📖 Phrasebook — WALKSAT
+
+| If the question says... | Do... | Notes |
+|---|---|---|
+| "Trace WALKSAT" | Start random; pick an unsat clause; with prob $p$ flip random var in it; else flip greedily | Hybrid random/greedy |
+| "Noise parameter $p$" | $p = 0$ → pure greedy (gets stuck). $p = 1$ → random walk. Optimum $\\approx 0.5$ for random 3-SAT | Tunable |
+| "Why can't WALKSAT prove UNSAT?" | It just samples assignments; no completeness guarantee | Use DPLL/CDCL for UNSAT |
+| "Compare WALKSAT with DPLL" | WALKSAT: faster on SAT-likely random instances. DPLL: better on structured / UNSAT | Empirical |
+| "When does WALKSAT win?" | Random 3-SAT near phase transition; large industrial SAT with much symmetry | Heavy-tailed |
+
+## How this connects
+
+- WALKSAT is to SAT what **min-conflicts** is to CSP — both are local-search satisfaction algorithms.
+- The noise parameter is the WALKSAT analogue of SA's temperature.
+- Modern SAT solvers (Survey Propagation, etc.) extend these ideas with message-passing.` },
+  ],
+
+  // ─────────────────────────────────────────────────────────────────────
+  //   ESSENCE PRIME / MODELLING — phrasebook
+  // ─────────────────────────────────────────────────────────────────────
+
+  'essence-prime': [
+    { kind: 'md', body: `## 📖 Phrasebook — Essence Prime
+
+| If the question says... | Do... | Notes |
+|---|---|---|
+| "Model in Essence Prime" | Use \`int\`, \`bool\`, \`matrix indexed by [..] of T\` ONLY | No set / function / multiset / partition — encode by hand |
+| "Encode a set of $k$ elements" | Matrix of $k$ ints with strict-increasing order | Breaks $k!$ permutation symmetry simultaneously |
+| "Encode a function $A \\to B$" | Matrix indexed by $A$, values in $B$ | Add \`allDiff\` if injective |
+| "Encode a partition into $k$ blocks" | Matrix \`part[i]\` containing $\\text{int}(1..k)$ | Add value precedence to break block symmetry |
+| "Encode a relation $A \\times B$" | 2D boolean matrix | Or list-of-pairs (less standard) |
+| "Identify modelling pattern" | sequence / multiset / set / function / partition / relation | Examiner expects you to NAME the pattern |
+| "Run Savile Row with -S2" | Automorphism detection + lex-leader breaking | Adds symmetry breaking automatically |
+| "Why use \`-O2\`?" | Default optimisation level: aggregation, CSE, etc. | $-O3$ adds tabulation |
+| "What is the Conjure→Savile Row→solver pipeline?" | Essence → Conjure → Essence Prime → Savile Row → Minion/SAT/SMT/MaxSAT | Know each arrow |
+
+## How this connects
+
+- Essence Prime is what you actually WRITE for Nightingale-style exam questions.
+- The [ModellingWizard viz](#topic/cp-modelling) auto-generates Essence Prime-compatible specs.
+- Savile Row's pre-processing (CSE, aggregation, tabulation) is the **automatic version** of doing implied-constraint discovery + global-upgrade by hand.` },
+  ],
+
 };
