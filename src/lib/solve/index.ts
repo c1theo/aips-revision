@@ -4,6 +4,10 @@ import { extractCSP, cspToLabSpec, type ExtractedCSP } from './extract';
 import { extractRichCSP, richToLabSpec, type RichCSP } from './extractCSPRich';
 import { extractFormula, extractCNF as extractCNFRich, cnfToDpllSpec, extractHorn, hornToSpec, extractResolutionProblem, extractLeaves, type ExtractedFormula, type ExtractedCNF, type ExtractedHorn, type ExtractedResolution, type ExtractedLeaves } from './extractLogic';
 import { findRelevantPlaybooks, playbooksForModule, type Playbook } from './playbooks';
+import { splitMultipart, type QuestionPart } from './multipart';
+import { findSimilarExamples, type SimilarHit } from './similar';
+import { matchTemplates, type TemplateMatch } from './templates';
+import { autosolveCSP, autosolveCNF, type CSPSolution, type SATSolution } from './autosolve';
 import type { Intent, Module } from './profiles';
 
 export interface RouterResult {
@@ -13,11 +17,11 @@ export interface RouterResult {
   intentScores: IntentScore[];
   structure: StructuralHints;
   extraction: {
-    csp: ExtractedCSP;             // simple CSP extractor (regex)
-    cspRich: RichCSP;              // rich extractor (NL patterns, scheduling)
-    cspLabSpec: string;            // best CSPLab spec we can synthesise
+    csp: ExtractedCSP;
+    cspRich: RichCSP;
+    cspLabSpec: string;
     cnf: ExtractedCNF;
-    cnfText: string;               // ready for DPLL/CDCL input
+    cnfText: string;
     formula: ExtractedFormula;
     horn: ExtractedHorn;
     hornText: string;
@@ -27,6 +31,22 @@ export interface RouterResult {
   recommendation: string;
   playbooks: Playbook[];
   fallbackModule: Module | null;
+
+  // NEW: multi-part analysis
+  multipart: { parts: QuestionPart[]; isMultipart: boolean };
+  perPartRoutes?: { partId: string; partText: string; topAlgorithm: string | null; confidence: number; templates: TemplateMatch[] }[];
+
+  // NEW: template-based shape matching
+  templates: TemplateMatch[];
+
+  // NEW: similar past worked examples
+  similar: SimilarHit[];
+
+  // NEW: independently-verified answers (run our own solver, give the answer)
+  autosolve: {
+    csp?: CSPSolution;
+    sat?: SATSolution;
+  };
 }
 
 function pickFallbackModule(structure: StructuralHints, top: AlgorithmScore[]): Module | null {
@@ -39,6 +59,21 @@ function pickFallbackModule(structure: StructuralHints, top: AlgorithmScore[]): 
   return null;
 }
 
+// Lightweight per-part routing — uses just algorithm scoring + templates
+function routePart(text: string): { partId: string; partText: string; topAlgorithm: string | null; confidence: number; templates: TemplateMatch[] } {
+  const scores = scoreQuestion(text);
+  const templates = matchTemplates(text);
+  const top = scores[0];
+  const conf = calibrateConfidence(scores);
+  return {
+    partId: '',
+    partText: text,
+    topAlgorithm: top?.label ?? null,
+    confidence: conf,
+    templates,
+  };
+}
+
 export function routeQuestion(text: string): RouterResult {
   const allScores = scoreQuestion(text);
   const topAlgorithms = allScores.slice(0, 6).filter((s) => s.score > 0);
@@ -47,7 +82,7 @@ export function routeQuestion(text: string): RouterResult {
   const topIntent = intentScores[0]?.intent ?? null;
   const structure = detectStructure(text);
 
-  // CSP extraction — try both extractors; prefer rich if it found more
+  // Existing extractors
   const cspSimple = extractCSP(text);
   const cspRich = extractRichCSP(text);
   let cspLabSpec = '';
@@ -58,21 +93,37 @@ export function routeQuestion(text: string): RouterResult {
   } else if (cspRich.variables.length > 0) {
     cspLabSpec = richToLabSpec(cspRich);
   }
-
-  // SAT extraction
   const cnf = extractCNFRich(text);
   const cnfText = cnfToDpllSpec(cnf);
-
-  // Logic extraction
   const formula = extractFormula(text);
   const horn = extractHorn(text);
   const hornText = hornToSpec(horn);
   const resolution = extractResolutionProblem(text);
-
-  // Game tree
   const leaves = extractLeaves(text);
 
-  // Playbook selection
+  // NEW: multi-part
+  const multipart = splitMultipart(text);
+  const perPartRoutes = multipart.isMultipart
+    ? multipart.parts.map((p) => ({ ...routePart(p.text), partId: p.id, partText: p.text }))
+    : undefined;
+
+  // NEW: template matches
+  const templates = matchTemplates(text);
+
+  // NEW: similar past worked examples
+  let similar: SimilarHit[] = [];
+  try { similar = findSimilarExamples(text, 5); } catch (e) { similar = []; }
+
+  // NEW: auto-solve if extraction succeeded
+  const autosolve: RouterResult['autosolve'] = {};
+  if (cspRich.totalConfidence > 40 && cspRich.variables.length > 0 && cspRich.variables.length <= 12) {
+    try { autosolve.csp = autosolveCSP(cspRich); } catch (e) { /* swallow */ }
+  }
+  if (cnf.confidence > 50 && cnf.clauses.length > 0 && cnf.variables.length <= 20) {
+    try { autosolve.sat = autosolveCNF(cnfText); } catch (e) { /* swallow */ }
+  }
+
+  // Playbooks
   let playbooks = findRelevantPlaybooks(text, 6);
   const fallbackModule = pickFallbackModule(structure, topAlgorithms);
   if (confidence < 35 && fallbackModule) {
@@ -83,7 +134,12 @@ export function routeQuestion(text: string): RouterResult {
 
   // Recommendation
   let recommendation = '';
-  if (topAlgorithms.length === 0) {
+  if (multipart.isMultipart) {
+    recommendation = `**${multipart.parts.length}-part question detected.** Each sub-part is routed independently below.`;
+  } else if (templates.length > 0) {
+    const top = templates[0];
+    recommendation = `Template matched: **${top.description}** (${top.confidence}% confidence). ${top.explanation}`;
+  } else if (topAlgorithms.length === 0) {
     if (fallbackModule) {
       recommendation = `I couldn't identify a specific algorithm with confidence — but the question looks like a **${fallbackModule.toUpperCase()}** problem. See the topic playbooks below.`;
     } else {
@@ -104,16 +160,22 @@ export function routeQuestion(text: string): RouterResult {
     topIntent,
     intentScores,
     structure,
-    extraction: {
-      csp: cspSimple, cspRich, cspLabSpec,
-      cnf, cnfText,
-      formula, horn, hornText, resolution,
-      leaves,
-    },
+    extraction: { csp: cspSimple, cspRich, cspLabSpec, cnf, cnfText, formula, horn, hornText, resolution, leaves },
     recommendation,
     playbooks,
     fallbackModule,
+    multipart,
+    perPartRoutes,
+    templates,
+    similar,
+    autosolve,
   };
 }
 
-export { type AlgorithmScore, type IntentScore, type StructuralHints, type ExtractedCSP, type RichCSP, type ExtractedCNF, type ExtractedFormula, type ExtractedHorn, type ExtractedResolution, type ExtractedLeaves, type Playbook };
+export {
+  type AlgorithmScore, type IntentScore, type StructuralHints,
+  type ExtractedCSP, type RichCSP, type ExtractedCNF, type ExtractedFormula,
+  type ExtractedHorn, type ExtractedResolution, type ExtractedLeaves,
+  type Playbook, type QuestionPart, type SimilarHit, type TemplateMatch,
+  type CSPSolution, type SATSolution,
+};

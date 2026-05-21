@@ -154,8 +154,111 @@ Write out the CSP. Apply AC2001 / AC-3.1 to establish global arc consistency. Af
         <div class="text-xs text-ink-500 mt-2">
           Confidence: <b>{result.confidence}%</b>
           {#if result.topIntent}· Intent: <span class="font-semibold">{result.topIntent}</span>{/if}
+          {#if result.multipart.isMultipart}· <b>{result.multipart.parts.length}-part question</b>{/if}
         </div>
       </div>
+
+      <!-- Multi-part question breakdown -->
+      {#if result.multipart.isMultipart && result.perPartRoutes}
+        <div class="card !p-4">
+          <h3 class="!mt-0 text-base font-semibold mb-2">📑 Multi-part question — per-part routing</h3>
+          <div class="text-xs text-ink-500 mb-3">Each sub-part is classified independently. Click a part to see its top match and template hits.</div>
+          <div class="space-y-2">
+            {#each result.perPartRoutes as p}
+              <details class="border border-ink-200 dark:border-ink-800 rounded p-3">
+                <summary class="cursor-pointer">
+                  <b class="font-mono">{p.partId}</b>
+                  <span class="text-xs text-ink-500 ml-2">→ {p.topAlgorithm ?? '(no clear match)'} ({p.confidence}%)</span>
+                  {#if p.templates.length > 0}<span class="text-xs text-emerald-600 ml-2">· {p.templates.length} template{p.templates.length === 1 ? '' : 's'} matched</span>{/if}
+                </summary>
+                <div class="mt-2 text-xs text-ink-600 dark:text-ink-300 italic whitespace-pre-line">{p.partText.length > 400 ? p.partText.slice(0, 400) + '…' : p.partText}</div>
+                {#if p.templates.length > 0}
+                  <div class="mt-2 text-xs">
+                    <div class="text-ink-500 uppercase tracking-wider font-semibold mb-1">Template matches</div>
+                    {#each p.templates as tm}
+                      <div class="border-l-2 border-emerald-300 pl-2 my-1">
+                        <b>{tm.description}</b> <span class="text-ink-500">({tm.confidence}%)</span> → <code>{tm.viz}</code>
+                        <div class="text-ink-600 dark:text-ink-300">{tm.explanation}</div>
+                      </div>
+                    {/each}
+                  </div>
+                {/if}
+              </details>
+            {/each}
+          </div>
+        </div>
+      {/if}
+
+      <!-- Template shape matches -->
+      {#if result.templates.length > 0}
+        <div class="card !p-4 border-l-4 !border-emerald-400">
+          <h3 class="!mt-0 text-base font-semibold mb-2">🎯 Question-shape templates matched ({result.templates.length})</h3>
+          <div class="text-xs text-ink-500 mb-3">Beyond keyword matching — these are structural templates that recognise the SHAPE of the question.</div>
+          <div class="space-y-2 text-sm">
+            {#each result.templates as tm}
+              <div class="flex items-start gap-2">
+                <span class="text-xs px-1.5 py-0.5 rounded bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 font-semibold mt-0.5">{tm.confidence}%</span>
+                <div class="flex-1">
+                  <div><b>{tm.description}</b> → <code class="text-xs">{tm.viz}</code></div>
+                  <div class="text-xs text-ink-600 dark:text-ink-300">{tm.explanation}</div>
+                </div>
+                <button class="btn btn-sm" onclick={() => openExtracted(tm.viz)}>▸ open</button>
+              </div>
+            {/each}
+          </div>
+        </div>
+      {/if}
+
+      <!-- Auto-solved (independent verification) -->
+      {#if result.autosolve.csp || result.autosolve.sat}
+        <div class="card !p-4 border-l-4 !border-violet-400">
+          <h3 class="!mt-0 text-base font-semibold mb-2">🤖 Auto-solver verdict</h3>
+          <div class="text-xs text-ink-500 mb-3">I ran the extracted problem through an independent solver. Use this to cross-check your hand-computed answer.</div>
+          {#if result.autosolve.csp}
+            <div class="border border-ink-200 dark:border-ink-800 rounded p-2 text-sm mb-2">
+              <b>CSP solver:</b>
+              {#if result.autosolve.csp.solved}
+                <span class="text-emerald-700 dark:text-emerald-300">✓ SAT</span> · nodes expanded: {result.autosolve.csp.nodesExpanded}
+                {#if result.autosolve.csp.solutionCount !== undefined}· solutions found: {result.autosolve.csp.solutionCount}{#if (result.autosolve.csp.solutionCount ?? 0) >= 5}+ (capped){/if}{/if}
+                <div class="font-mono text-xs mt-1">First solution: {Object.entries(result.autosolve.csp.assignment ?? {}).map(([k, v]) => `${k} = ${v}`).join(', ')}</div>
+              {:else}
+                <span class="text-rose-700 dark:text-rose-300">✗ {result.autosolve.csp.reason ?? 'no solution'}</span> · nodes: {result.autosolve.csp.nodesExpanded}
+              {/if}
+            </div>
+          {/if}
+          {#if result.autosolve.sat}
+            <div class="border border-ink-200 dark:border-ink-800 rounded p-2 text-sm">
+              <b>SAT solver (DPLL):</b>
+              {#if result.autosolve.sat.sat}
+                <span class="text-emerald-700 dark:text-emerald-300">✓ SAT</span> · decisions: {result.autosolve.sat.decisions}
+                <div class="font-mono text-xs mt-1">Model: {Object.entries(result.autosolve.sat.model ?? {}).map(([k, v]) => `${k} = ${v ? 'T' : 'F'}`).join(', ')}</div>
+              {:else}
+                <span class="text-rose-700 dark:text-rose-300">✗ UNSAT</span> · decisions: {result.autosolve.sat.decisions}
+              {/if}
+            </div>
+          {/if}
+        </div>
+      {/if}
+
+      <!-- Similar past worked examples -->
+      {#if result.similar.length > 0}
+        <div class="card !p-4">
+          <h3 class="!mt-0 text-base font-semibold mb-2">📚 Similar worked examples ({result.similar.length})</h3>
+          <div class="text-xs text-ink-500 mb-3">These existing worked examples are textually closest to your question. Look at them for a model answer.</div>
+          <div class="space-y-2">
+            {#each result.similar as s}
+              <a href={href('/topic/' + s.topicSlug)} class="block border border-ink-200 dark:border-ink-800 rounded p-2 hover:border-accent-400 no-underline">
+                <div class="flex flex-wrap items-baseline gap-2">
+                  <span class="text-xs px-1.5 py-0.5 rounded font-semibold bg-ink-100 dark:bg-ink-800">{s.topicTitle}</span>
+                  <span class="text-xs text-ink-500">{s.difficulty}{s.marks ? ` · ${s.marks} marks` : ''} · relevance {s.score}</span>
+                </div>
+                <div class="text-sm mt-1 text-ink-700 dark:text-ink-200 line-clamp-2">{s.question.replace(/\$([^$]+)\$/g, '$1').slice(0, 250)}{s.question.length > 250 ? '…' : ''}</div>
+                <div class="text-[11px] text-ink-500 italic mt-1 line-clamp-1">{s.answerExcerpt.replace(/\$([^$]+)\$/g, '$1').slice(0, 160)}…</div>
+              </a>
+            {/each}
+          </div>
+        </div>
+      {/if}
 
       <!-- Top algorithms -->
       <div class="card !p-4">
