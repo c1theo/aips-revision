@@ -310,11 +310,11 @@ function deriveSchedulingConstraints(tasks: Task[], resources: Resource[], const
             src = `abs(${si} - ${sj}) >= ${di}`;
             why = `mutex on ${r.id} (both ${di}-unit) → no overlap requires |${si}-${sj}| ≥ ${di}`;
           } else {
-            // (s_i + d_i <= s_j) OR (s_j + d_j <= s_i)  — express via min-gap
-            const minGap = Math.min(di, dj);
-            src = `abs(${si} - ${sj}) >= ${minGap}`;
-            why = `mutex on ${r.id} (durations ${di}, ${dj}) → conservative non-overlap |${si}-${sj}| ≥ ${minGap}`;
-            notes.push(`Heuristic non-overlap on tasks ${ti.id}, ${tj.id}: used |${si}-${sj}| ≥ ${minGap}. Strict form is (${si}+${di}≤${sj}) OR (${sj}+${dj}≤${si}). Edit if exact.`);
+            // Asymmetric durations: exact non-overlap is the DISJUNCTION
+            //   (s_i + d_i <= s_j) OR (s_j + d_j <= s_i)
+            // CSPLab's predicate compiler accepts JS, so use || and <=.
+            src = `(${si} + ${di} <= ${sj}) || (${sj} + ${dj} <= ${si})`;
+            why = `mutex on ${r.id} (durations ${di}, ${dj}) → non-overlap (${si}+${di}≤${sj}) ∨ (${sj}+${dj}≤${si})`;
           }
         } else {
           // No duration info — just pairwise ≠
