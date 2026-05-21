@@ -238,7 +238,7 @@
     result = 'iteration limit';
     steps = log;
   }
-  $effect(() => { input; heuristic; run(); });
+  $effect(() => { input; heuristic; overrideSpec; run(); });
 
   function fmtClause(c: number[]) {
     if (c.length === 0) return '□';
@@ -248,9 +248,13 @@
   const examAnswer = $derived.by(() => {
     const lines: string[] = [];
     const clauses = parse(input);
+    const overrides = parseOverrides(overrideSpec);
     lines.push(`**Setup.**`);
     lines.push(`- CNF (${clauses.length} clauses): $${clauses.map(fmtClause).join(' \\wedge ')}$.`);
     lines.push(`- Branching heuristic: **${heuristic === 'vsids' ? 'VSIDS' : 'first unassigned'}**.`);
+    if (overrides.length) {
+      lines.push(`- User-forced decision order: ${overrides.map((o) => `$x_{${o.var}} = ${o.val ? 'T' : 'F'}$`).join(', ')}.`);
+    }
     lines.push('');
 
     // Conflict / learning events
@@ -319,6 +323,11 @@
       </select>
     </label>
   </div>
+
+  <label class="block">
+    <span class="text-xs text-ink-500 block mb-1"><b>Branching overrides</b> — force the decision variable and value at each level. Format: <code>1=F, 3=T</code> means at the next decision pick x₁=F, then x₃=T. Consulted before the heuristic; only unassigned vars are honoured. Use when an exam says "branch on x₁ = False first".</span>
+    <input class="w-full font-mono px-2 py-1 rounded border border-ink-300 dark:border-ink-700 bg-white dark:bg-ink-900" bind:value={overrideSpec} placeholder="e.g. 1=F, 2=T" />
+  </label>
 
   <div class="text-sm font-medium">{result}</div>
 

@@ -60,6 +60,25 @@ C, D -> E
 E -> F`);
   let query = $state(_parsedInitial?.query || 'F');
   let mode = $state<'forward' | 'backward'>('forward');
+  let overrideSpec = $state('');   // e.g. "R2, R1" — fire/try these rules first
+
+  function parseRuleOverride(spec: string, ruleCount: number): number[] {
+    // Format: comma/space/newline-separated rule IDs ("R2", "2", "R1", ...). 1-based.
+    const out: number[] = [];
+    const seen = new Set<number>();
+    for (const tok of spec.split(/[,\s\n]+/)) {
+      const t = tok.trim();
+      if (!t) continue;
+      const m = t.match(/^R?(\d+)$/i);
+      if (!m) continue;
+      const idx = Number(m[1]) - 1;
+      if (idx >= 0 && idx < ruleCount && !seen.has(idx)) {
+        out.push(idx);
+        seen.add(idx);
+      }
+    }
+    return out;
+  }
 
   interface Rule { body: string[]; head: string; }
 
@@ -86,6 +105,14 @@ E -> F`);
 
   $effect(() => {
     const { facts, rules } = parse(input);
+    const priority = parseRuleOverride(overrideSpec, rules.length);
+    // Build a rule-firing order: priority-listed rules first, then the rest in input order.
+    const inPriority = new Set(priority);
+    const ruleOrder: number[] = [
+      ...priority,
+      ...rules.map((_, i) => i).filter((i) => !inPriority.has(i)),
+    ];
+
     if (mode === 'forward') {
       const known = new Set<string>(facts);
       const t: typeof trace = [];
@@ -97,11 +124,14 @@ E -> F`);
       let changed = true;
       while (changed) {
         changed = false;
-        for (const r of rules) {
+        // Walk rules in user-priority order, then default order.
+        for (const idx of ruleOrder) {
+          const r = rules[idx];
           if (!known.has(r.head) && r.body.every((b) => known.has(b))) {
             known.add(r.head);
             step++;
-            t.push({ step, added: r.head, via: r.body.join(' ∧ ') + ' → ' + r.head });
+            const tag = inPriority.has(idx) ? ` [forced R${idx + 1}]` : ` [R${idx + 1}]`;
+            t.push({ step, added: r.head, via: r.body.join(' ∧ ') + ' → ' + r.head + tag });
             changed = true;
           }
         }
@@ -126,14 +156,17 @@ E -> F`);
           return false;
         }
         visiting.add(goal);
-        const applicable = rules.filter((r) => r.head === goal);
-        if (applicable.length === 0) {
+        // Rules that produce this goal, sorted by user priority (priority-listed first, then default order).
+        const applicableIdx = ruleOrder.filter((i) => rules[i].head === goal);
+        if (applicableIdx.length === 0) {
           t.push({ step, added: goal, via: `${' '.repeat(indent * 2)}✗ no rule produces ${goal}` });
           visiting.delete(goal);
           return false;
         }
-        for (const r of applicable) {
-          t.push({ step, added: goal, via: `${' '.repeat(indent * 2)}try rule: ${r.body.join(', ')} → ${goal}` });
+        for (const idx of applicableIdx) {
+          const r = rules[idx];
+          const tag = inPriority.has(idx) ? ` [forced R${idx + 1}]` : ` [R${idx + 1}]`;
+          t.push({ step, added: goal, via: `${' '.repeat(indent * 2)}try rule: ${r.body.join(', ')} → ${goal}${tag}` });
           const allOk = r.body.every((sub) => prove(sub, indent + 1));
           if (allOk) {
             step++;
@@ -165,6 +198,10 @@ E -> F`);
     }
     lines.push(`- Goal: $\\alpha = ${query.trim() || '\\text{(none)}'}$.`);
     lines.push(`- Mode: **${mode === 'forward' ? 'forward chaining' : 'backward chaining'}**.`);
+    const priority = parseRuleOverride(overrideSpec, rules.length);
+    if (priority.length) {
+      lines.push(`- User-forced rule order: ${priority.map((i) => `R${i + 1}`).join(', ')} (tried first; falls back to default order afterwards).`);
+    }
     lines.push('');
 
     if (trace.length) {
@@ -225,6 +262,11 @@ E -> F`);
     </div>
     <span class="text-ink-500 ml-2">{mode === 'forward' ? 'Data-driven: start from facts, fire rules.' : 'Goal-directed: try to prove the query recursively.'}</span>
   </div>
+
+  <label class="block">
+    <span class="text-xs text-ink-500 block mb-1"><b>Rule-firing overrides</b> — priority list of rule IDs to try first. Format: <code>R2, R1</code> (1-based by their order in the KB; counting rules only, not facts). In <b>forward</b> mode the priority rules are checked first each iteration; in <b>backward</b> mode they are tried first when multiple rules can prove the current goal. Rules not applicable at the time are skipped (default order resumes). Leave blank for default.</span>
+    <input class="w-full font-mono px-2 py-1 rounded border border-ink-300 dark:border-ink-700 bg-white dark:bg-ink-900" bind:value={overrideSpec} placeholder="e.g. R2, R1" />
+  </label>
 
   <div class="card !p-3">
     <div class="text-xs font-semibold uppercase tracking-wider text-ink-500 mb-2">{mode === 'forward' ? 'Forward chain' : 'Backward chain'} trace</div>

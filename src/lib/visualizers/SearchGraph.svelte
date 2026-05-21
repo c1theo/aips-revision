@@ -126,6 +126,15 @@ goal: G`;
 
   const graph = $derived.by(() => parseSpec(spec));
 
+  // ── User overrides ──
+  // Comma-separated list of nodes to pop in order (overrides priority queue).
+  // Useful for exam questions that specify tie-break rules or explicit
+  // expansion orders. Falls back to algorithm's natural order after the list.
+  let expandOverride = $state('');
+  function parseExpandOverride(): string[] {
+    return expandOverride.split(/[,\s]+/).filter(Boolean);
+  }
+
   // ── Algorithms ──
   type FrontierItem = { node: string; path: string[]; g: number; f: number; depth: number };
 
@@ -178,17 +187,30 @@ goal: G`;
     const explored = new Set<string>();
     steps.push({ action: `Initialise frontier with start node ${g.start} (f = ${startItem.f}).`, frontier: [...frontier], explored: [] });
 
+    const overrides = parseExpandOverride();
+    let overrideIdx = 0;
+
     let safety = 1000;
     while (frontier.length > 0 && safety-- > 0) {
-      // Sort frontier by algorithm-specific priority, alphabetical tie-break
-      frontier.sort((a, b) => {
-        const cmp = compareFor(a, b);
-        if (cmp !== 0) return cmp;
-        return a.node.localeCompare(b.node);
-      });
-      const item = frontier.shift()!;
+      // If user override applies and the named node is on the frontier, pop it.
+      let item: FrontierItem | undefined;
+      let popReason = '';
+      while (overrideIdx < overrides.length) {
+        const target = overrides[overrideIdx];
+        const idx = frontier.findIndex((it) => it.node === target);
+        if (idx >= 0) { item = frontier.splice(idx, 1)[0]; overrideIdx++; popReason = ' (user override)'; break; }
+        else overrideIdx++; // override target not on frontier — skip to next
+      }
+      if (!item) {
+        frontier.sort((a, b) => {
+          const cmp = compareFor(a, b);
+          if (cmp !== 0) return cmp;
+          return a.node.localeCompare(b.node);
+        });
+        item = frontier.shift()!;
+      }
       steps.push({
-        action: `Pop ${item.node} (path: ${item.path.join('→')}, g=${item.g}, f=${item.f}).`,
+        action: `Pop ${item.node}${popReason} (path: ${item.path.join('→')}, g=${item.g}, f=${item.f}).`,
         frontier: [...frontier], explored: [...explored], currentPath: item.path,
       });
       if (item.node === g.goal) {
@@ -270,6 +292,7 @@ goal: G`;
   }
 
   const result = $derived.by(() => {
+    expandOverride; weight; searchMode;  // explicit deps
     if (algo === 'IDS') return runIDS(graph);
     return runStandard(graph);
   });
@@ -373,6 +396,11 @@ goal: G`;
   <label class="block">
     <span class="text-xs text-ink-500 block mb-1">Graph spec — nodes with heuristic, edges with costs, start, goal.</span>
     <textarea class="w-full font-mono text-xs p-2 rounded border border-ink-300 dark:border-ink-700 bg-white dark:bg-ink-900" rows="10" bind:value={spec}></textarea>
+  </label>
+
+  <label class="block">
+    <span class="text-xs text-ink-500 block mb-1">Override expansion order (optional) — list nodes to pop in order, e.g. <code>B, C, F</code>. After the list is exhausted, falls back to algorithm's default tie-break. Useful for exam questions that fix tie-break rules or specify "expand X first".</span>
+    <input class="w-full font-mono text-xs p-2 rounded border border-ink-300 dark:border-ink-700 bg-white dark:bg-ink-900" placeholder="e.g. B, C, F (leave blank for default)" bind:value={expandOverride} />
   </label>
 
   <div class="flex flex-wrap gap-2 items-center">

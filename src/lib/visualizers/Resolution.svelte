@@ -11,9 +11,25 @@
 ~Q, R`);
   let query = $state(initialQuery || 'R');
   let useQuery = $state(true);
-  let log = $state<{ step: number; a: string[]; b: string[]; r: string[]; pivot: string }[]>([]);
+  let overrideSpec = $state('');   // e.g. "C1, C3\nC2, C4" — force these resolution pairs first
+  let log = $state<{ step: number; a: string[]; b: string[]; r: string[]; pivot: string; forced?: boolean }[]>([]);
   let success = $state(false);
   let error = $state('');
+
+  function parseOverridePairs(spec: string): { i: number; j: number }[] {
+    // Format: one pair per line, e.g. "C1, C3" or "1, 3" or "C1 C3". 1-based indices.
+    const out: { i: number; j: number }[] = [];
+    for (const raw of spec.split('\n')) {
+      const line = raw.trim();
+      if (!line) continue;
+      const nums = line.match(/\d+/g);
+      if (!nums || nums.length < 2) continue;
+      const i = Number(nums[0]) - 1;
+      const j = Number(nums[1]) - 1;
+      if (i >= 0 && j >= 0 && i !== j) out.push({ i, j });
+    }
+    return out;
+  }
 
   function parseClauses(s: string): string[][] {
     return s.split('\n').map((line) => line.trim()).filter(Boolean).map((line) => {
@@ -61,28 +77,51 @@
       let known: string[][] = kbWithQuery.map((c) => [...new Set(c)]);
       let knownKeys = new Set(known.map(clauseKey));
       let step = 0;
-      let changed = true;
-      outer: while (changed) {
-        changed = false;
-        const next: string[][] = [...known];
-        for (let i = 0; i < known.length; i++) {
-          for (let j = i + 1; j < known.length; j++) {
-            const r = resolve(known[i], known[j]);
-            if (r) {
-              const k = clauseKey(r.resolvent);
-              if (!knownKeys.has(k)) {
-                step++;
-                localLog.push({ step, a: known[i], b: known[j], r: r.resolvent, pivot: r.pivot });
-                next.push(r.resolvent);
-                knownKeys.add(k);
-                changed = true;
-                if (r.resolvent.length === 0) { localSuccess = true; known = next; break outer; }
-                if (step > 500) break outer;
+
+      // 1. Process user-forced pairs (in order). Each pair is (i, j) into the
+      //    growing `known` list, 1-based on input. Skip pairs that aren't
+      //    valid (out of range or no complementary literal).
+      const forced = parseOverridePairs(overrideSpec);
+      let forcedDone = false;
+      for (const pair of forced) {
+        if (pair.i >= known.length || pair.j >= known.length) continue;
+        const r = resolve(known[pair.i], known[pair.j]);
+        if (!r) continue;
+        const k = clauseKey(r.resolvent);
+        if (knownKeys.has(k)) continue;
+        step++;
+        localLog.push({ step, a: known[pair.i], b: known[pair.j], r: r.resolvent, pivot: r.pivot, forced: true });
+        known = [...known, r.resolvent];
+        knownKeys.add(k);
+        if (r.resolvent.length === 0) { localSuccess = true; forcedDone = true; break; }
+        if (step > 500) { forcedDone = true; break; }
+      }
+
+      // 2. Fall through to default BFS saturation.
+      if (!forcedDone) {
+        let changed = true;
+        outer: while (changed) {
+          changed = false;
+          const next: string[][] = [...known];
+          for (let i = 0; i < known.length; i++) {
+            for (let j = i + 1; j < known.length; j++) {
+              const r = resolve(known[i], known[j]);
+              if (r) {
+                const k = clauseKey(r.resolvent);
+                if (!knownKeys.has(k)) {
+                  step++;
+                  localLog.push({ step, a: known[i], b: known[j], r: r.resolvent, pivot: r.pivot });
+                  next.push(r.resolvent);
+                  knownKeys.add(k);
+                  changed = true;
+                  if (r.resolvent.length === 0) { localSuccess = true; known = next; break outer; }
+                  if (step > 500) break outer;
+                }
               }
             }
           }
+          known = next;
         }
-        known = next;
       }
     } catch (e: any) {
       localError = e.message;
@@ -91,7 +130,7 @@
     success = localSuccess;
     error = localError;
   }
-  $effect(() => { input; query; useQuery; run(); });
+  $effect(() => { input; query; useQuery; overrideSpec; run(); });
 
   function fmtClause(c: string[]): string {
     if (c.length === 0) return '∅';
@@ -111,6 +150,10 @@
     } else {
       lines.push(`- No query — testing the KB itself for UNSAT.`);
     }
+    const forced = parseOverridePairs(overrideSpec);
+    if (forced.length) {
+      lines.push(`- User-forced resolution order: ${forced.map((p) => `(C${p.i + 1}, C${p.j + 1})`).join(', ')}.`);
+    }
     lines.push('');
 
     if (error) {
@@ -127,7 +170,8 @@
       lines.push('|---|---|---|---|');
       for (const e of log) {
         const res = e.r.length === 0 ? '$\\square$ (empty)' : fmtClause(e.r);
-        lines.push(`| ${e.step} | ${fmtClause(e.a)} with ${fmtClause(e.b)} | ${e.pivot} | ${res} |`);
+        const tag = e.forced ? ' *(forced)*' : '';
+        lines.push(`| ${e.step} | ${fmtClause(e.a)} with ${fmtClause(e.b)}${tag} | ${e.pivot} | ${res} |`);
       }
       lines.push('');
     }
@@ -157,6 +201,11 @@
     <input class="flex-1 font-mono px-2 py-1 rounded border border-ink-300 dark:border-ink-700 bg-white dark:bg-ink-900" bind:value={query} placeholder="e.g. R (single literal) — the negation gets appended as a clause" disabled={!useQuery} />
     <span class="text-ink-500">The visualizer appends <code class="font-mono">¬({query || '…'})</code> as an extra clause and refutes.</span>
   </div>
+
+  <label class="block">
+    <span class="text-xs text-ink-500 block mb-1"><b>Resolution-pair overrides</b> — force the order of resolution steps. One pair per line, e.g. <code>C1, C3</code> (resolve clauses 1 and 3 first). Derived clauses are numbered C{1 + (useQuery && query.trim() ? parseClauses(input).length + 1 : parseClauses(input).length)}, … in order of derivation. Pairs without a complementary literal are skipped; the rest of the run continues with the default BFS. Leave blank for default.</span>
+    <textarea class="w-full font-mono text-sm p-2 rounded border border-ink-300 dark:border-ink-700 bg-white dark:bg-ink-900" rows="3" bind:value={overrideSpec} placeholder="e.g.&#10;C1, C3&#10;C2, C4"></textarea>
+  </label>
 
   <div class="flex gap-2 flex-wrap text-xs">
     Try:
@@ -192,7 +241,7 @@
         <tbody>
           {#each log as e}
             <tr>
-              <td class="text-ink-500 pr-2">{e.step}</td>
+              <td class="text-ink-500 pr-2">{e.step}{e.forced ? '*' : ''}</td>
               <td class="pr-2">{'{' + e.a.join(', ') + '}'} ∧ {'{' + e.b.join(', ') + '}'}</td>
               <td class="pr-2 text-violet-700 dark:text-violet-300">{e.pivot}</td>
               <td class="font-bold {e.r.length === 0 ? 'text-rose-600' : 'text-emerald-700 dark:text-emerald-400'}">{e.r.length === 0 ? '□  (empty clause)' : '{' + e.r.join(', ') + '}'}</td>
@@ -200,6 +249,9 @@
           {/each}
         </tbody>
       </table>
+      {#if log.some((e) => e.forced)}
+        <div class="text-xs text-ink-500 mt-2">* = user-forced step (from override list).</div>
+      {/if}
     </div>
   {/if}
 

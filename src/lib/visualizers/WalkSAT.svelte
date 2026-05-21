@@ -46,6 +46,33 @@
   let history = $state<number[]>([]);
   let flips = $state(0);
   let trace = $state<string[]>([]);
+  let overrideSpec = $state('');
+
+  function parseFlipOverrides(spec: string): Map<number, number> {
+    // Format: "<iteration>: <var>" per line, e.g. "2: B" or "3: x4" or "1: 2".
+    // Iteration is 1-indexed and matches the flip number. Variable can be:
+    //   - integer: 1, 2, 3, ...
+    //   - letter:  A, B, C, ... (A=1, B=2, ...)
+    //   - x-prefixed: x1, x_2, x{3}
+    const out = new Map<number, number>();
+    for (const raw of spec.split('\n')) {
+      const line = raw.trim();
+      if (!line || line.startsWith('#')) continue;
+      const m = line.match(/^(\d+)\s*[:=]\s*(.+)$/);
+      if (!m) continue;
+      const iter = Number(m[1]);
+      const tok = m[2].trim();
+      let v: number | null = null;
+      const asInt = tok.match(/^(\d+)$/);
+      const asX = tok.match(/^x_?\{?(\d+)\}?$/i);
+      const asLetter = tok.match(/^([A-Za-z])$/);
+      if (asInt) v = Number(asInt[1]);
+      else if (asX) v = Number(asX[1]);
+      else if (asLetter) v = asLetter[1].toUpperCase().charCodeAt(0) - 64;
+      if (v !== null && v > 0 && iter > 0) out.set(iter, v);
+    }
+    return out;
+  }
 
   function rand(seed_: { s: number }): number {
     seed_.s = (seed_.s * 9301 + 49297) % 233280;
@@ -102,26 +129,32 @@
   function step(): boolean {
     if (unsatCount === 0) return false;
     const unsat = clauses.filter((c) => !isSat(c, assignment));
-    const c = unsat[Math.floor(Math.random() * unsat.length)];
+    const iter = flips + 1;
+    const overrideMap = parseFlipOverrides(overrideSpec);
+    const overrideVar = overrideMap.get(iter);
+    // If user has forced a variable for this iteration AND that variable appears
+    // in at least one currently-unsat clause, honour it (correctness invariant:
+    // WalkSAT must flip a variable from an unsat clause).
+    let c: number[];
     let chosen: number;
     let reason: string;
-    if (Math.random() < p) {
-      chosen = c[Math.floor(Math.random() * c.length)];
-      reason = `random walk (p=${p.toFixed(2)})`;
-    } else {
-      let best: number[] = [];
-      let bestN = Infinity;
-      for (const lit of c) {
-        const v = Math.abs(lit);
-        assignment[v] = !assignment[v];
-        let breaks = 0;
-        for (const cc of clauses) if (isSat(cc, assignment) === false) breaks += 1;
-        assignment[v] = !assignment[v];
-        if (breaks < bestN) { bestN = breaks; best = [lit]; }
-        else if (breaks === bestN) best.push(lit);
+    if (overrideVar !== undefined && overrideVar < assignment.length) {
+      const candidateClauses = unsat.filter((cc) => cc.some((lit) => Math.abs(lit) === overrideVar));
+      if (candidateClauses.length > 0) {
+        c = candidateClauses[Math.floor(Math.random() * candidateClauses.length)];
+        chosen = c.find((lit) => Math.abs(lit) === overrideVar)!;
+        reason = `user override (iter ${iter} → x${overrideVar})`;
+      } else {
+        // Override variable doesn't appear in any unsat clause — fall back to
+        // default policy (preserves WalkSAT correctness).
+        c = unsat[Math.floor(Math.random() * unsat.length)];
+        chosen = pickByPolicy(c);
+        reason = `override x${overrideVar} skipped (not in any unsat clause) → ${pickReason}`;
       }
-      chosen = best[Math.floor(Math.random() * best.length)];
-      reason = `greedy (min break-count = ${bestN})`;
+    } else {
+      c = unsat[Math.floor(Math.random() * unsat.length)];
+      chosen = pickByPolicy(c);
+      reason = pickReason;
     }
     const v = Math.abs(chosen);
     const beforeVal = assignment[v];
@@ -131,6 +164,27 @@
     recomputeUnsat();
     trace = [...trace, `Flip ${flips}: picked unsat clause ${fmtClause(c)} → flipped x${v} (${beforeVal ? 'T→F' : 'F→T'}) via ${reason}. Now ${unsatCount} unsat.`].slice(-100);
     return true;
+  }
+
+  let pickReason = '';
+  function pickByPolicy(c: number[]): number {
+    if (Math.random() < p) {
+      pickReason = `random walk (p=${p.toFixed(2)})`;
+      return c[Math.floor(Math.random() * c.length)];
+    }
+    let best: number[] = [];
+    let bestN = Infinity;
+    for (const lit of c) {
+      const v = Math.abs(lit);
+      assignment[v] = !assignment[v];
+      let breaks = 0;
+      for (const cc of clauses) if (isSat(cc, assignment) === false) breaks += 1;
+      assignment[v] = !assignment[v];
+      if (breaks < bestN) { bestN = breaks; best = [lit]; }
+      else if (breaks === bestN) best.push(lit);
+    }
+    pickReason = `greedy (min break-count = ${bestN})`;
+    return best[Math.floor(Math.random() * best.length)];
   }
 
   let playing = $state(false);
@@ -158,6 +212,11 @@
       lines.push(`- Custom CNF, ${clauses.length} clauses, max variable index = ${Math.max(0, assignment.length - 1)}.`);
     }
     lines.push(`- WalkSAT noise parameter $p = ${p.toFixed(2)}$ (with probability $p$ flip a random literal from an unsat clause; with probability $1 - p$ flip the one that **minimises break-count**).`);
+    const ovMap = parseFlipOverrides(overrideSpec);
+    if (ovMap.size > 0) {
+      const entries = [...ovMap.entries()].sort((a, b) => a[0] - b[0]);
+      lines.push(`- User-forced flips: ${entries.map(([it, v]) => `iter ${it} → $x_{${v}}$`).join(', ')} (override consulted before the greedy/random rule; skipped if the variable is not in any currently-unsat clause).`);
+    }
     lines.push('');
 
     lines.push(`**CNF.**`);
@@ -226,6 +285,11 @@
       <textarea class="w-full font-mono text-xs p-2 rounded border border-ink-300 dark:border-ink-700 bg-white dark:bg-ink-900" rows="4" bind:value={customCNF}></textarea>
     </label>
   {/if}
+
+  <label class="block">
+    <span class="text-xs text-ink-500 block mb-1"><b>Flip overrides</b> — force which variable to flip on specific iterations. One <code>iter: var</code> per line; var is an integer, <code>x3</code>, or a letter (A=1, B=2, …). Other iterations use the default greedy/random rule. If the chosen var is not in any unsat clause, the override is skipped to preserve correctness.</span>
+    <textarea class="w-full font-mono text-xs p-2 rounded border border-ink-300 dark:border-ink-700 bg-white dark:bg-ink-900" rows="3" bind:value={overrideSpec} placeholder={'2: B\n5: D'}></textarea>
+  </label>
 
   <div class="text-sm">
     <b>{clauses.length}</b> clauses · <b>{unsatCount}</b> unsatisfied · <b>{flips}</b> flips
