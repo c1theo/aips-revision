@@ -3,6 +3,7 @@ export type VizKey =
   | 'SearchCompare'
   | 'SearchTree'
   | 'SearchGraph'
+  | 'GraphImageExtractor'
   | 'MinimaxTree'
   | 'MCTSTree'
   | 'AC3'

@@ -4,6 +4,7 @@
   import SearchCompare from '../visualizers/SearchCompare.svelte';
   import SearchTree from '../visualizers/SearchTree.svelte';
   import SearchGraph from '../visualizers/SearchGraph.svelte';
+  import GraphImageExtractor from '../visualizers/GraphImageExtractor.svelte';
   import MinimaxTree from '../visualizers/MinimaxTree.svelte';
   import MCTSTree from '../visualizers/MCTSTree.svelte';
   import AC3 from '../visualizers/AC3.svelte';
@@ -39,7 +40,7 @@
   let { viz, title, props = {} } = $props<{ viz: VizKey; title?: string; props?: Record<string, any> }>();
 
   const map: Record<VizKey, any> = {
-    SearchGrid, SearchCompare, SearchTree, SearchGraph, MinimaxTree, MCTSTree, AC3, AC4, AC2001, ForwardCheck, NQueens, MinConflicts, TwoWayBranching,
+    SearchGrid, SearchCompare, SearchTree, SearchGraph, GraphImageExtractor, MinimaxTree, MCTSTree, AC3, AC4, AC2001, ForwardCheck, NQueens, MinConflicts, TwoWayBranching,
     ConstraintGraph, CSPLab, ReginAllDiff, TreeCSP, TwoSAT, HillClimbSA, Expectimax, NormalForm, PhaseTransition,
     EssencePrime, ModellingWizard, TruthTable, Resolution, HornChain, DPLL, CDCL, WalkSAT, CNFEncoder, TseitinEncoder, ComplexityTable,
   };

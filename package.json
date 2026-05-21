@@ -26,6 +26,7 @@
   "dependencies": {
     "katex": "^0.16.47",
     "marked": "^18.0.3",
-    "minisearch": "^7.2.0"
+    "minisearch": "^7.2.0",
+    "tesseract.js": "^7.0.0"
   }
 }

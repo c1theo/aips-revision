@@ -9,6 +9,7 @@
         { key: 'SearchGrid', label: 'Pathfinding grid', description: 'BFS · DFS · UCS · Greedy · A* on a configurable grid with heuristic, diagonals & weighted cells.' },
         { key: 'SearchCompare', label: 'Side-by-side compare', description: 'Run any two algorithms on the same grid simultaneously.' },
         { key: 'SearchGraph', label: '🗺 Search on arbitrary graph (BFS/DFS/UCS/Greedy/A*/Weighted A*/IDS)', description: 'Define any node-edge graph with heuristics. Trace any search algorithm. Graph or tree search mode (cycle handling).' },
+        { key: 'GraphImageExtractor', label: '📷 Graph-from-image extractor (experimental, classical CV + OCR)', description: 'Upload or paste an image of a node-edge diagram; pure-JS image processing detects circles + lines, Tesseract reads labels, and you get a SearchGraph spec to verify and use. No generative AI. Works best on clean printed diagrams.' },
         { key: 'HillClimbSA', label: 'Hill climb / Simulated annealing', description: '1D function landscape — watch HC get stuck, RR escape, SA explore.' },
       ],
     },

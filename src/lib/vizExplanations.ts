@@ -149,6 +149,17 @@ export const vizExplanations: Partial<Record<VizKey, VizExplanation>> = {
     whatToLookFor: ['Each clause $(\\ell_1 \\vee \\ell_2)$ → two implications: $\\lnot \\ell_1 \\Rightarrow \\ell_2$ and $\\lnot \\ell_2 \\Rightarrow \\ell_1$.', 'SCCs computed via Kosaraju\'s algorithm.', 'UNSAT iff some SCC contains both $x$ and $\\lnot x$.', 'Compare to 3-SAT which is NP-complete — the jump from 2 to 3 is the classic complexity boundary.'],
     relatedConcepts: ['2-SAT in P', 'Strongly connected components', 'Tarjan / Kosaraju'],
   },
+  GraphImageExtractor: {
+    whatItShows: 'A classical computer-vision pipeline that converts an image of a graph diagram (circles for nodes, lines for edges) into the same text-spec format used by the *Search on arbitrary graph* visualiser. No neural networks for vision; Tesseract.js (a discriminative OCR engine, not generative AI) for label reading.',
+    howToUse: 'Upload or paste an image. Optionally tweak the binarisation threshold and the min/max node-radius range. Press *Extract graph*. Verify the detected nodes/edges/labels in the right-hand panel — edit any mistakes inline, mark start/goal — then copy the spec into SearchGraph.',
+    whatToLookFor: [
+      'Pipeline: binarise → flood-fill background to find enclosed circle interiors → mask out nodes → connected components in the residual ink to find edges → OCR on the whole image, then assign text boxes to nodes/edges by proximity.',
+      'Why flood-fill (not Hough circles)? Hough circles needs careful per-image radius tuning and is brittle to broken outlines. Flood-fill is parameter-light and tolerates jagged hand-drawn circles, provided the outline is *closed*.',
+      'OCR limitations: Tesseract is trained on text strings with linguistic context; isolated single letters or single digits sometimes mis-read (O↔0, l↔1). Always sanity-check the extracted labels.',
+      'When this fails — phone photos at an angle, very faint pencil, curved edges, edge labels overlapping with circles — fall back to typing the spec directly into SearchGraph.',
+    ],
+    relatedConcepts: ['Binarisation', 'Connected components', 'Morphological close', 'OCR (Tesseract)', 'No-AI feature'],
+  },
   SearchGraph: {
     whatItShows: 'An arbitrary state-space graph with editable nodes, weighted edges, and per-node heuristic to goal. Any of BFS, DFS, UCS, Greedy best-first, A*, Weighted A*, or IDS runs on the graph with a full step-by-step trace. Graph search and tree search (cycle prevention via ancestor check) modes available.',
     howToUse: 'Pick a preset or write a custom graph spec (nodes with $h$, edges with cost, start, goal). Choose algorithm, weight (for Weighted A*), and graph vs tree search mode. Step through; the SVG colours nodes by status (frontier, explored, on path).',
