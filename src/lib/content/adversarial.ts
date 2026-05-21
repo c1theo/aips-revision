@@ -576,5 +576,443 @@ If B's stats stay good as $N_B$ grows, the exploration bonus shrinks but the exp
         },
       ],
     },
+
+    // ─────────────────────────────────────────────────────────────────
+    //   NORMAL-FORM GAMES (game theory) — separate paradigm from
+    //   sequential minimax: simultaneous moves, payoff matrices,
+    //   dominant strategies, Nash equilibria.
+    // ─────────────────────────────────────────────────────────────────
+    {
+      id: 'normal-form',
+      slug: 'normal-form',
+      module: 'Module 2 · Adversarial',
+      title: 'Normal-form games (game theory)',
+      oneLiner: 'Simultaneous-move games via payoff matrices, dominant strategies and Nash equilibria.',
+      sections: [
+        {
+          id: 'definition',
+          title: 'Normal-form game definition',
+          blocks: [
+            { kind: 'md', body: `A **normal-form game** is a tuple $\\langle N, (A_i)_{i \\in N}, (u_i)_{i \\in N} \\rangle$ where:
+
+- $N$ — finite set of **players**.
+- $A_i$ — finite set of **actions** (a.k.a. *pure strategies*) available to player $i$.
+- $u_i : A_1 \\times \\cdots \\times A_n \\to \\mathbb{R}$ — **utility function** mapping each action profile to a real-valued payoff for player $i$.
+
+A **profile** is a tuple $(a_1, \\ldots, a_n)$ — one action per player. Players act **simultaneously** without knowing each other's choice.
+
+Unlike sequential games (chess, minimax), normal-form games have no turn order — both players commit to an action at the same time.` },
+            { kind: 'callout', variant: 'keyfact', title: 'Sequential vs simultaneous', body: `Minimax/α-β assumes alternating moves with full observation. Normal-form games are **single-shot, simultaneous, no information about opponent's move**. Different paradigm — needs game theory, not search.` },
+          ],
+        },
+        {
+          id: 'matrix-rep',
+          title: 'Payoff matrix representation',
+          blocks: [
+            { kind: 'md', body: `For a 2-player game with finite actions, the standard representation is a **matrix of payoff pairs**:
+
+|  | $b_1$ | $b_2$ | $\\ldots$ |
+|---|---|---|---|
+| $a_1$ | $(u_1(a_1, b_1), u_2(a_1, b_1))$ | $(u_1(a_1, b_2), u_2(a_1, b_2))$ | ... |
+| $a_2$ | ... | ... | ... |
+
+Rows = player 1's actions; columns = player 2's actions. Each cell = $(u_1, u_2)$ payoff pair.
+
+### Worked example: Prisoner's Dilemma
+
+Two suspects, each can **Cooperate** (stay silent) or **Defect** (rat out the other).
+
+|  | Cooperate | Defect |
+|---|---|---|
+| **Cooperate** | $(-1, -1)$ | $(-3, 0)$ |
+| **Defect** | $(0, -3)$ | $(-2, -2)$ |
+
+Reading: if both cooperate, both get $-1$ (small sentence each). If row defects and column cooperates, row goes free ($0$) and column gets $-3$ (long sentence). Etc.
+
+### Zero-sum games
+
+If $u_1(a, b) + u_2(a, b) = 0$ for every $(a, b)$, the game is **zero-sum**. The matrix can be simplified to just $u_1$'s value (player 2's value is the negation). All purely competitive games (chess, Go) are zero-sum.` },
+          ],
+        },
+        {
+          id: 'dominance',
+          title: 'Dominant strategies',
+          blocks: [
+            { kind: 'md', body: `A strategy $a$ **strictly dominates** $a'$ for player $i$ if:
+$$\\forall (\\text{opponent profile } a_{-i}): \\quad u_i(a, a_{-i}) > u_i(a', a_{-i})$$
+
+i.e. $a$ gives strictly higher payoff than $a'$ no matter what the opponents do.
+
+A strategy $a$ **weakly dominates** $a'$ if $u_i(a, a_{-i}) \\ge u_i(a', a_{-i})$ for all $a_{-i}$, with strict inequality for at least one $a_{-i}$.
+
+### How to find dominant strategies
+
+**Strict dominance.** Look at each pair of rows (for player 1) or columns (for player 2). For player 1: row $a$ strictly dominates $a'$ iff $a$'s payoffs are strictly higher than $a'$'s in **every** column.
+
+### Iterated elimination of dominated strategies (IEDS)
+
+Strictly dominated strategies are NEVER played by a rational player. Remove them; possibly more strategies become dominated in the reduced game; repeat.
+
+The remaining game is **solved by IEDS** if only one strategy per player survives.` },
+            { kind: 'callout', variant: 'keyfact', title: 'In Prisoner\'s Dilemma...', body: `**Defect** strictly dominates **Cooperate** for both players ($0 > -1$ and $-2 > -3$). IEDS gives unique outcome $(\\text{Defect}, \\text{Defect})$ — the famous tragedy: both rational, both prefer cooperation, both play defect.` },
+          ],
+        },
+        {
+          id: 'best-response',
+          title: 'Best response & Nash equilibrium',
+          blocks: [
+            { kind: 'md', body: `A **best response** for player $i$ against opponent profile $a_{-i}$ is any action $a_i^*$ maximising $u_i(a_i, a_{-i})$.
+
+A **Nash equilibrium** is a profile $(a_1^*, \\ldots, a_n^*)$ where every player's action is a best response to the others:
+$$\\forall i: a_i^* \\in \\arg\\max_{a_i \\in A_i} u_i(a_i, a_{-i}^*)$$
+
+In a Nash equilibrium, no single player can improve by unilaterally changing their action. It's a **stable** outcome.
+
+### Finding pure-strategy Nash equilibria — the cell-marking method
+
+For each cell $(a, b)$:
+1. In column $b$, mark the cell(s) where player 1 has their highest payoff.
+2. In row $a$, mark the cell(s) where player 2 has their highest payoff.
+3. Cells marked twice = pure-strategy Nash equilibria.
+
+### Mixed strategies
+
+When no pure NE exists (e.g. Matching Pennies), players randomise. A **mixed strategy** is a probability distribution over actions. **Nash's theorem (1950):** every finite normal-form game has at least one Nash equilibrium in mixed strategies.
+
+(Mixed-strategy computation is beyond this module — note it exists.)` },
+            { kind: 'callout', variant: 'whatif', title: 'What if a strategy is "dominant"?', body: `Then it's a best response to *every* opponent strategy — so playing it is a Nash equilibrium action regardless of what the opponent does. If all players have dominant strategies, the dominant-strategy profile is the unique Nash equilibrium.` },
+          ],
+        },
+        {
+          id: 'famous-games',
+          title: 'Famous 2×2 games',
+          blocks: [
+            { kind: 'md', body: `### Prisoner's Dilemma (PD)
+|  | C | D |
+|---|---|---|
+| **C** | $(-1, -1)$ | $(-3, 0)$ |
+| **D** | $(0, -3)$ | $(-2, -2)$ |
+
+NE: $(D, D)$. Pareto-inferior to $(C, C)$.
+
+### Matching Pennies (zero-sum, no pure NE)
+|  | H | T |
+|---|---|---|
+| **H** | $(+1, -1)$ | $(-1, +1)$ |
+| **T** | $(-1, +1)$ | $(+1, -1)$ |
+
+No pure NE. Mixed NE: each plays $H$ with $p = 1/2$.
+
+### Stag Hunt (coordination game)
+|  | Stag | Hare |
+|---|---|---|
+| **Stag** | $(2, 2)$ | $(0, 1)$ |
+| **Hare** | $(1, 0)$ | $(1, 1)$ |
+
+Two pure NEs: $(\\text{Stag}, \\text{Stag})$ — payoff-dominant; $(\\text{Hare}, \\text{Hare})$ — risk-dominant.
+
+### Battle of the Sexes
+|  | Ballet | Football |
+|---|---|---|
+| **Ballet** | $(2, 1)$ | $(0, 0)$ |
+| **Football** | $(0, 0)$ | $(1, 2)$ |
+
+Two pure NEs at $(B, B)$ and $(F, F)$ — both want to coordinate, but disagree on which.
+
+### Chicken / Hawk-Dove
+|  | Swerve | Straight |
+|---|---|---|
+| **Swerve** | $(0, 0)$ | $(-1, +1)$ |
+| **Straight** | $(+1, -1)$ | $(-10, -10)$ |
+
+Two pure NEs at $(\\text{S}, \\text{St})$ and $(\\text{St}, \\text{S})$. Mutual stubbornness is catastrophic.` },
+          ],
+        },
+        {
+          id: 'method',
+          title: 'How to solve a normal-form game (procedure)',
+          blocks: [
+            { kind: 'md', body: `Given a payoff matrix:
+
+1. **Check for dominant strategies.** For each player, compare pairs of rows (or columns). If one strictly dominates, the dominated row/column will never be played.
+2. **Apply IEDS.** Repeatedly remove strictly dominated strategies. If the matrix shrinks to a single cell, that's the unique outcome.
+3. **Find pure-strategy Nash equilibria via cell marking.**
+   - Per column (player 1's view): underline player 1's max payoff.
+   - Per row (player 2's view): underline player 2's max payoff.
+   - Cells with both numbers underlined = pure NEs.
+4. **If no pure NE exists**, compute the mixed-strategy NE (out of scope here).
+5. **Identify if game is zero-sum**; if so, mention min-max value (≡ NE in zero-sum games — von Neumann's theorem).` },
+            { kind: 'callout', variant: 'nightingale', title: 'Exam-style answer', body: `For a 2×2 game question, list the actions for each player, write the matrix, identify any dominant strategies (state strong or weak), find pure NEs by cell marking, and state the outcome.` },
+          ],
+        },
+        {
+          id: 'viz',
+          title: 'Interactive: normal-form game analyser',
+          blocks: [
+            { kind: 'md', body: `Pick a preset (Auditions, Prisoner\'s Dilemma, Matching Pennies, Stag Hunt, Battle of the Sexes, Chicken) or build a custom game. The analyser computes dominance, pure NEs, and (for zero-sum) maximin/minimax automatically.` },
+            { kind: 'viz', viz: 'NormalForm', title: 'Normal-form game — payoffs, dominance, Nash equilibria', props: {} },
+          ],
+        },
+      ],
+      flashcards: [
+        { id: 'nf1', q: 'Normal-form game tuple?', a: '⟨N, (Aᵢ), (uᵢ)⟩: players, per-player action sets, per-player utility functions over action profiles.' },
+        { id: 'nf2', q: 'Strict vs weak dominance?', a: 'Strict: a is strictly better than a\' against EVERY opponent profile. Weak: at least as good against all, and strictly better against at least one.' },
+        { id: 'nf3', q: 'Pure-strategy Nash equilibrium?', a: 'A profile where every player\'s action is a best response to the others — no one can improve by unilaterally changing.' },
+        { id: 'nf4', q: 'How do you find pure NEs in a 2-player matrix?', a: 'Cell marking: underline player 1\'s max per column; underline player 2\'s max per row. Cells underlined twice = pure NEs.' },
+        { id: 'nf5', q: 'Does every finite game have a Nash equilibrium?', a: 'Yes — Nash (1950): every finite normal-form game has at least one NE in mixed strategies.' },
+        { id: 'nf6', q: 'Prisoner\'s Dilemma — what makes it interesting?', a: 'Strict dominance gives the unique NE (Defect, Defect) which is Pareto-inferior to (Cooperate, Cooperate). Rational play is collectively worse.' },
+        { id: 'nf7', q: 'Zero-sum game?', a: 'u₁ + u₂ = 0 for every cell. Min-max = max-min = NE (von Neumann\'s minimax theorem).' },
+        { id: 'nf8', q: 'Sequential (minimax) vs simultaneous (normal-form) — when does each apply?', a: 'Sequential: full observation of opponent moves (chess, tic-tac-toe). Simultaneous: commit without seeing opponent (prisoner\'s dilemma, auctions, scheduling auditions).' },
+      ],
+      examples: [
+        {
+          id: 'nfex1-audition', difficulty: 'intermediate', marks: 15,
+          question: `**Auditions game.** Two amateur actors X and Y both want to audition for a play. Each chooses **P** (principal role, 50 lines) or **S** (supporting role, 30 lines). The casting director's rules:
+- If only one auditions for P, that person gets it (50 lines).
+- If both audition for P, the director refuses to choose between friends — neither gets P (0 lines).
+- If an actor auditions for S, they always get a supporting role (30 lines).
+
+(i) [3 marks] Express as a normal-form game: $N$, $A_X$, $A_Y$.
+
+(ii) [4 marks] Compute the payoff matrix $u_X, u_Y$ for all four profiles.
+
+(iii) [4 marks] Draw the matrix.
+
+(iv) [4 marks] Identify any dominant strategies (strict or weak). State the predicted outcome and justify.`,
+          answer: `## (i) — 3 marks
+- $N = \\{X, Y\\}$ — two players.
+- $A_X = \\{P, S\\}$, $A_Y = \\{P, S\\}$.
+
+## (ii) — 4 marks
+- $u_X(P, P) = 0$ — both go for principal, neither gets it.
+- $u_X(P, S) = 50$ — X is the only P applicant.
+- $u_X(S, P) = 30$ — X gets a supporting role.
+- $u_X(S, S) = 30$ — X gets a supporting role.
+
+By symmetry, $u_Y(a_X, a_Y) = u_X(a_Y, a_X)$. So $u_Y(P, P) = 0$, $u_Y(P, S) = 30$, $u_Y(S, P) = 50$, $u_Y(S, S) = 30$.
+
+## (iii) — 4 marks
+|        | Y plays P | Y plays S |
+|--------|-----------|-----------|
+| **X plays P** | $(0, 0)$   | $(50, 30)$ |
+| **X plays S** | $(30, 50)$ | $(30, 30)$ |
+
+## (iv) — 4 marks
+**Check dominance for X.**
+- Compare X's rows (compare $u_X$ across columns).
+- Row P: $(0, 50)$. Row S: $(30, 30)$.
+- Against Y=P: S beats P ($30 > 0$).
+- Against Y=S: P beats S ($50 > 30$).
+- Neither row strictly nor weakly dominates the other. **No dominance for X.**
+
+By symmetry, **no dominance for Y.**
+
+**Pure NEs by cell marking.**
+- Column "Y plays P": X's max is $30$ (row S). Underline $(30, 50)$.
+- Column "Y plays S": X's max is $50$ (row P). Underline $(50, 30)$.
+- Row "X plays P": Y's max is $30$ (column S). Underline $(50, 30)$.
+- Row "X plays S": Y's max is $50$ (column P). Underline $(30, 50)$.
+
+Cells doubly-underlined: $(50, 30)$ and $(30, 50)$. **Two pure NEs:** $(P, S)$ and $(S, P)$ — exactly one actor goes for the principal.
+
+**Outcome.** Coordination problem like Battle of the Sexes — both prefer to coordinate but disagree on who gets the bigger role. Without communication, the outcome is ambiguous; with communication, they can agree.`,
+          tags: ['normal-form', 'dominant strategy', 'Nash equilibrium', 'coordination game'],
+        },
+        {
+          id: 'nfex2-pd', difficulty: 'basic', marks: 8,
+          question: `For the Prisoner's Dilemma payoffs above:
+|  | C | D |
+|---|---|---|
+| **C** | $(-1, -1)$ | $(-3, 0)$ |
+| **D** | $(0, -3)$ | $(-2, -2)$ |
+
+(i) Identify all dominant strategies, stating whether strong or weak.
+(ii) Apply iterated elimination of dominated strategies. State the predicted outcome.
+(iii) Comment on the "irrational" feel of the outcome.`,
+          answer: `## (i) Dominant strategies
+
+**Player 1 (rows):** Compare row C vs row D for $u_1$:
+- Against opp C: $u_1(D, C) = 0 > -1 = u_1(C, C)$ ✓
+- Against opp D: $u_1(D, D) = -2 > -3 = u_1(C, D)$ ✓
+
+D **strictly dominates** C for player 1.
+
+By symmetry, D strictly dominates C for player 2.
+
+Both players have a strictly dominant strategy: **D (Defect)**.
+
+## (ii) IEDS
+
+Round 1: remove dominated C for both. Reduced game has a single cell: $(D, D)$. **Outcome: $(D, D)$ with payoffs $(-2, -2)$.**
+
+## (iii) Comment
+
+Both players would be better off mutually cooperating ($(-1, -1)$) than mutually defecting ($(-2, -2)$). But individual rationality (always choosing one's dominant strategy) leads to the Pareto-inferior outcome. This is the classic tension between **individual** and **collective** rationality.
+
+Real-world analogues: arms races, climate-change action, advertising spending, overfishing. The PD is a 1-shot game; iterated PD allows reputation and reciprocity to enable cooperation (Axelrod tournaments).`,
+          tags: ['prisoner dilemma', 'IEDS', 'dominant strategy'],
+        },
+        {
+          id: 'nfex3-zero-sum', difficulty: 'intermediate', marks: 8,
+          question: `For the zero-sum game with payoff matrix (player 1's view; player 2 gets the negation):
+|  | L | R |
+|---|---|---|
+| **U** | $3$ | $-1$ |
+| **D** | $-2$ | $4$ |
+
+(i) Find the maximin value for player 1 and the minimax value for player 2.
+(ii) Is there a pure-strategy NE?
+(iii) State von Neumann's theorem and explain its implication.`,
+          answer: `## (i) Maximin / minimax
+
+**Maximin (player 1):** for each row, take min; player 1 picks the row with max-min.
+- Row U: $\\min(3, -1) = -1$.
+- Row D: $\\min(-2, 4) = -2$.
+- $\\max$-$\\min$ = $-1$ at row U. **Maximin value = $-1$, secured by U.**
+
+**Minimax (player 2):** for each column, take max (worst for player 2); player 2 picks the column with min-max.
+- Column L: $\\max(3, -2) = 3$.
+- Column R: $\\max(-1, 4) = 4$.
+- $\\min$-$\\max$ = $3$ at column L. **Minimax value = $3$, secured by L.**
+
+## (ii) Pure NE?
+
+Maximin ≠ minimax ($-1 \\ne 3$) → **no pure-strategy NE exists**. There is a mixed-strategy NE somewhere in between.
+
+## (iii) Von Neumann's theorem
+
+> Every finite, two-player, zero-sum game has a **value** $v$ such that:
+> - Player 1 has a strategy (pure or mixed) guaranteeing payoff ≥ $v$.
+> - Player 2 has a strategy guaranteeing payoff ≤ $v$.
+
+This $v$ is the unique Nash equilibrium value. For purely pure-strategy NEs, $v$ = maximin = minimax. When they differ (as here), $v$ lies between them and is achieved by mixed strategies.
+
+**Implication.** Zero-sum games have an unambiguous "correct" value — unlike non-zero-sum games where multiple NEs and Pareto trade-offs can leave the outcome genuinely ambiguous.`,
+          tags: ['zero-sum', 'minimax', 'mixed strategies', 'von Neumann'],
+        },
+      ],
+      pitfalls: [
+        'Strict dominance requires $>$ in every column/row. Weak dominance allows ties (≥), with at least one strict $>$. They are NOT the same — IEDS using weak dominance can eliminate Nash equilibria.',
+        'Cell marking finds PURE-strategy NEs only. If no pure NE exists (e.g. Matching Pennies), the NE is in mixed strategies.',
+        'A NE is NOT necessarily Pareto-optimal — Prisoner\'s Dilemma is the canonical counter-example.',
+        'In a zero-sum game with no pure NE, you must compute the mixed-strategy NE — out of scope here, but mention it.',
+        'Normal-form games are SIMULTANEOUS. Don\'t apply minimax/α-β — those are for sequential games.',
+      ],
+    },
+
+    // ─────────────────────────────────────────────────────────────────
+    //   Waffl game — specific worked example
+    // ─────────────────────────────────────────────────────────────────
+    {
+      id: 'waffl',
+      slug: 'waffl-game',
+      module: 'Module 2 · Adversarial',
+      title: 'The Waffl game (worked sequential example)',
+      oneLiner: 'A 3×3 grid game used in York exam questions for minimax + α-β practice.',
+      sections: [
+        {
+          id: 'rules',
+          title: 'Rules of Waffl',
+          blocks: [
+            { kind: 'md', body: `**Waffl** is a 2-player sequential game played on a 3×3 grid containing a **permutation of integers 1–9**.
+
+- Player 1 starts; tries to **maximise** the final number.
+- Player 2 plays second; tries to **minimise** it.
+- Players alternate **striking out columns and rows**. Player 1 strikes out columns (C1, C2, C3); player 2 strikes out rows (R1, R2, R3).
+- After 4 moves (2 columns + 2 rows = striking 2 cols and 2 rows leaves 1 cell), one number remains. That's the score.
+
+**Move sequence:** Player 1 picks a column → Player 2 picks a row → Player 1 picks one of the two remaining columns → Player 2 picks one of the two remaining rows. The single uncrossed cell is the result.
+
+### Example board
+
+\`\`\`
+   C1 C2 C3
+R1  7  1  8
+R2  6  5  4
+R3  3  2  9
+\`\`\`
+
+If P1 plays C2 (deletes 1, 5, 2), P2 plays R3 (deletes 3, 9), P1 plays C3 (leaves 7, 6), P2 plays R1 (leaving 6). **Score = 6.**` },
+            { kind: 'callout', variant: 'nightingale', title: 'York-specific exam target', body: 'Waffl is a recurring exam game for minimax + α-β tracing. Memorise the structure: P1 picks columns, P2 picks rows, total of 4 moves, score is the single remaining cell.' },
+          ],
+        },
+        {
+          id: 'game-tree',
+          title: 'Game tree shape',
+          blocks: [
+            { kind: 'md', body: `After Player 1's first move (one column struck), the tree branches:
+
+- **Depth 1 (P2, MIN):** picks one of 3 rows → 3 children.
+- **Depth 2 (P1, MAX):** picks one of 2 remaining columns → 2 children each.
+- **Depth 3 (P2, MIN):** picks one of 2 remaining rows → 2 children each = **leaves**.
+
+So the tree from "after P1's first move" has $3 \\times 2 \\times 2 = 12$ leaves.
+
+Each leaf corresponds to **one specific cell remaining** — read off the board.
+
+### Mapping leaves to scores
+
+If P1 played C1 first (deleted column 1), the remaining 6 cells form a $3 \\times 2$ sub-grid (columns 2 and 3, all 3 rows). After P2's row choice, the 2-column row is gone. After P1's column choice, only 1 column remains. After P2's row choice, only 1 cell remains.
+
+**Trick.** For each leaf, compute (remaining column ID, remaining row ID) and look up the cell value.` },
+          ],
+        },
+      ],
+      flashcards: [
+        { id: 'wf1', q: 'Waffl: who moves first, what do they pick?', a: 'Player 1 (MAX) moves first and picks a COLUMN to strike out.' },
+        { id: 'wf2', q: 'Waffl: how many leaves in the tree from "after P1\'s first move"?', a: '3 (P2 row) × 2 (P1 col) × 2 (P2 row) = 12 leaves.' },
+        { id: 'wf3', q: 'Waffl: what is the score?', a: 'The integer in the single uncrossed cell after all 4 moves (2 columns + 2 rows struck out of 3 each).' },
+      ],
+      examples: [
+        {
+          id: 'wf-ex1', difficulty: 'intermediate', marks: 15,
+          question: `Consider the Waffl board:
+\`\`\`
+   C1 C2 C3
+R1  7  1  8
+R2  6  5  4
+R3  3  2  9
+\`\`\`
+Player 1 has just played C1 (deleting column 1: values 7, 6, 3).
+
+(i) [10 marks] Draw the minimax tree from this position. P2 picks a row next, then P1 picks one of {C2, C3}, then P2 picks one of the remaining rows. Label each leaf with the surviving cell value.
+
+(ii) [5 marks] Annotate each non-leaf with its minimax value, and identify P2's optimal first row choice.`,
+          answer: `## (i) Tree + leaves — 10 marks
+
+Remaining cells after C1 deleted:
+\`\`\`
+   C2 C3
+R1  1  8
+R2  5  4
+R3  2  9
+\`\`\`
+
+**P2's row choice** at depth 1 (MIN). 3 options: R1, R2, R3.
+
+If P2 = R1 (delete 1, 8): remaining $\\{(C2,R2)=5, (C2,R3)=2, (C3,R2)=4, (C3,R3)=9\\}$.
+- P1 = C2 (delete 5, 2): leaves $\\{(C3,R2)=4, (C3,R3)=9\\}$. P2 picks R2 (4) or R3 (9). **min = 4.**
+- P1 = C3 (delete 4, 9): leaves $\\{(C2,R2)=5, (C2,R3)=2\\}$. P2 picks R2 (5) or R3 (2). **min = 2.**
+- P1 picks **max(4, 2) = 4**.
+
+If P2 = R2 (delete 5, 4): remaining $\\{(C2,R1)=1, (C2,R3)=2, (C3,R1)=8, (C3,R3)=9\\}$.
+- P1 = C2: leaves $\\{(C3,R1)=8, (C3,R3)=9\\}$. P2 picks min(8, 9) = **8.**
+- P1 = C3: leaves $\\{(C2,R1)=1, (C2,R3)=2\\}$. P2 picks min(1, 2) = **1.**
+- P1 picks **max(8, 1) = 8**.
+
+If P2 = R3 (delete 2, 9): remaining $\\{(C2,R1)=1, (C2,R2)=5, (C3,R1)=8, (C3,R2)=4\\}$.
+- P1 = C2: leaves $\\{(C3,R1)=8, (C3,R2)=4\\}$. P2 picks min(8, 4) = **4.**
+- P1 = C3: leaves $\\{(C2,R1)=1, (C2,R2)=5\\}$. P2 picks min(1, 5) = **1.**
+- P1 picks **max(4, 1) = 4**.
+
+## (ii) Minimax values + best move — 5 marks
+
+P2 at root chooses min over R1=4, R2=8, R3=4. **Min = 4** — tied at R1 and R3.
+
+**Root value = 4.** P2's optimal first row choice is **R1 or R3** (both give value 4). By alphabetical tie-break, P2 plays **R1**.`,
+          tags: ['waffl', 'minimax', 'game tree'],
+        },
+      ],
+    },
   ],
 };

@@ -785,6 +785,203 @@ Reading top-to-bottom: every bin within capacity; $K$ tracks the highest used bi
           ],
         },
         {
+          id: 'set-representations',
+          title: 'Occurrence vs explicit set representation',
+          blocks: [
+            { kind: 'md', body: `When a decision variable is a **set** drawn from some universe $U = \\{1, \\ldots, q\\}$, Essence Prime forces us to choose a concrete encoding. The two canonical choices are:
+
+### Occurrence representation
+
+A Boolean vector indexed by $U$:
+\`\`\`
+find  occ : matrix indexed by [int(1..q)] of bool
+\`\`\`
+\`occ[v] = true\` iff $v$ is in the set. To force a set of size $p$:
+\`\`\`
+sum( occ ) = p
+\`\`\`
+**No symmetry** — each value $v$ has a fixed slot, so the representation is canonical.
+
+### Explicit representation
+
+A vector of $p$ integer slots:
+\`\`\`
+find  s : matrix indexed by [int(1..p)] of int(1..q)
+\`\`\`
+\`s[i]\` is the $i$-th element of the set. To enforce a SET (not multiset): add \`allDiff(s)\`. To break symmetry: add **strictly-increasing** order:
+\`\`\`
+forAll i : int(1..p-1) . s[i] < s[i+1]
+\`\`\`
+The lex constraint **simultaneously enforces no duplicates** (a strict inequality implies $\\ne$) and **breaks the $p!$ permutation symmetry** of the $p$ slots.
+
+### Comparison
+
+|   | Occurrence | Explicit |
+|---|---|---|
+| Variables | $q$ booleans | $p$ integers in $\\{1..q\\}$ |
+| Symmetry | None | $p!$ permutation symmetry |
+| "Size $p$" constraint | $\\sum$ occ $= p$ | Implicit (matrix size) |
+| Membership test "$v \\in S$?" | $O(1)$ via \`occ[v]\` | $O(p)$ scan or use \`exists\` |
+| Total size of decision space | $2^q$ | $q^p$ |
+| Best when... | $p \\approx q/2$ | $p \\ll q$ |
+
+### Worked: set of 3 elements from $\\{1..10\\}$
+
+**Occurrence:**
+\`\`\`
+find occ : matrix indexed by [int(1..10)] of bool
+such that sum(occ) = 3
+\`\`\`
+
+**Explicit:**
+\`\`\`
+find s : matrix indexed by [int(1..3)] of int(1..10)
+such that forAll i : int(1..2) . s[i] < s[i+1]
+\`\`\`
+
+Both encode the same set of $\\binom{10}{3} = 120$ solutions. Choice affects propagation cost and the natural form of downstream constraints.` },
+            { kind: 'callout', variant: 'keyfact', title: 'Strict < as a double-duty constraint', body: `In the explicit encoding, $s[i] < s[i+1]$ ELIMINATES BOTH duplicates AND the $p!$ symmetry of permutations of the slots — one constraint, two jobs done. This is THE standard exam answer for "encode a set of size $k$".` },
+            { kind: 'callout', variant: 'pitfall', title: 'Multiset variants', body: `For a **multiset** (duplicates allowed), use $s[i] \\le s[i+1]$ (non-strict). For a **sequence** (order matters), use no ordering — but then there's no symmetry to break.` },
+          ],
+        },
+        {
+          id: 'bibd-worked',
+          title: 'Worked: BIBD in both set representations',
+          blocks: [
+            { kind: 'md', body: `**BIBD** = Balanced Incomplete Block Design. Parameters $(v, b, r, k, \\lambda)$:
+
+- $v$ — number of objects.
+- $b$ — number of blocks.
+- $r$ — each object appears in exactly $r$ blocks.
+- $k$ — each block has exactly $k$ objects.
+- $\\lambda$ — every pair of objects appears together in exactly $\\lambda$ blocks.
+
+Relations: $bk = vr$ and $r(k-1) = \\lambda(v-1)$.
+
+### Occurrence model (standard)
+
+Each block is a set of $k$ objects; encode as a matrix:
+\`\`\`
+given v, b, r, k, lambda : int
+find  X : matrix indexed by [int(1..v), int(1..b)] of bool
+
+such that
+  $ each block has exactly k objects
+  forAll j : int(1..b) . sum(X[.., j]) = k,
+  $ each object appears in exactly r blocks
+  forAll i : int(1..v) . sum(X[i, ..]) = r,
+  $ every pair of objects appears in exactly lambda blocks
+  forAll i1, i2 : int(1..v) . i1 < i2 ->
+    (sum j : int(1..b) . X[i1, j] /\\ X[i2, j]) = lambda
+\`\`\`
+
+The variable \`X[i, j]\` = "object $i$ is in block $j$" (occurrence of object $i$ in block $j$).
+
+### Explicit model (alternative)
+
+For each **object**, the set of blocks it belongs to. The set has size $r$ (since each object appears in $r$ blocks):
+\`\`\`
+given v, b, r, k, lambda : int
+find  Y : matrix indexed by [int(1..v), int(1..r)] of int(1..b)
+
+such that
+  $ each object's r blocks are distinct + lex-ordered (set encoded explicitly)
+  forAll i : int(1..v) . forAll p : int(1..r-1) . Y[i, p] < Y[i, p+1],
+  $ each block has exactly k objects (counted across all object-rows)
+  forAll j : int(1..b) .
+    (sum i : int(1..v) . exists p : int(1..r) . Y[i, p] = j) = k,
+  $ every pair of objects shares exactly lambda blocks
+  forAll i1, i2 : int(1..v) . i1 < i2 ->
+    (sum p1, p2 : int(1..r) . Y[i1, p1] = Y[i2, p2]) = lambda
+\`\`\`
+
+### Comparing the two models
+
+The **explicit** model produces $vr$ integer variables (each in $\\{1..b\\}$); the **occurrence** model produces $vb$ booleans. For typical $(v, b, r, k, \\lambda)$ where $r < b$, explicit is more compact in variable count, but the per-block "exactly $k$" constraint becomes awkward (must count across object-rows via \`exists\`).
+
+### Symmetries to break
+
+1. **Object symmetry** — objects are interchangeable. Add lex-ordering on rows of $X$ (occurrence) or on the rows of $Y$ (explicit).
+2. **Block symmetry** — blocks are interchangeable too. Add lex-ordering on columns of $X$ (occurrence). For explicit: the per-object lex on $Y[i, \\cdot]$ already orders each object's block list, but doesn't break the inter-object block symmetry — that requires a separate constraint relating across $Y$'s rows (harder).
+
+### What you notice
+
+In the **occurrence** model, lex-ordering columns ($X$'s blocks) and rows ($X$'s objects) gives DoubleLex — a clean, well-known pattern.
+
+In the **explicit** model, the per-object lex-ordering on $Y[i, \\cdot]$ orders the $r$ blocks for each object internally — but this DOES NOT correspond to the same ordering as the occurrence model's column lex. The two lex constraints **break different symmetries** at different granularities:
+- Occurrence column lex: orders ALL blocks consistently across all objects (global).
+- Explicit per-row lex: orders each object's own block list (local, per-object).
+
+The explicit model's per-row lex breaks LESS symmetry than the occurrence model's DoubleLex — there are residual symmetries that occurrence-DoubleLex catches.` },
+            { kind: 'callout', variant: 'whatif', title: 'What if you swap "object" and "block" roles?', body: `You get the dual model: for each **block**, encode the set of objects in it explicitly (a vector of $k$ object IDs per block). This is a third viewpoint, and channeling between it and either of the above is a possible strong combination.` },
+          ],
+        },
+        {
+          id: 'meb-worked',
+          title: 'Worked: Minimum Energy Broadcast (tree modelling)',
+          blocks: [
+            { kind: 'md', body: `**Minimum Energy Broadcast (MEB)** — find a tree such that a message broadcast from a root node reaches every leaf with minimum total cost.
+
+Input: $n$ nodes, root $r$, transmission cost $c(i, j)$ from node $i$ to node $j$.
+
+Output: a directed tree rooted at $r$, spanning all $n$ nodes, minimising the sum of *per-transmitter* costs.
+
+### Modelling the tree
+
+A **rooted tree** on $n$ nodes is equivalent to a **function** $\\text{parent} : \\{2, \\ldots, n\\} \\to \\{1, \\ldots, n\\}$ (every non-root node has exactly one parent). This is the **function modelling pattern** — encoded in Essence Prime as a matrix indexed by the non-root nodes, with values in the node set:
+
+\`\`\`
+given n : int(1..)
+given root : int(1..n)
+given cost : matrix indexed by [int(1..n), int(1..n)] of int(0..)
+
+find parent : matrix indexed by [int(1..n)] of int(0..n)
+\`\`\`
+
+We use \`int(0..n)\` and set \`parent[root] = 0\` as a sentinel (root has no parent). All non-root nodes have a parent in $\\{1..n\\}$.
+
+### Constraints (ignoring acyclicity for now)
+
+\`\`\`
+parent[root] = 0,
+forAll i : int(1..n) . i != root -> parent[i] != 0,
+forAll i : int(1..n) . i != root -> parent[i] != i      $ no self-loop
+\`\`\`
+
+### Adding acyclicity
+
+The challenge: ensure the parent function forms a **tree**, not a forest with cycles. Approaches:
+
+1. **Depth encoding.** Add \`depth : matrix indexed by [int(1..n)] of int(0..n-1)\` with \`depth[root] = 0\` and \`forAll i : i != root -> depth[i] = depth[parent[i]] + 1\`. This ALONE forbids cycles (depth would be unbounded) and forces connectivity to root.
+
+2. **Reachability encoding.** Add boolean matrix \`reach\` and enforce $r$ reaches every node via parent chain — heavier propagation, more variables.
+
+3. **Order encoding.** Number nodes so that every parent has a smaller number than its child (DAG order). Forces tree structure.
+
+### Cost objective
+
+Each node $i$ transmits to its set of children — paying $\\max_{c \\text{ child of } i} \\text{cost}(i, c)$ (one transmission reaches all children within radius). Total cost = sum over transmitting nodes.
+
+\`\`\`
+$ for each potential transmitter i, find the max cost to any of its children
+find maxOut : matrix indexed by [int(1..n)] of int(0..maxCost)
+
+such that
+  forAll i, c : int(1..n) . parent[c] = i -> maxOut[i] >= cost[i, c],
+  forAll i, c : int(1..n) . parent[c] != i -> $ no constraint on maxOut[i] from c
+
+minimising sum( maxOut )
+\`\`\`
+
+### Modelling pattern summary
+
+- **Tree** = **function** $\\{$non-root$\\} \\to \\{$all nodes$\\}$ (parent pointers).
+- Acyclicity needs an auxiliary depth/order encoding.
+- Connectivity to root falls out for free given depth + parent.` },
+            { kind: 'callout', variant: 'nightingale', title: 'Key modelling insight', body: `When the problem says "find a tree", the **function-as-array** pattern (parent pointers) is the canonical Essence Prime encoding. Acyclicity requires an auxiliary depth or order variable — it's not automatic.` },
+          ],
+        },
+        {
           id: 'modelling-wizard',
           title: '🧭 Interactive: CSP Modelling Wizard',
           blocks: [

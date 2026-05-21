@@ -1401,6 +1401,132 @@ such that
     triggers: ['modelling pattern', 'sequence', 'set', 'multiset', 'function', 'partition', 'relation', 'viewpoint'],
   },
   {
+    id: 'gt-normal-form',
+    topic: 'Game Theory', module: 'adversarial', subtask: 'Analyse a normal-form game (payoff matrix)',
+    whenItApplies: [
+      'Two-player simultaneous-move game with utilities given as a matrix.',
+      'Words: "normal form", "payoff matrix", "dominant strategy", "Nash equilibrium", "Prisoner\'s Dilemma", "Battle of the Sexes".',
+    ],
+    steps: [
+      'Identify players $N$ and action sets $A_X$, $A_Y$.',
+      'Write the payoff matrix: each cell $(a, b)$ contains $(u_X(a, b), u_Y(a, b))$.',
+      '**Check dominance.** Row $a$ strictly dominates row $a\'$ for player X iff $u_X(a, \\cdot) > u_X(a\', \\cdot)$ in EVERY column. Weak dominance: ≥ everywhere, strict at one.',
+      '**Apply IEDS** (Iterated Elimination of Dominated Strategies). Remove dominated rows/cols; possibly more dominated; iterate.',
+      '**Find pure Nash equilibria via cell marking.** Per column: mark cell with max P1 payoff. Per row: mark cell with max P2 payoff. Cells marked twice = pure NEs.',
+      'If no pure NE → compute mixed-strategy NE (out of scope for most exam questions; mention Nash 1950 — always exists in mixed).',
+      'For **zero-sum** games: compute maximin (P1) and minimax (P2). If equal, that\'s the value of the game (von Neumann).',
+    ],
+    pitfalls: [
+      'A NE is NOT necessarily Pareto-optimal (Prisoner\'s Dilemma counter-example).',
+      'Strict vs weak dominance: IEDS with weak dominance can eliminate Nash equilibria — use strict only when possible.',
+      'Normal-form games are SIMULTANEOUS — do NOT apply minimax/α-β (those are for sequential games).',
+      'For a 2×2 game with at least one cell mark-able by both players, you have a pure NE. If none, the NE is mixed.',
+    ],
+    pointers: [
+      { kind: 'viz', key: 'NormalForm', label: '🎲 Visualiser: Normal-form game analyser (6 presets)' },
+      { kind: 'topic', key: 'normal-form', label: 'Topic: normal-form games' },
+    ],
+    answerTemplate:
+`**Players.** $N = \\{X, Y\\}$.
+**Actions.** $A_X = \\{\\ldots\\}$, $A_Y = \\{\\ldots\\}$.
+
+**Payoff matrix:**
+
+|  | $b_1$ | $b_2$ |
+|---|---|---|
+| $a_1$ | $(\\ldots)$ | $(\\ldots)$ |
+| $a_2$ | $(\\ldots)$ | $(\\ldots)$ |
+
+**Dominance.**
+- For X: _<row analysis>_
+- For Y: _<column analysis>_
+
+**Pure NEs (cell-marking).** _<list cells where both players mark>_
+
+**Predicted outcome.** _<unique NE / coordination problem / IEDS result>_`,
+    triggers: ['normal-form game', 'payoff matrix', 'dominant strategy', 'nash equilibrium', 'prisoner dilemma', 'matching pennies', 'stag hunt', 'battle of the sexes', 'auditions'],
+  },
+  {
+    id: 'tree-modelling',
+    topic: 'CSP', module: 'csp', subtask: 'Model a tree / spanning tree problem',
+    whenItApplies: [
+      'Question asks to model a tree, broadcast tree, spanning tree, MEB problem.',
+      'Trees with rooted structure: parent pointers, depth labels, acyclicity.',
+    ],
+    steps: [
+      'A rooted tree on $n$ nodes is a **function** parent : {non-root} → {all nodes}.',
+      'Encode as a matrix indexed by nodes: \`parent[i] : int(1..n)\` (use \`int(0..n)\` and reserve 0 for the root).',
+      'Constraint: \`parent[root] = 0\`; \`forAll i != root : parent[i] != 0\`.',
+      'For acyclicity: introduce \`depth : int(0..n-1)\` with \`depth[root] = 0\`, \`forAll i != root : depth[i] = depth[parent[i]] + 1\`. This forces tree shape (no cycles, all connected to root).',
+      'For weighted trees / MEB: introduce per-node transmission cost (max over children\'s edge costs); minimise the sum.',
+    ],
+    pitfalls: [
+      'A parent-pointer model alone does NOT enforce acyclicity — you need depth or another order auxiliary.',
+      'Confusing parent-pointer (function) with child-list (set per node — multi-arity, harder to encode in Essence Prime).',
+      'For undirected/spanning trees in a graph, the parent function picks a direction; constraints must enforce that edge exists in the original graph.',
+    ],
+    pointers: [
+      { kind: 'viz', key: 'ModellingWizard', label: '🧭 Visualiser: CSP Modelling Wizard' },
+      { kind: 'topic', key: 'cp-modelling', label: 'Topic: CP modelling (worked MEB example)' },
+    ],
+    answerTemplate:
+`**Modelling pattern.** Function $\\text{parent} : \\{2..n\\} \\to \\{1..n\\}$ — each non-root has exactly one parent.
+
+**Essence Prime:**
+\`\`\`
+given n : int(1..)
+given root : int(1..n)
+find parent : matrix indexed by [int(1..n)] of int(0..n)
+find depth  : matrix indexed by [int(1..n)] of int(0..n-1)
+such that
+  parent[root] = 0,
+  forAll i : int(1..n) . i != root -> parent[i] != 0,
+  depth[root] = 0,
+  forAll i : int(1..n) . i != root -> depth[i] = depth[parent[i]] + 1
+\`\`\`
+
+**Cost (if optimising):** sum of per-node maximum out-edge.`,
+    triggers: ['minimum energy broadcast', 'MEB', 'spanning tree', 'broadcast tree', 'tree representation', 'parent pointer'],
+  },
+  {
+    id: 'set-encoding',
+    topic: 'CSP', module: 'csp', subtask: 'Choose between occurrence and explicit set representation',
+    whenItApplies: ['Question asks to encode a set / multiset / sequence as a CSP variable.'],
+    steps: [
+      '**Occurrence representation.** Boolean vector indexed by the universe $U$: \`occ : matrix indexed by [U] of bool\`. \`occ[v] = true\` iff $v \\in S$. Size constraint via $\\sum$. No symmetry.',
+      '**Explicit representation.** Vector of $k$ integer slots in $U$: \`s : matrix indexed by [int(1..k)] of int(1..|U|)\`. To get a SET (no duplicates), add **strictly-increasing order** \`s[i] < s[i+1]\` — this ALSO breaks the $k!$ permutation symmetry of slots.',
+      '**Multiset variant:** non-strict order \`s[i] <= s[i+1]\`.',
+      '**Comparison:**',
+      '— Occurrence: $|U|$ booleans, $2^{|U|}$ search space, $O(1)$ membership test.',
+      '— Explicit: $k$ integers, $|U|^k$ search space, $O(k)$ membership.',
+      'Occurrence wins when $k \\approx |U|/2$; explicit wins when $k \\ll |U|$.',
+    ],
+    pitfalls: [
+      'Forgetting strict-increasing order in explicit ⇒ $k!$ duplicate solutions per logical set.',
+      'For multiset, use $\\le$ not $<$.',
+      'Sequence has no symmetry to break — neither encoding alone works without further constraints.',
+    ],
+    pointers: [
+      { kind: 'topic', key: 'cp-modelling', label: 'Topic: CP modelling (worked set example)' },
+      { kind: 'viz', key: 'EssencePrime', label: 'Visualiser: Essence Prime editor' },
+    ],
+    answerTemplate:
+`**Occurrence:**
+\`\`\`
+find occ : matrix indexed by [int(1..q)] of bool
+such that sum(occ) = p
+\`\`\`
+
+**Explicit:**
+\`\`\`
+find s : matrix indexed by [int(1..p)] of int(1..q)
+such that forAll i : int(1..p-1) . s[i] < s[i+1]
+\`\`\`
+
+**Choice rationale.** _<which fits this problem / which propagates better given other constraints>_`,
+    triggers: ['occurrence representation', 'explicit representation', 'set of size', 'set of k elements', 'subset of size'],
+  },
+  {
     id: 'csp-channelling',
     topic: 'CSP', module: 'csp', subtask: 'Channelling between two viewpoints',
     whenItApplies: ['Channelling, dual model, two viewpoints, primal-dual, linked CSPs.'],

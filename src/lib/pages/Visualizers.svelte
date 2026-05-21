@@ -8,6 +8,7 @@
       items: [
         { key: 'SearchGrid', label: 'Pathfinding grid', description: 'BFS · DFS · UCS · Greedy · A* on a configurable grid with heuristic, diagonals & weighted cells.' },
         { key: 'SearchCompare', label: 'Side-by-side compare', description: 'Run any two algorithms on the same grid simultaneously.' },
+        { key: 'SearchGraph', label: '🗺 Search on arbitrary graph (BFS/DFS/UCS/Greedy/A*/Weighted A*/IDS)', description: 'Define any node-edge graph with heuristics. Trace any search algorithm. Graph or tree search mode (cycle handling).' },
         { key: 'HillClimbSA', label: 'Hill climb / Simulated annealing', description: '1D function landscape — watch HC get stuck, RR escape, SA explore.' },
       ],
     },
@@ -17,6 +18,7 @@
         { key: 'MinimaxTree', label: 'Minimax & alpha-beta', description: 'Backed-up values; toggle pruning; see cuts highlighted.' },
         { key: 'MCTSTree', label: 'MCTS / UCT', description: 'Watch UCB1 grow the tree iteration-by-iteration.' },
         { key: 'Expectimax', label: 'Expectimax (stochastic)', description: 'Game tree with chance nodes — backgammon-style expected values.' },
+        { key: 'NormalForm', label: '🎲 Normal-form game analyser', description: 'Payoff matrices, dominant strategies (strict/weak), pure Nash equilibria, maximin/minimax for zero-sum. 6 classic presets.' },
       ],
     },
     {

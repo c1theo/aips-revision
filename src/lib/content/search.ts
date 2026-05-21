@@ -260,6 +260,7 @@ This is the right algorithm when actions have **non-uniform costs** but you have
           title: 'Interactive: side-by-side search on a grid',
           blocks: [
             { kind: 'viz', viz: 'SearchGrid', title: 'Pathfinding playground (BFS · DFS · UCS · Greedy · A*)', props: {} },
+            { kind: 'viz', viz: 'SearchGraph', title: '🗺 Search on an arbitrary node-edge graph (any algorithm)', props: {} },
           ],
         },
       ],
@@ -492,6 +493,7 @@ Used historically for puzzles (15-puzzle, Rubik's cube) where memory mattered.` 
           blocks: [
             { kind: 'viz', viz: 'SearchGrid', title: 'Compare informed and uninformed search', props: { mode: 'informed' } },
             { kind: 'viz', viz: 'SearchCompare', title: 'Side-by-side compare', props: {} },
+            { kind: 'viz', viz: 'SearchGraph', title: '🗺 A* / Weighted A* / Greedy on an arbitrary graph', props: {} },
           ],
         },
       ],

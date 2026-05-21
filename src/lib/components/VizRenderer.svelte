@@ -3,6 +3,7 @@
   import SearchGrid from '../visualizers/SearchGrid.svelte';
   import SearchCompare from '../visualizers/SearchCompare.svelte';
   import SearchTree from '../visualizers/SearchTree.svelte';
+  import SearchGraph from '../visualizers/SearchGraph.svelte';
   import MinimaxTree from '../visualizers/MinimaxTree.svelte';
   import MCTSTree from '../visualizers/MCTSTree.svelte';
   import AC3 from '../visualizers/AC3.svelte';
@@ -19,6 +20,7 @@
   import TwoSAT from '../visualizers/TwoSAT.svelte';
   import HillClimbSA from '../visualizers/HillClimbSA.svelte';
   import Expectimax from '../visualizers/Expectimax.svelte';
+  import NormalForm from '../visualizers/NormalForm.svelte';
   import PhaseTransition from '../visualizers/PhaseTransition.svelte';
   import EssencePrime from '../visualizers/EssencePrime.svelte';
   import ModellingWizard from '../visualizers/ModellingWizard.svelte';
@@ -37,8 +39,8 @@
   let { viz, title, props = {} } = $props<{ viz: VizKey; title?: string; props?: Record<string, any> }>();
 
   const map: Record<VizKey, any> = {
-    SearchGrid, SearchCompare, SearchTree, MinimaxTree, MCTSTree, AC3, AC4, AC2001, ForwardCheck, NQueens, MinConflicts, TwoWayBranching,
-    ConstraintGraph, CSPLab, ReginAllDiff, TreeCSP, TwoSAT, HillClimbSA, Expectimax, PhaseTransition,
+    SearchGrid, SearchCompare, SearchTree, SearchGraph, MinimaxTree, MCTSTree, AC3, AC4, AC2001, ForwardCheck, NQueens, MinConflicts, TwoWayBranching,
+    ConstraintGraph, CSPLab, ReginAllDiff, TreeCSP, TwoSAT, HillClimbSA, Expectimax, NormalForm, PhaseTransition,
     EssencePrime, ModellingWizard, TruthTable, Resolution, HornChain, DPLL, CDCL, WalkSAT, CNFEncoder, TseitinEncoder, ComplexityTable,
   };
   const Comp = $derived(map[viz]);

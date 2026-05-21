@@ -149,11 +149,36 @@ export const vizExplanations: Partial<Record<VizKey, VizExplanation>> = {
     whatToLookFor: ['Each clause $(\\ell_1 \\vee \\ell_2)$ → two implications: $\\lnot \\ell_1 \\Rightarrow \\ell_2$ and $\\lnot \\ell_2 \\Rightarrow \\ell_1$.', 'SCCs computed via Kosaraju\'s algorithm.', 'UNSAT iff some SCC contains both $x$ and $\\lnot x$.', 'Compare to 3-SAT which is NP-complete — the jump from 2 to 3 is the classic complexity boundary.'],
     relatedConcepts: ['2-SAT in P', 'Strongly connected components', 'Tarjan / Kosaraju'],
   },
+  SearchGraph: {
+    whatItShows: 'An arbitrary state-space graph with editable nodes, weighted edges, and per-node heuristic to goal. Any of BFS, DFS, UCS, Greedy best-first, A*, Weighted A*, or IDS runs on the graph with a full step-by-step trace. Graph search and tree search (cycle prevention via ancestor check) modes available.',
+    howToUse: 'Pick a preset or write a custom graph spec (nodes with $h$, edges with cost, start, goal). Choose algorithm, weight (for Weighted A*), and graph vs tree search mode. Step through; the SVG colours nodes by status (frontier, explored, on path).',
+    whatToLookFor: [
+      'A* finds the optimal path when $h$ is admissible. Greedy may not — try the cycling preset with Greedy then A* and compare.',
+      'Weighted A* with $w > 1$: faster but path may be suboptimal (inflated heuristic loses admissibility).',
+      'Graph vs Tree: graph maintains an explored set; tree only prevents ancestor cycles. Important distinction for greedy & DFS.',
+      'IDS: depth-limited DFS repeated with increasing limits. Optimal when costs are uniform.',
+      'The Romania preset is the classic AIMA map — try A* Arad→Bucharest.',
+    ],
+    relatedConcepts: ['BFS/DFS/UCS', 'A*', 'Heuristic admissibility', 'Weighted A*', 'IDS', 'Tree vs Graph search'],
+  },
   HillClimbSA: {
     whatItShows: 'A 1D function landscape with hill climbing, random-restart hill climbing, and simulated annealing. The curve is the objective function; coloured dots are the trajectory.',
     howToUse: 'Pick a function and an algorithm. Step or autoplay. For SA, adjust initial temperature $T_0$ and cooling factor $\\alpha$.',
     whatToLookFor: ['Hill climbing gets stuck at the first local maximum it reaches.', 'Random-restart escapes local optima by reinitialising — visible jumps to random positions.', 'SA at high $T$ accepts many downhill moves; as $T$ decays, it converges to hill-climbing behaviour.', 'On the "needle in haystack" landscape, hill climbing rarely finds the global optimum; SA + restarts can.'],
     relatedConcepts: ['Local search', 'Hill climbing failure modes', 'Metropolis criterion'],
+  },
+  NormalForm: {
+    whatItShows: 'A 2-player normal-form (simultaneous-move) game with editable payoff matrix. Shows: dominant strategies (strict / weak), pure-strategy Nash equilibria via cell-marking, and maximin/minimax for zero-sum games. 6 classic presets (Prisoner\'s Dilemma, Matching Pennies, Stag Hunt, Battle of the Sexes, Chicken, Auditions).',
+    howToUse: 'Pick a preset or build custom. Add/remove rows + columns. Edit each cell\'s (P1, P2) payoffs. The analysis updates live — pure NE cells highlight green.',
+    whatToLookFor: [
+      'Cells where BOTH "P1 max" AND "P2 max" tags appear are pure-strategy Nash equilibria.',
+      'Dominance: row $a$ strictly dominates row $b$ iff $a$\'s payoffs > $b$\'s in every column.',
+      'Iterated elimination: remove dominated rows/cols; remaining game often shrinks to unique NE.',
+      'In Prisoner\'s Dilemma, D strictly dominates C for both — unique NE (D, D) is Pareto-inferior.',
+      'In Matching Pennies, no pure NE — try it; cell-marking reveals no cell satisfies both.',
+      'In zero-sum games: maximin = minimax = value of the game (von Neumann) when a pure NE exists.',
+    ],
+    relatedConcepts: ['Dominant strategies', 'Nash equilibrium', 'Zero-sum games', 'Mixed strategies', 'IEDS'],
   },
   Expectimax: {
     whatItShows: 'Game tree with three node types: MAX (down-triangle), MIN (up-triangle), CHANCE (circle). Chance nodes compute the expected value over weighted children. Used for stochastic games like backgammon.',

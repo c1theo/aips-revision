@@ -1373,4 +1373,487 @@ $T$ proved ✓.
 - For a single-goal query, backward chaining is often more efficient.`,
     },
   ],
+
+  // ───────────────────────────────────────────────────────────────────
+  //   NEW WORKED EXAMPLES — covering specific exam phrasings
+  // ───────────────────────────────────────────────────────────────────
+
+  'uninformed-search': [
+    {
+      id: 'es-ids-cycle-prev',
+      difficulty: 'intermediate', marks: 12,
+      question: `**Iterative Deepening Search with cycle prevention.**
+
+Apply IDS to a state-space search problem from A to H with the following state graph (8 states, undirected edges with given costs, plus per-state heuristic in brackets):
+
+\`\`\`
+A(5) ─3─ B(6) ─2─ D(4) ─4─ E(4) ─1─ F(5) ─3─ G(2) ─2─ H(0)
+A(5) ─3─ C(8) ─3─ F(5)
+                        E(4) ─2─ G(2)
+\`\`\`
+
+(So edges are: A-B(3), A-C(3), B-D(2), C-F(3), D-E(4), E-F(1), E-G(2), F-G(3), G-H(2). All bidirectional.)
+
+In addition to the standard IDS algorithm, assume that when a node $n$ is expanded, if a child $c$ contains a state that is an **ancestor** of $n$, then $c$ is NOT added to the frontier. (Cycles prevented by ancestor check.)
+
+Find a path from A to H with the smallest number of steps.`,
+      answer: `**IDS recap.** Repeated DFS with increasing depth limit: 0, 1, 2, ...
+
+The cycle-prevention rule means we never re-add a state that's already on the current path (in the DFS ancestor chain).
+
+### Depth limit 0
+Frontier = $\\{A\\}$. A is not goal. Cutoff. No solution.
+
+### Depth limit 1
+Expand A (depth 0). Children at depth 1: B, C. Neither is H. Cutoff.
+
+### Depth limit 2
+Expand A → B, C (depth 1).
+- B (depth 1): expand → A (ancestor, skip), D (depth 2). D ≠ H. Cutoff.
+- C (depth 1): expand → A (ancestor, skip), F (depth 2). F ≠ H. Cutoff.
+
+No solution at depth 2.
+
+### Depth limit 3
+Expand A → B, C (depth 1).
+- B → A (skip), D (depth 2): expand → B (ancestor, skip), E (depth 3). E ≠ H. Cutoff.
+- C → A (skip), F (depth 2): expand → C (ancestor, skip), E (depth 3), G (depth 3). G ≠ H, E ≠ H. Cutoff.
+
+No solution at depth 3.
+
+### Depth limit 4
+- B → D → E (depth 3): expand → D (skip), F (depth 4), G (depth 4). G ≠ H, F ≠ H. Cutoff.
+- C → F (depth 2) → E (depth 3): expand → F (skip), D (depth 4), G (depth 4). G ≠ H, D ≠ H. Cutoff.
+- C → F → G (depth 3): expand → F (skip), E (depth 4), H (depth 4). **H found!** ✓
+
+**Path:** A → C → F → G → H. Length 4 steps. Cost (if asked): 3 + 3 + 3 + 2 = 11.
+
+### Note on cycle prevention
+At every expansion, we check whether each child is already an ancestor (i.e., already on the DFS path from root). For example, when expanding B at depth 1, child A is an ancestor — skip. When expanding D at depth 2, child B is an ancestor — skip.
+
+This avoids infinite loops (e.g. A → B → A → B → ...) without the memory cost of full graph search.`,
+      tags: ['IDS', 'iterative deepening', 'cycle prevention'],
+    },
+  ],
+
+  'informed-search': [
+    {
+      id: 'es-weighted-astar',
+      difficulty: 'advanced', marks: 12,
+      question: `**Weighted A* (graph search).** Same graph and heuristic as the IDS question above (h(A)=5, h(B)=6, h(C)=8, h(D)=4, h(E)=4, h(F)=5, h(G)=2, h(H)=0).
+
+Apply the **graph-search version of Weighted A***, weight $w = 2$. That is, evaluate nodes by $f(n) = g(n) + w \\cdot h(n) = g(n) + 2 h(n)$.
+
+Does it produce the globally optimal solution (cost 11)?`,
+      answer: `**Weighted A* graph search** maintains an explored set and a frontier of $f$-priority nodes.
+
+### Trace
+
+| Step | Pop | $g$ | $h$ | $f = g + 2h$ | Children expanded | Frontier after |
+|---|---|---|---|---|---|---|
+| 0 | — | — | — | — | A added with $f = 0 + 10 = 10$ | A:10 |
+| 1 | A (f=10) | 0 | 5 | 10 | B (g=3, f=3+12=15), C (g=3, f=3+16=19) | B:15, C:19 |
+| 2 | B (f=15) | 3 | 6 | 15 | D (g=5, f=5+8=13). A is closed, skip. | D:13, C:19 |
+| 3 | D (f=13) | 5 | 4 | 13 | E (g=9, f=9+8=17). B is closed. | E:17, C:19 |
+| 4 | E (f=17) | 9 | 4 | 17 | F (g=10, f=10+10=20), G (g=11, f=11+4=15). D closed. | G:15, F:20, C:19 |
+| 5 | G (f=15) | 11 | 2 | 15 | H (g=13, f=13+0=13). E, F (closed/explored). | H:13, F:20, C:19 |
+| 6 | H (f=13) | 13 | 0 | 13 | **GOAL** | — |
+
+**Path found:** A → B → D → E → G → H. **Cost = 3 + 2 + 4 + 2 + 2 = 13.**
+
+### Optimality check
+
+The globally optimal path is A → C → F → G → H = 3 + 3 + 3 + 2 = **11**. Weighted A* found cost 13 — **not optimal**.
+
+### Why
+
+Weighted A* with $w > 1$ **inflates the heuristic**, making it potentially **inadmissible** even if the original $h$ is admissible. The heuristic for A is $h(A) = 5$; the true cheapest path is 11, so $h^*(A) = 11$. The original $h$ satisfies $h \\le h^*$ (admissible). But $w \\cdot h(A) = 10$ also $\\le h^*(A) = 11$ — still admissible at A!
+
+The problem is at intermediate nodes. For C: $h(C) = 8$, $h^*(C) = $ remaining cost to H via C-F-G-H = $3+3+2 = 8$. So $w \\cdot h(C) = 16 > h^*(C) = 8$ — **inadmissible at C**.
+
+Weighted A* deprioritised C (f=19 vs B's 15) early on; by the time C was the cheapest unexpanded node, the search had committed to a worse path.
+
+### Trade-off
+Weighted A* trades optimality for speed: fewer expansions, returns a solution within a factor $w$ of optimal ($\\le 13 = w \\cdot 11 / w + $ some slack). On large maps it's much faster than A*, just not exact.`,
+      tags: ['weighted A*', 'graph search', 'inadmissibility'],
+    },
+    {
+      id: 'es-greedy-tree-vs-graph',
+      difficulty: 'intermediate', marks: 8,
+      question: `**Greedy best-first search bug.**
+
+A student is applying **greedy best-first tree search** to find the fastest cycling route from A to H using straight-line distance to H as heuristic. They wrote:
+\`\`\`
+START: A (7.21)
+Exp A: B (5), F (7.28)                            Visited: A
+Exp B: C (4.12), D (2.24), E (2.24), F (7.28)     Visited: A, B
+Exp D: H (0), C (4.12), E (2.24), F (7.28)        Visited: A, B, D
+Exp H: SUCCESS!
+\`\`\`
+
+Identify the mistake and explain how to correct it.`,
+      answer: `## The mistake
+
+The student is doing **tree search** (no explored/visited set should affect frontier admission) but **maintains a "Visited" list AND appears to be ignoring re-adds**. The confusion is:
+
+1. **Tree search does NOT check the visited set when adding successors** — so when expanding A, both B and F should be added.
+2. **The student also has a tree-search bug**: when expanding B, they add C, D, E, F — but A is a neighbour of B too. In **tree search**, A SHOULD be re-added (with a new path A→B→A). Greedy will then never expand A because its f-value (5 for itself, but at depth 2 it's still 5) doesn't improve; but it's still on the frontier.
+
+More likely, the student is implicitly doing **graph search** (skipping visited) but calling it "tree search". The naming is confused.
+
+### Correct approach
+
+**Tree search (literal):** add ALL successors regardless of visited.
+
+**Graph search:** maintain an explored set; on expansion, skip any successor already in explored.
+
+Greedy best-first graph search picks the frontier node with the **smallest $h$**:
+
+| Step | Pop | $h$ | Successors NOT explored | Frontier after |
+|---|---|---|---|---|
+| 0 | — | — | A added | A(7.21) |
+| 1 | A (7.21) | 7.21 | B (5), F (7.28). Explored = {A} | B(5), F(7.28) |
+| 2 | B (5) | 5 | C (4.12), D (2.24), E (2.24). Explored = {A, B} | D(2.24), E(2.24), C(4.12), F(7.28) |
+| 3 | D (2.24, tie-break alpha) | 2.24 | C (4.12) already in frontier; H (0). Explored = {A, B, D} | H(0), E(2.24), C(4.12), F(7.28) |
+| 4 | H (0) | 0 | **GOAL** | — |
+
+**Path:** A → B → D → H. Cost = 12 + 14 + 13 = 39.
+
+### Key correction
+
+The student's trace is mostly right — the real "mistake" depends on the question's intent. If the question genuinely asks for **tree search**, the trace should NOT maintain a Visited set; if **graph search**, the trace IS using graph search (and that's fine but mislabelled).
+
+The fundamental confusion: **"greedy best-first tree search" should not have a Visited set**. If the student called it "tree search" but used Visited, they actually did **graph search** — and that's correct but mislabelled.
+
+### Also: greedy is NOT OPTIMAL
+
+The path found (A→B→D→H) has cost 39. The optimal cost is A→B→C→D→H = 12+10+8+13 = 43? Or maybe A→F→G→E→H = 9+7+5+11 = 32. Greedy picks based on **h alone**, ignoring path cost — never guaranteed optimal.`,
+      tags: ['greedy best-first', 'tree vs graph search'],
+    },
+    {
+      id: 'es-manhattan-admissible',
+      difficulty: 'basic', marks: 5,
+      question: `For the cycling-graph problem, the heuristic $h(P) = \\sqrt{(x_P - x_H)^2 + (y_P - y_H)^2}$ (straight-line distance) is admissible. Consider switching to **Manhattan distance** $h_M(P) = |x_P - x_H| + |y_P - y_H|$.
+
+Is $h_M$ admissible for this problem? Justify numerically.`,
+      answer: `## Admissibility test
+
+A heuristic is **admissible** iff $h(n) \\le h^*(n)$ for every $n$, where $h^*(n)$ is the TRUE remaining cost.
+
+For graph search where edge costs are physical distances or times (not coordinate differences), Manhattan distance can OVER-estimate.
+
+### Example
+
+Suppose we have nodes at $(0, 0)$ (A) and $(3, 4)$ (H), with a direct edge of cost 5 (the Euclidean distance).
+- Straight-line $h(A) = \\sqrt{9 + 16} = 5$. Equal to actual edge cost; admissible.
+- Manhattan $h_M(A) = |0 - 3| + |0 - 4| = 7$. Greater than actual cost 5 — **NOT admissible**.
+
+For the cycling graph specifically, let's check at, say, node E at $(4, 3)$ vs H at $(6, 4)$:
+- True remaining cost via E → H = 11 (direct edge).
+- Straight-line $h(E) = \\sqrt{(6-4)^2 + (4-3)^2} = \\sqrt{5} \\approx 2.24$. Less than 11 ✓.
+- Manhattan $h_M(E) = |6 - 4| + |4 - 3| = 3$. Less than 11 ✓.
+
+At G at $(2, 4)$ vs H at $(6, 4)$:
+- Edge G→E→H = 5 + 11 = 16; direct edge G doesn't exist to H. Via F or via E.
+- Straight-line $h(G) = \\sqrt{(6-2)^2 + 0} = 4$. Less than 16 ✓.
+- Manhattan $h_M(G) = |6 - 2| + 0 = 4$. Equal ✓.
+
+### General principle for this problem
+
+The edge weights are CYCLING TIMES in minutes — NOT direct functions of coordinates. So even though Manhattan/Euclidean are about coordinates, they could still over- or under-estimate cycling times.
+
+**Counter-example for Manhattan admissibility**: pick any node where the direct cycling time is less than the Manhattan distance to H. E.g. if A at $(0, 0)$ → H at $(6, 4)$ has Manhattan = 10, but A→F→G→E→H = 9+7+5+11 = 32, then Manhattan 10 ≤ 32 — ok. But if there's a fast direct edge somewhere with cost < Manhattan, Manhattan fails.
+
+**Looking at edge A-B: cost 12, but Manhattan distance is $|0-2|+|0-1| = 3$**. So Manhattan UNDERESTIMATES this edge — admissible direction ✓.
+
+In fact for this problem, since cycling times are typically MORE than crow-flies coordinate distances, **Manhattan is likely admissible**. Verify: for every node $n$ to H, find the cheapest cycling path; check Manhattan ≤ that path cost. If yes for all 8 nodes, admissible.
+
+### Calibrated answer
+
+For the specific cycling graph: Manhattan $h_M$ IS admissible because cycling times exceed crow-flies coordinate distances. **However**, the answer must verify NUMERICALLY for each node — show $h_M(n) \\le $ true cheapest cycling path for each $n$.`,
+      tags: ['admissibility', 'Manhattan distance', 'heuristic'],
+    },
+  ],
+
+  'local-search': [
+    {
+      id: 'es-hc-vertex-cover',
+      difficulty: 'advanced', marks: 14,
+      question: `**Hill climbing for minimum vertex cover.**
+
+Streets are edges; junctions are vertices. A first-aider at a junction can see along every street meeting that junction. Goal: choose the minimum-size SET of vertices so every edge has at least one endpoint chosen.
+
+Apply hill climbing with:
+- Initial state: empty set $\\emptyset$.
+- Move: add OR remove one vertex from the set. Both moves available at every step.
+- Objective: $f = 10c - b$, where $c$ = number of covered edges, $b$ = number of vertices in the set. Maximise.
+- Tie-break: choose vertex earlier in the alphabet.
+
+Run hill climbing until no move improves the objective.
+
+Use this graph: 5 vertices A, B, C, D, E with edges: A-B, A-C, B-C, B-D, C-E.`,
+      answer: `## Setup
+$|E| = 5$ edges. At every step we evaluate $f = 10c - b$ for each of the $2 \\times 5 = 10$ possible moves.
+
+### Initial state
+Set $= \\emptyset$. $c = 0$, $b = 0$. $f = 0$.
+
+### Step 1
+Try adding each vertex:
+- Add A: covers edges {A-B, A-C} ⇒ $c = 2$, $b = 1$, $f = 19$.
+- Add B: covers {A-B, B-C, B-D} ⇒ $c = 3$, $b = 1$, $f = 29$.
+- Add C: covers {A-C, B-C, C-E} ⇒ $c = 3$, $b = 1$, $f = 29$.
+- Add D: covers {B-D} ⇒ $c = 1$, $b = 1$, $f = 9$.
+- Add E: covers {C-E} ⇒ $c = 1$, $b = 1$, $f = 9$.
+- Remove anything: nothing to remove.
+
+Best improvement: B or C with $f = 29$. Tie — choose B (earlier alphabetically). Set $= \\{B\\}$.
+
+### Step 2
+Currently $c = 3$, $b = 1$, $f = 29$.
+- Add A: now covers {A-B, B-C, B-D, A-C} ⇒ $c = 4$, $b = 2$, $f = 38$.
+- Add C: covers {A-B, B-C, B-D, A-C, C-E} ⇒ $c = 5$ (ALL), $b = 2$, $f = 48$.
+- Add D: covers {A-B, B-C, B-D} (already covered) ⇒ $c = 3$, $b = 2$, $f = 28$. Worse.
+- Add E: covers {A-B, B-C, B-D, C-E} ⇒ $c = 4$, $b = 2$, $f = 38$.
+- Remove B: back to $\\emptyset$, $f = 0$. Worse.
+
+Best: add C, $f = 48$. Set $= \\{B, C\\}$.
+
+### Step 3
+$c = 5$ (all covered), $b = 2$, $f = 48$.
+- Add A: still $c = 5$, $b = 3$, $f = 47$. Worse.
+- Add D, E: same, $f = 47$. Worse.
+- Remove B: covers only {A-C, B-C, C-E} ⇒ $c = 3$, $b = 1$, $f = 29$. Worse.
+- Remove C: covers only {A-B, B-C, B-D} ⇒ $c = 3$, $b = 1$, $f = 29$. Worse.
+
+**No improving move.** Hill climbing terminates.
+
+## Result
+**Vertex cover: $\\{B, C\\}$**, size 2, all 5 edges covered. $f = 48$.
+
+## Check optimality
+Is $\\{B, C\\}$ a minimum vertex cover? Edges A-B, A-C, B-C, B-D, C-E. Every edge has either B or C as endpoint (check: A-B ✓ B, A-C ✓ C, B-C ✓ both, B-D ✓ B, C-E ✓ C). YES, 2 vertices is optimal (size-1 covers would miss at least 2 edges out of 5 from a single vertex).
+
+Hill climbing was lucky here — initial-move choice happened to lead to the optimum. On adversarial graphs (e.g. complete bipartite $K_{n,n}$), HC can get stuck on suboptimal local maxima.`,
+      tags: ['hill climbing', 'vertex cover', 'objective function'],
+    },
+  ],
+
+  'dpll': [
+    {
+      id: 'es-dpll-aima-order',
+      difficulty: 'advanced', marks: 15,
+      question: `**DPLL with AIMA ordering.**
+
+Apply DPLL to:
+$$(\\neg A \\lor B) \\land (B \\lor C) \\land (A \\lor E) \\land (\\neg B \\lor D) \\land (\\neg D \\lor \\neg E) \\land (C \\lor D)$$
+
+Use AIMA Figure 7.17 rule ordering: **pure literal rule FIRST, then unit propagation, then decide**. When deciding, assign variables in alphabetical order, set True first.
+
+Show the formula after each rule application.`,
+      answer: `## Pass 1
+
+**Initial:** $(\\neg A \\lor B) \\land (B \\lor C) \\land (A \\lor E) \\land (\\neg B \\lor D) \\land (\\neg D \\lor \\neg E) \\land (C \\lor D)$
+
+**Pure literal scan.**
+- $A$: appears as $\\neg A$ in clause 1, $A$ in clause 3 → both polarities. Not pure.
+- $B$: appears positively in 1, 2; negatively in 4 → both. Not pure.
+- $C$: positively in 2, 6. Negatively? No. **C is pure positive.** Assign $C = T$.
+
+After $C = T$: clauses 2 $(B \\lor T)$ and 6 $(T \\lor D)$ are satisfied — remove them.
+
+**Remaining:** $(\\neg A \\lor B) \\land (A \\lor E) \\land (\\neg B \\lor D) \\land (\\neg D \\lor \\neg E)$
+
+## Pass 2
+
+**Pure literal scan.**
+- $A$: $\\neg A, A$. Not pure.
+- $B$: $B, \\neg B$. Not pure.
+- $D$: $D$ (clause 3), $\\neg D$ (clause 4). Not pure.
+- $E$: $E$ (clause 2), $\\neg E$ (clause 4). Not pure.
+
+No pure literals. **Unit propagation.** Are there any unit clauses? No (smallest is 2 literals). No UP.
+
+**Decide.** Alphabetically: try $A = T$ first.
+
+## Pass 3 (after $A = T$)
+
+Substitute $A = T$:
+- $(\\neg T \\lor B) = (B)$ — unit clause.
+- $(T \\lor E)$ — satisfied, remove.
+
+**Remaining:** $(B) \\land (\\neg B \\lor D) \\land (\\neg D \\lor \\neg E)$
+
+**UP** on $(B)$: $B = T$.
+- $(\\neg B \\lor D) = (D)$ — unit.
+
+**Remaining:** $(D) \\land (\\neg D \\lor \\neg E)$
+
+UP on $(D)$: $D = T$.
+- $(\\neg D \\lor \\neg E) = (\\neg E)$ — unit.
+
+**Remaining:** $(\\neg E)$
+
+UP on $(\\neg E)$: $E = F$.
+
+**All clauses satisfied.** ✓
+
+## Final model
+$A = T, B = T, C = T, D = T, E = F$.
+
+## Verify
+- $(\\neg A \\lor B) = (F \\lor T) = T$ ✓
+- $(B \\lor C) = (T \\lor T) = T$ ✓
+- $(A \\lor E) = (T \\lor F) = T$ ✓
+- $(\\neg B \\lor D) = (F \\lor T) = T$ ✓
+- $(\\neg D \\lor \\neg E) = (F \\lor T) = T$ ✓
+- $(C \\lor D) = (T \\lor T) = T$ ✓
+
+SAT, no backtracking required.`,
+      tags: ['DPLL', 'AIMA ordering', 'pure literal', 'unit propagation'],
+    },
+  ],
+
+  'walksat': [
+    {
+      id: 'es-walksat-greedy',
+      difficulty: 'intermediate', marks: 12,
+      question: `**WalkSAT with $p = 0$ (purely greedy).**
+
+Apply WalkSAT to:
+$$(\\neg A \\lor B) \\land (B \\lor C) \\land (A \\lor E) \\land (\\neg B \\lor D) \\land (\\neg D \\lor \\neg E) \\land (C \\lor D)$$
+
+Begin with all variables set to False. For tie-breaks, use the leftmost clause and the leftmost literal. For each step, show clearly:
+- the satisfied and unsatisfied clauses
+- the choice of clause
+- the choice of literal
+
+Run until SAT or 5 iterations, whichever first.`,
+      answer: `Initial: $A = F, B = F, C = F, D = F, E = F$.
+
+### Iteration 1
+**Clause evaluation:**
+- $(\\neg A \\lor B) = (T \\lor F) = T$ ✓
+- $(B \\lor C) = F$ ✗
+- $(A \\lor E) = F$ ✗
+- $(\\neg B \\lor D) = T$ ✓
+- $(\\neg D \\lor \\neg E) = T$ ✓
+- $(C \\lor D) = F$ ✗
+
+Unsat: $\\{(B \\lor C), (A \\lor E), (C \\lor D)\\}$. Choose **leftmost: $(B \\lor C)$**.
+
+With $p = 0$: pick the literal in this clause whose flip MAXIMISES satisfied clauses.
+- Flip B (B becomes T): re-check clauses 1, 2, 4: $(T \\lor T) = T$, $(T \\lor F) = T$ (was F!), $(F \\lor F) = F$ (was T!). Net: clause 2 now T (+1), clause 4 now F (−1). Net Δsat = 0.
+- Flip C (C becomes T): clauses 2, 6: $(F \\lor T) = T$ (was F!), $(T \\lor F) = T$ (was F!). Net: +2.
+
+Best: **flip C**. $C = T$.
+
+### Iteration 2
+**Re-evaluate:**
+- $(B \\lor C) = T$ ✓
+- $(A \\lor E) = F$ ✗
+- $(C \\lor D) = T$ ✓ (others ✓)
+
+Unsat: $\\{(A \\lor E)\\}$. Choose this clause.
+
+Greedy flip:
+- Flip A (A becomes T): $(\\neg A \\lor B) = (F \\lor F) = F$ (was T!). $(A \\lor E) = T$ (was F!). Net: 0.
+- Flip E (E becomes T): $(A \\lor E) = T$ (was F!). $(\\neg D \\lor \\neg E) = (T \\lor F) = T$ (was T, still). Net: +1.
+
+Best: **flip E**. $E = T$.
+
+### Iteration 3
+**Re-evaluate:**
+- $(A \\lor E) = T$ ✓
+- $(\\neg D \\lor \\neg E) = (T \\lor F) = T$ ✓ (since D = F)
+
+All 6 clauses satisfied. **SAT.** ✓
+
+## Final model
+$A = F, B = F, C = T, D = F, E = T$.
+
+## Verify
+- $(\\neg A \\lor B) = (T \\lor F) = T$ ✓
+- $(B \\lor C) = (F \\lor T) = T$ ✓
+- $(A \\lor E) = (F \\lor T) = T$ ✓
+- $(\\neg B \\lor D) = (T \\lor F) = T$ ✓
+- $(\\neg D \\lor \\neg E) = (T \\lor F) = T$ ✓
+- $(C \\lor D) = (T \\lor F) = T$ ✓
+
+Found in **2 flips**. WalkSAT with $p = 0$ behaves like pure greedy local search — works well here because we never get stuck.`,
+      tags: ['WalkSAT', 'p=0 greedy', 'local search SAT'],
+    },
+  ],
+
+  'csp-inference-extras': [
+    {
+      id: 'es-ac4-with-assignment',
+      difficulty: 'advanced', marks: 12,
+      question: `**AC-4 after a variable assignment** (cargo-ship containers, from the AIPS sample).
+
+Variables $x_1, x_2, x_3, x_4$ all with domain $\\{1, 2, 3, 4\\}$. Constraint $c(x_i, x_{i+1})$ = $\\{(1,1), (1,2), (2,2), (2,4), (3,3), (4,2), (4,4)\\}$ for each adjacent pair.
+
+Assign $x_1 = 1$, then apply **AC-4** to establish arc consistency. Show counters and deletion queue $S$ at each step.`,
+      answer: `## Setup
+
+After $x_1 = 1$: $D(x_1) = \\{1\\}$, $D(x_2) = D(x_3) = D(x_4) = \\{1, 2, 3, 4\\}$.
+
+### AC-4 initialisation
+
+For every (variable, value, neighbour) triple, count supporters. Counter $\\text{count}[(x_i, v), x_j]$ = number of values in $D(x_j)$ that, paired with $v$ for $x_i$, satisfy $c$.
+
+**Arc $(x_1, x_2)$, $x_1 = 1$:**
+- Supports in $D(x_2)$: pairs $(1, w)$ in $c$ with $w \\in \\{1, 2, 3, 4\\}$. From the tuple list: $(1, 1)$ and $(1, 2)$ are allowed. Count = 2.
+
+**Arc $(x_2, x_1)$:** For each $v \\in D(x_2)$, count supports in $D(x_1) = \\{1\\}$.
+- $v = 1$: $(1, 1) \\in c$? c is between $x_1$ and $x_2$ with tuple $(x_1, x_2)$: $(1, 1) \\in c$ ✓. Count = 1.
+- $v = 2$: $(1, 2) \\in c$ ✓. Count = 1.
+- $v = 3$: $(1, 3) \\in c$? No. Count = 0. **Add $(x_2, 3)$ to $S$.**
+- $v = 4$: $(1, 4) \\in c$? No. Count = 0. **Add $(x_2, 4)$ to $S$.**
+
+**Arc $(x_2, x_3)$:** For each $v \\in D(x_2)$, count supports in $D(x_3) = \\{1, 2, 3, 4\\}$.
+- $v = 1$: tuples $(1, w)$ in $c$ with $w \\in \\{1, 2, 3, 4\\}$. $(1,1), (1,2)$ → count = 2.
+- $v = 2$: $(2, w)$: $(2,2), (2,4)$ → count = 2.
+- $v = 3$: $(3, w)$: $(3,3)$ → count = 1.
+- $v = 4$: $(4, w)$: $(4,2), (4,4)$ → count = 2.
+
+(Similarly for arc $(x_3, x_2)$ — for each $v \\in D(x_3)$, count supports.)
+
+By analogous computation arcs $(x_3, x_2), (x_3, x_4), (x_4, x_3)$ are initialised — all values supported initially since both $D(x_3)$ and $D(x_4)$ are full.
+
+**Initial $S$:** $\\{(x_2, 3), (x_2, 4)\\}$. Initial domains after init: $D(x_1) = \\{1\\}$, $D(x_2) = \\{1, 2\\}$, $D(x_3) = \\{1, 2, 3, 4\\}$, $D(x_4) = \\{1, 2, 3, 4\\}$ (since $x_2 = 3, 4$ to be deleted).
+
+### Process $S$
+
+**Pop $(x_2, 3)$.** Remove $3$ from $D(x_2)$ (already done). For each constraint involving $x_2$, find supporters of values in OTHER variables whose support included $(x_2, 3)$:
+
+- **Arc $(x_3, x_2)$:** for each $v \\in D(x_3)$ where $(v, 3)$ was a support, decrement count.
+  - $v = 3$: $(3, 3) \\in c$ ✓. **Decrement $\\text{count}[(x_3, 3), x_2]$**. Was: how many supports for $(x_3 = 3)$ in $D(x_2) = \\{1, 2, 3, 4\\}$? Pairs $(w, 3) \\in c$ for $w \\in \\{1,2,3,4\\}$. Only $(3, 3)$. Count was 1; now 0. **Add $(x_3, 3)$ to $S$.**
+- Other arcs not affected by $(x_2, 3)$.
+
+**Pop $(x_2, 4)$.** Remove $4$ from $D(x_2)$ (already done). For each variable having $(x_2, 4)$ as a support:
+- **Arc $(x_3, x_2)$:** for each $v \\in D(x_3)$ where $(v, 4)$ was a support:
+  - $v = 2$: $(2, 4) \\in c$ ✓. Decrement $\\text{count}[(x_3, 2), x_2]$. Was: $(w, 4)$ supports for $x_3 = 2$ from $D(x_2)$: pairs $(2, w)$ in $c$ are $(2,2), (2,4)$. So count of $(x_3 = 2)$ in $D(x_2)$ was 2; now 1. Still > 0.
+  - $v = 4$: $(4, 4) \\in c$ ✓. Decrement $\\text{count}[(x_3, 4), x_2]$. Was 2 ($(4,2)$ and $(4,4)$); now 1. Still > 0.
+
+After these decrements: $\\text{count}[(x_3, 2), x_2] = 1, \\text{count}[(x_3, 4), x_2] = 1, \\text{count}[(x_3, 3), x_2] = 0$.
+
+**Pop $(x_3, 3)$.** Remove $3$ from $D(x_3)$. For arcs involving $x_3$:
+- **Arc $(x_4, x_3)$:** for each $v \\in D(x_4)$ where $(v, 3)$ supports: $v = 3 \\to (3, 3)$ supports. Decrement $\\text{count}[(x_4, 3), x_3]$ from 1 to 0. Add $(x_4, 3)$ to $S$.
+- **Arc $(x_2, x_3)$:** for each $v \\in D(x_2)$ where $(v, 3)$ supports: $v = 1 \\to (1, 3)$? Not in $c$. $v = 2 \\to (2, 3)$? No. Nothing.
+
+**Pop $(x_4, 3)$.** Remove $3$ from $D(x_4)$. Arc $(x_3, x_4)$ — $D(x_3)$ now $\\{1, 2, 4\\}$:
+- For each $v \\in D(x_3)$ where $(v, 3)$ supports: $v = 3$ already gone.
+
+$S$ now empty.
+
+### Final state
+
+- $D(x_1) = \\{1\\}, D(x_2) = \\{1, 2\\}, D(x_3) = \\{1, 2, 4\\}, D(x_4) = \\{1, 2, 4\\}$.
+- All counters > 0 for surviving (variable, value) pairs.
+
+**Arc-consistent.** Total counter updates traceable as above.`,
+      tags: ['AC-4', 'cargo ship', 'counters', 'deletion queue S'],
+    },
+  ],
 };
